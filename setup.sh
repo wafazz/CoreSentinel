@@ -146,8 +146,13 @@ $SUBAGENTS_MD
 - Structured Debugging: $TARGET_DIR/60-debug-protocol.md
 - Emergency Incident: $TARGET_DIR/61-incident-protocol.md
 
+## Active Verification & Enforcement
+- Automated Anti-Pattern Engine: $TARGET_DIR/anti-patterns.json
+- Automated Gate Validator: Run python3 $TARGET_DIR/sentinel-validator.py
+
 ## Commands
 - show stats -> Run python3 $TARGET_DIR/agent-stats.py to view token usage.
+- verify gate -> Run python3 $TARGET_DIR/sentinel-validator.py to run empirical gate validation.
 - $AGENT_NAME init -> Scaffolds a new project (05-init-protocol.md).
 - mimic this -> Activates MIMIC stack migration (06-mimic-protocol.md).
 - $AGENT_NAME test -> Activates Sentinel QA Mode (01-sentinel-identity.md).
@@ -169,5 +174,12 @@ write_target "$HOME_DIR/.antigravity/AGENTS.md" "Google Antigravity"
 write_target "$HOME_DIR/.gemini/GEMINI.md" "Gemini CLI"
 write_target "$HOME_DIR/.cursor/rules/coresentinel.mdc" "Cursor Global"
 
+# 3. Automatically install Git hooks
+if [ -f "$TARGET_DIR/install-hooks.sh" ]; then
+    chmod +x "$TARGET_DIR/install-hooks.sh"
+    "$TARGET_DIR/install-hooks.sh"
+fi
+
 echo ""
-echo "[Success] CoreSentinel successfully installed ($AGENT_NAME) and bound to all local AI coding assistants!"
+echo "[Success] CoreSentinel 9.0 successfully installed ($AGENT_NAME) and bound to all local AI coding assistants!"
+

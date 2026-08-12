@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "version": "1.0.0",
+  "description": "CoreSentinel Machine-Readable Anti-Pattern & Rule Enforcement Database",
+  "anti_patterns": [
+    {
+      "id": "AP-001",
+      "category": "Verification",
+      "name": "Superficial Symptom Patching",
+      "trigger_context": ["debugging", "test_failure", "error_handling"],
+      "rule": "NEVER mask errors with silent try/except, dummy fallbacks, or by commenting out broken assertions.",
+      "enforcement": "STRICT_BLOCK",
+      "fix_pattern": "Identify upstream root cause and preserve underlying contract."
+    },
+    {
+      "id": "AP-002",
+      "category": "Verification",
+      "name": "Unverified Success Claims",
+      "trigger_context": ["task_completion", "commit", "handoff"],
+      "rule": "NEVER claim task completion without attached execution logs showing zero errors.",
+      "enforcement": "STRICT_BLOCK",
+      "fix_pattern": "Run build/test command and verify output before declaring completion."
+    },
+    {
+      "id": "AP-003",
+      "category": "Code Quality",
+      "name": "Unnecessary Comments & Docstrings",
+      "trigger_context": ["code_generation", "refactoring"],
+      "rule": "No extra comments, docstrings, or type hints unless logic is genuinely complex.",
+      "enforcement": "WARNING",
+      "fix_pattern": "Keep code self-documenting with clean naming."
+    },
+    {
+      "id": "AP-004",
+      "category": "Security",
+      "name": "Hardcoded Secrets & Unscoped Queries",
+      "trigger_context": ["database", "auth", "api"],
+      "rule": "No raw API keys/tokens in source code. All tenant data queries must be scoped by user/tenant ID.",
+      "enforcement": "STRICT_BLOCK",
+      "fix_pattern": "Use environment variables and tenant-scoped query scopes."
+    },
+    {
+      "id": "AP-005",
+      "category": "Testing",
+      "name": "Flaky & Environment-Dependent Tests",
+      "trigger_context": ["testing", "e2e"],
+      "rule": "No hardcoded sleep delays or shared state between test cases.",
+      "enforcement": "STRICT_BLOCK",
+      "fix_pattern": "Use explicit wait conditions and isolated test database fixtures."
+    }
+  ]
+}

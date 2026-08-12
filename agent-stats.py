@@ -53,8 +53,8 @@ def load_labels():
         try:
             with open(LABELS_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception:
-            pass
+        except (json.JSONDecodeError, OSError) as err:
+            sys.stderr.write(f"Warning loading labels: {err}\n")
     return {}
 
 
@@ -62,8 +62,8 @@ def save_labels(labels):
     try:
         with open(LABELS_FILE, "w", encoding="utf-8") as f:
             json.dump(labels, f, indent=2)
-    except Exception:
-        pass
+    except OSError as err:
+        sys.stderr.write(f"Warning saving labels: {err}\n")
 
 
 def auto_label(dirname):
@@ -209,8 +209,8 @@ def parse_session(filepath):
                             totals["files_edited"].add(fp)
                         elif "read" in low or "view" in low:
                             totals["files_read"].add(fp)
-    except (OSError, IOError):
-        pass
+    except (OSError, IOError) as err:
+        totals["read_error"] = str(err)
 
     duration_min = 0
     if first_ts and last_ts:
@@ -219,7 +219,7 @@ def parse_session(filepath):
             t2 = datetime.fromisoformat(last_ts.replace("Z", "+00:00"))
             duration_min = max(0, int((t2 - t1).total_seconds() / 60))
         except ValueError:
-            pass
+            duration_min = 0
 
     return {
         **{k: v for k, v in totals.items() if k not in ("files_edited", "files_read")},
@@ -247,7 +247,7 @@ def accumulate(stats, sd):
             date = datetime.fromisoformat(
                 sd["first_timestamp"].replace("Z", "+00:00")).strftime("%Y-%m-%d")
         except ValueError:
-            pass
+            date = "unknown"
     stats["sessions"].append({"date": date, "output_tokens": sd["output_tokens"]})
     stats["total_input_tokens"] += sd["input_tokens"]
     stats["total_output_tokens"] += sd["output_tokens"]
@@ -379,8 +379,9 @@ def print_stats(by_tool):
             grand["projects"] += 1
 
     gt = grand["input"] + grand["output"] + grand["cr"] + grand["cc"]
+    eff_ratio = gt // grand["fe"] if grand["fe"] else 0
     print(f"\n{'=' * 62}")
-    print("  GRAND TOTAL")
+    print("  GRAND TOTAL & 9.0 OBSERVABILITY METRICS")
     print(f"  {'-' * 50}")
     print(f"  Tools           : {len(by_tool)}")
     print(f"  Projects        : {grand['projects']}")
@@ -391,6 +392,7 @@ def print_stats(by_tool):
     print(f"  Files Read      : {fmt(grand['fr'])}")
     print(f"  Total Time      : {dur(grand['dur'])}")
     print(f"  Avg/Session     : {fmt(gt // grand['sess'] if grand['sess'] else 0)} tokens")
+    print(f"  Token Efficiency: {fmt(eff_ratio)} tokens/edited file")
     print(f"  Total Tokens    : {fmt(gt)}")
     print("=" * 62)
     if today_sess:
@@ -418,8 +420,8 @@ def print_stats(by_tool):
     try:
         with open(STATS_FILE, "w", encoding="utf-8") as f:
             json.dump(history, f, indent=2)
-    except OSError:
-        pass
+    except OSError as err:
+        sys.stderr.write(f"Warning saving history: {err}\n")
 
 
 def print_sources():

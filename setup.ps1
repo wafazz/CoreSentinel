@@ -174,8 +174,13 @@ $SubAgentMd
 - Structured Debugging: `$TargetDir\60-debug-protocol.md`
 - Emergency Incident: `$TargetDir\61-incident-protocol.md`
 
+## Active Verification & Enforcement
+- Automated Anti-Pattern Engine: `$TargetDir\anti-patterns.json`
+- Automated Gate Validator: Run `python "$TargetDir\sentinel-validator.py"`
+
 ## Commands
 - `show stats` -> Run `python "$TargetDir\agent-stats.py"` to view token usage.
+- `verify gate` -> Run `python "$TargetDir\sentinel-validator.py"` to run empirical gate validation.
 - `$AgentName init` -> Scaffolds a new project (`05-init-protocol.md`).
 - `mimic this` -> Activates MIMIC stack migration (`06-mimic-protocol.md`).
 - `$AgentName test` -> Activates Sentinel QA Mode (`01-sentinel-identity.md`).
@@ -192,4 +197,11 @@ foreach ($item in $Targets) {
     Write-Host "[+] Rendered system prompt for $($item.Tool) -> $($item.Path)" -ForegroundColor Green
 }
 
-Write-Host "`n[Success] CoreSentinel successfully installed ($AgentName) and bound to all local AI coding assistants!" -ForegroundColor Cyan
+# 3. Automatically install Git hooks
+$InstallerScript = Join-Path $TargetDir "install-hooks.ps1"
+if (Test-Path $InstallerScript) {
+    powershell -ExecutionPolicy Bypass -File $InstallerScript
+}
+
+Write-Host "`n[Success] CoreSentinel 9.0 successfully installed ($AgentName) and bound to all local AI coding assistants!" -ForegroundColor Cyan
+

@@ -18,7 +18,7 @@
 
 ## 💡 What is CoreSentinel?
 
-**CoreSentinel** is an open-source, file-based memory and governance framework for AI coding assistants. It equips agents with structured software development lifecycles (SDLC), mandatory multi-specialist squad reviews, strict security hardening, zero-hallucination verification gates, continuous self-evolution, and cross-project token telemetry.
+**CoreSentinel** is an open-source, file-based AI engineering governance and context layer for coding assistants. It provides persistent memory, structured software development lifecycles (SDLC), specialized multi-agent roles, mandatory squad reviews, strict security hardening, verification gates, continuous self-evolution, and cross-project token telemetry—giving AI agents the context, structure, and operational discipline needed for reliable software development.
 
 ---
 
