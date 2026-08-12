@@ -123,10 +123,14 @@ class TestCorruptLayerSafety:
                                         str(bound_project)) is False
         assert corrupt.read_text(encoding="utf-8") == "{ not json at all"
 
-    def test_refusal_explains_itself(self, isolated_memory, bound_project, capsys):
+    def test_refusal_explains_itself_on_stderr(self, isolated_memory, bound_project, capsys):
+        """Diagnostics belong on stderr — anything on stdout corrupts --json consumers."""
         store = bound_project / isolated_memory.CONFIG_DIRNAME / "memory"
         store.mkdir(parents=True)
         (store / "project.json").write_text("{ broken", encoding="utf-8")
 
         isolated_memory.add_fact("project", "new", 0.95, "test", str(bound_project))
-        assert "Refusing to write" in capsys.readouterr().out
+
+        captured = capsys.readouterr()
+        assert "Refusing to write" in captured.err
+        assert "Refusing to write" not in captured.out

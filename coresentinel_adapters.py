@@ -32,12 +32,21 @@ SERVICES = ["memory", "governance", "context", "verification", "telemetry"]
 CAP_ICON = {"native": "◉ native", "file": "◈ file", "cli": "◇ cli", "none": "· none"}
 
 
+def read_core_version():
+    path = SCRIPT_DIR / "VERSION"
+    try:
+        return path.read_text(encoding="utf-8-sig").strip() or "unknown"
+    except OSError as e:
+        print(f"[!] VERSION file unreadable ({e}) — reported as 'unknown'", file=sys.stderr)
+        return "unknown"
+
+
 def load_registry():
     try:
         with open(REGISTRY_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
-        print(f"[!] Error loading adapter registry: {e}")
+        print(f"[!] Error loading adapter registry: {e}", file=sys.stderr)
         return {"adapters": []}
 
 
@@ -186,12 +195,12 @@ def read_identity():
     identity = {"name": "Iris", "role": "Universal coding agent"}
     identity_file = SCRIPT_DIR / "00-identity.md"
     if not identity_file.exists():
-        print(f"[!] 00-identity.md not found — falling back to default identity '{identity['name']}'")
+        print(f"[!] 00-identity.md not found — falling back to default identity '{identity['name']}'", file=sys.stderr)
         return identity
     try:
         text = identity_file.read_text(encoding="utf-8", errors="replace")
     except OSError as e:
-        print(f"[!] Cannot read 00-identity.md ({e}) — falling back to default identity")
+        print(f"[!] Cannot read 00-identity.md ({e}) — falling back to default identity", file=sys.stderr)
         return identity
     name = re.search(r"^-\s*Name:\s*\*\*(.+?)\*\*", text, re.M)
     role = re.search(r"^-\s*Role:\s*(.+)$", text, re.M)
@@ -209,7 +218,7 @@ def collect_protocols():
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError as e:
-            print(f"[!] Protocol '{path.name}' unreadable ({e}) — indexed by filename only")
+            print(f"[!] Protocol '{path.name}' unreadable ({e}) — indexed by filename only", file=sys.stderr)
             protocols.append({"file": path.name, "title": title})
             continue
         for line in text.splitlines():
@@ -226,7 +235,7 @@ def count_anti_patterns():
         with open(path, "r", encoding="utf-8") as f:
             return len(json.load(f).get("anti_patterns", []))
     except (OSError, json.JSONDecodeError, ValueError) as e:
-        print(f"[!] Anti-pattern database unreadable ({e}) — Core payload will report 0 rules")
+        print(f"[!] Anti-pattern database unreadable ({e}) — Core payload will report 0 rules", file=sys.stderr)
         return 0
 
 
@@ -238,7 +247,7 @@ def read_gates():
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f).get("gates", {})
     except (OSError, json.JSONDecodeError, ValueError) as e:
-        print(f"[!] Quality gate state unreadable ({e}) — Core payload will use the default gate order")
+        print(f"[!] Quality gate state unreadable ({e}) — Core payload will use the default gate order", file=sys.stderr)
         return {}
 
 
@@ -253,7 +262,7 @@ def memory_layer_counts():
                     data = json.load(f)
                 count = len(data.get("facts", [])) if isinstance(data, dict) else len(data)
             except (OSError, json.JSONDecodeError, ValueError) as e:
-                print(f"[!] Memory layer '{name}' unreadable ({e}) — reported as 0 entries")
+                print(f"[!] Memory layer '{name}' unreadable ({e}) — reported as 0 entries", file=sys.stderr)
         layers[name] = count
     return layers
 
@@ -427,6 +436,7 @@ def build_context_bundle(target_dir="."):
 
     return {
         "coresentinel_api": "1.0",
+        "coresentinel_version": read_core_version(),
         "adapter_layer_version": ADAPTER_VERSION,
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "core_dir": str(SCRIPT_DIR),

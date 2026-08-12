@@ -26,6 +26,7 @@
 | **Integration** | `adapter` | Bind the Core to any AI coding host |
 | | `stats` | Token usage & session telemetry |
 | | `hooks` | Install git pre-commit & pre-push hooks |
+| | `version` | Product version & build context |
 
 Aliases are accepted where they read naturally: `squad` → `agent`, `health` → `score`, `adr` → `decision`, `gates` → `gate`, `ctx` → `context`, `cse` → `evolve`.
 
@@ -81,6 +82,45 @@ Commands are CI-safe — pipe them straight into a build step:
 | `check` | zero violations | violations detected |
 | `init` | project bound | already bound (without `--force`) |
 | *(unknown command)* | — | always exit 1 with a suggestion |
+
+---
+
+## 🏷️ Versioning
+
+The product version lives in one place: the **`VERSION`** file at the Core root. The CLI, both installers, the help header and the adapter context bundle all read it. Nothing hardcodes a version number — that duplication is what let the old `9.0` string drift out of date in two shell scripts.
+
+```bash
+coresentinel version        # version + build context
+coresentinel --version      # identical
+coresentinel -v             # identical
+coresentinel version --json # for CI
+```
+
+```text
+  🛡️  CoreSentinel 10.0.0
+  ----------------------------------------------------
+  Core Directory         : /path/to/CoreSentinel
+  Python                 : 3.13.14
+  Platform               : Windows 11
+  Protocols              : 36 documents
+  Adapter Registry       : v1.0.0
+  Squad Contracts        : v1.0.0
+  Anti-Pattern Database  : v1.0.0
+```
+
+Registries carry their own versions (`adapters.json`, `squad-contracts.json`, `anti-patterns.json`), so a bug report states exactly which rule sets were loaded. To release, edit `VERSION` — nothing else.
+
+> `-v` at the command position means `version`. As a flag to a command (`coresentinel doctor -v`) it still means `--verbose`; the two never collide because one is a command and the other is an argument.
+
+---
+
+## 📡 Output Stream Contract
+
+**stdout carries the payload. stderr carries diagnostics.**
+
+Every `[!]` warning — unreadable registry, missing `VERSION`, corrupt memory layer — is written to stderr. A damaged Core therefore still emits valid JSON on stdout, and `coresentinel doctor --json | jq` keeps working while the warnings remain visible in the terminal.
+
+This is enforced by test: each `--json` command is run against a deliberately damaged Core and its stdout must still parse.
 
 ---
 

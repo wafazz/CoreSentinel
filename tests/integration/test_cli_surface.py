@@ -5,6 +5,7 @@ CORESENTINEL:SCANNER-FIXTURES — contains a deliberate credential sample used t
 """
 
 import json
+import re
 
 import pytest
 
@@ -50,6 +51,80 @@ class TestCommandRegistry:
 
     def test_lookup_is_case_insensitive(self):
         assert cli.find_command("DOCTOR")["name"] == "doctor"
+
+
+class TestVersion:
+    def test_version_file_exists_and_is_semver(self, core_dir):
+        version = (core_dir / "VERSION").read_text(encoding="utf-8-sig").strip()
+        assert re.fullmatch(r"\d+\.\d+\.\d+", version), \
+            f"VERSION must be a bare semver string, got {version!r}"
+
+    def test_command_reports_the_version_file_contents(self, run_cli, sandbox):
+        expected = (sandbox / "VERSION").read_text(encoding="utf-8-sig").strip()
+        code, out, _ = run_cli("version")
+        assert code == 0
+        assert expected in out
+
+    @pytest.mark.parametrize("invocation", [("version",), ("--version",), ("-v",)])
+    def test_every_invocation_form_agrees(self, run_cli, invocation):
+        _, canonical, _ = run_cli("version")
+        code, out, _ = run_cli(*invocation)
+        assert code == 0
+        assert out == canonical
+
+    def test_json_carries_version_and_environment(self, run_cli_json, sandbox):
+        _, payload = run_cli_json("version", "--json")
+        expected = (sandbox / "VERSION").read_text(encoding="utf-8-sig").strip()
+        assert payload["coresentinel"] == expected
+        for key in ["core_dir", "python", "platform", "protocols", "components"]:
+            assert key in payload
+
+    def test_registry_versions_are_reported(self, run_cli_json):
+        _, payload = run_cli_json("version", "--json")
+        assert set(payload["components"]) == {
+            "adapter registry", "squad contracts", "anti-pattern database"}
+
+    def test_help_header_carries_the_version(self, run_cli, sandbox):
+        expected = (sandbox / "VERSION").read_text(encoding="utf-8-sig").strip()
+        _, out, _ = run_cli("help")
+        assert expected in out
+
+    def test_context_bundle_exposes_the_version(self, run_cli_json, sandbox):
+        expected = (sandbox / "VERSION").read_text(encoding="utf-8-sig").strip()
+        _, payload = run_cli_json("adapter", "export", "--json")
+        assert payload["coresentinel_version"] == expected
+
+    def test_missing_version_file_degrades_without_crashing(self, run_cli, sandbox):
+        (sandbox / "VERSION").unlink()
+        code, out, _ = run_cli("version")
+        assert code == 0
+        assert "unknown" in out
+
+    @pytest.mark.parametrize("script", ["setup.ps1", "setup.sh"])
+    def test_installers_do_not_hardcode_a_version(self, core_dir, script):
+        """Regression: the version lived only in these two scripts and drifted out of date."""
+        text = (core_dir / script).read_text(encoding="utf-8-sig", errors="replace")
+        hardcoded = re.findall(r"CoreSentinel \d+\.\d+", text)
+        assert not hardcoded, f"{script} hardcodes a version: {hardcoded}"
+        assert "VERSION" in text, f"{script} does not read the VERSION file"
+
+
+class TestArgumentParsing:
+    @pytest.mark.parametrize("flag", ["-v", "--verbose", "--json", "-h"])
+    def test_flags_are_never_read_as_positional_arguments(self, flag):
+        """Regression: single-dash flags were treated as a target directory."""
+        assert cli.positional([flag]) == "."
+        assert cli.positional([flag, "some/dir"]) == "some/dir"
+
+    def test_positional_arguments_survive_alongside_flags(self):
+        assert cli.positional(["some/dir", "--json"]) == "some/dir"
+        assert cli.positional(["--scope", "global", "target"], 0) == "global"
+
+    def test_doctor_verbose_shorthand_does_not_become_a_directory(self, run_cli):
+        code, out, err = run_cli("doctor", "-v")
+        assert code == 0, f"'doctor -v' failed: {err[:400]}"
+        assert "Traceback" not in err
+        assert "coresentinel.py present" in out, "-v did not enable verbose findings"
 
 
 class TestHelpSurface:
@@ -293,6 +368,21 @@ class TestJsonContracts:
         """A BOM breaks jq and every downstream JSON consumer."""
         _, out, _ = run_cli(*args)
         assert not out.startswith("﻿")
+
+    @pytest.mark.parametrize("args", [
+        ("doctor", "--json"), ("status", "--json"), ("context", "--json"),
+        ("review", "--json"), ("version", "--json"), ("adapter", "export", "--json"),
+    ])
+    def test_json_stays_parseable_when_state_is_degraded(self, run_cli, sandbox, args):
+        """Regression: a warning printed to stdout used to corrupt the JSON payload.
+
+        Diagnostics must go to stderr, so a damaged Core still emits valid JSON.
+        """
+        (sandbox / "VERSION").unlink()
+        (sandbox / "memory" / "patterns.json").write_text("{ corrupt", encoding="utf-8")
+
+        code, out, err = run_cli(*args)
+        json.loads(out)  # raises if a diagnostic leaked onto stdout
 
 
 class TestReadOnlyCommandsAreSafe:

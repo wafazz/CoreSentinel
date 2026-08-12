@@ -204,5 +204,7 @@ if (Test-Path $InstallerScript) {
     powershell -ExecutionPolicy Bypass -File $InstallerScript
 }
 
-Write-Host "`n[Success] CoreSentinel 9.0 successfully installed ($AgentName) and bound to all local AI coding assistants!" -ForegroundColor Cyan
+$VersionFile = Join-Path $PSScriptRoot "VERSION"
+$CoreVersion = if (Test-Path $VersionFile) { (Get-Content $VersionFile -TotalCount 1).Trim() } else { "unknown" }
+Write-Host "`n[Success] CoreSentinel $CoreVersion successfully installed ($AgentName) and bound to all local AI coding assistants!" -ForegroundColor Cyan
 

@@ -64,7 +64,8 @@ def run_cmd(cmd, cwd=None):
         res = subprocess.run(cmd, cwd=cwd, shell=True, capture_output=True,
                              text=True, encoding="utf-8", errors="replace", timeout=30)
         return res.returncode, res.stdout.strip(), res.stderr.strip()
-    except subprocess.SubprocessError as e:
+    except (subprocess.SubprocessError, OSError) as e:
+        # A missing or invalid working directory must degrade the check, not crash the run.
         return -1, "", str(e)
 
 
@@ -74,7 +75,7 @@ def project_memory_store(target_dir="."):
     try:
         import coresentinel_memory as mem
     except ImportError as e:
-        print(f"[!] Memory engine unavailable ({e}) — project store not inspected")
+        print(f"[!] Memory engine unavailable ({e}) — project store not inspected", file=sys.stderr)
         return None
 
     root = mem.find_project_root(target_dir)
@@ -411,7 +412,7 @@ def run_status(target_dir=".", emit_json=False):
             if active and not active_host:
                 active_host = adapter["id"]
     except ImportError as e:
-        print(f"[!] Adapter layer unavailable ({e}) — host status omitted")
+        print(f"[!] Adapter layer unavailable ({e}) — host status omitted", file=sys.stderr)
 
     _, branch, _ = run_cmd("git rev-parse --abbrev-ref HEAD", cwd=target_dir)
     _, dirty, _ = run_cmd("git status --short", cwd=target_dir)

@@ -5,6 +5,7 @@
 
 <div align="center">
 
+[![Version](https://img.shields.io/badge/CoreSentinel-10.0.0-8A2BE2)](./VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Hosts](https://img.shields.io/badge/Hosts-Claude_%7C_Cursor_%7C_Gemini_%7C_Codex_%7C_Copilot_%7C_Windsurf-blue)](#-how-does-it-work)
 [![Tests](https://img.shields.io/badge/Self--tests-305_passing-brightgreen)](#-coresentinel-tests-itself)
@@ -223,8 +224,10 @@ The suite never touches the real `memory/` directory, your home directory, or an
   Context & Memory         context · memory · decision
   Verification & Review    verify · review · gate · check
   Squad & Governance       agent · audit · score · evolve
-  Integration & Telemetry  adapter · stats · hooks
+  Integration & Telemetry  adapter · stats · hooks · version
 ```
+
+Every command writes its payload to stdout and its diagnostics to stderr, so `--json` output stays parseable even when the Core is damaged. The product version lives in the single `VERSION` file at the Core root — `coresentinel version` reports it along with Python, platform and the loaded registry versions.
 
 `coresentinel help <command>` gives usage for any one of them. Unknown commands exit 1 with a suggestion rather than silently running something else. Full reference: [`14-cli-protocol.md`](./14-cli-protocol.md).
 

@@ -54,7 +54,7 @@ def run_cmd(cmd, cwd=None):
 def load_validator():
     """Reuse the anti-pattern regexes rather than duplicating them."""
     if not VALIDATOR_FILE.exists():
-        print(f"[!] sentinel-validator.py not found — anti-pattern scan skipped")
+        print(f"[!] sentinel-validator.py not found — anti-pattern scan skipped", file=sys.stderr)
         return None
     spec = importlib.util.spec_from_file_location("sentinel_validator", VALIDATOR_FILE)
     module = importlib.util.module_from_spec(spec)
@@ -62,7 +62,7 @@ def load_validator():
         spec.loader.exec_module(module)
         return module
     except (ImportError, SyntaxError) as e:
-        print(f"[!] sentinel-validator.py failed to load ({e}) — anti-pattern scan skipped")
+        print(f"[!] sentinel-validator.py failed to load ({e}) — anti-pattern scan skipped", file=sys.stderr)
         return None
 
 
@@ -122,7 +122,7 @@ def get_untracked_lines(target_dir="."):
         try:
             content = path.read_text(encoding="utf-8-sig", errors="replace")
         except OSError as e:
-            print(f"[!] Untracked file {name} unreadable ({e}) — skipped")
+            print(f"[!] Untracked file {name} unreadable ({e}) — skipped", file=sys.stderr)
             continue
         added[name] = list(enumerate(content.splitlines(), start=1))
     return added

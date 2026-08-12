@@ -20,7 +20,8 @@ import pytest
 CORE_DIR = Path(__file__).resolve().parent.parent
 
 # Copied into every sandbox — everything an engine needs to run standalone.
-SANDBOX_GLOBS = ["*.py", "*.json", "*.md"]
+# VERSION has no extension, so it is listed explicitly rather than matched by a glob.
+SANDBOX_GLOBS = ["*.py", "*.json", "*.md", "VERSION"]
 
 
 def load_hyphenated_module(filename, module_name):

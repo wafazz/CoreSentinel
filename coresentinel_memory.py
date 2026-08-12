@@ -92,7 +92,7 @@ def classify_confidence(score):
 
 def add_fact(layer_name, fact, confidence, source, target_dir="."):
     if layer_name not in MEMORY_LAYERS or layer_name == "decisions":
-        print(f"[!] Invalid layer '{layer_name}'. Valid layers: working, session, project, longterm, failures, patterns")
+        print(f"[!] Invalid layer '{layer_name}'. Valid layers: working, session, project, longterm, failures, patterns", file=sys.stderr)
         return False
 
     file_path = ensure_layer(layer_name, target_dir)
@@ -101,8 +101,9 @@ def add_fact(layer_name, fact, confidence, source, target_dir="."):
         with open(file_path, "r", encoding="utf-8-sig") as f:
             data = json.load(f)
     except (OSError, json.JSONDecodeError, ValueError) as e:
-        print(f"[!] Refusing to write: {file_path} is unreadable ({e}).")
-        print(f"    Repair or remove the file first — overwriting it would destroy the recorded facts.")
+        print(f"[!] Refusing to write: {file_path} is unreadable ({e}).", file=sys.stderr)
+        print("    Repair or remove the file first — overwriting it would destroy the recorded facts.",
+              file=sys.stderr)
         return False
 
     if "facts" not in data:

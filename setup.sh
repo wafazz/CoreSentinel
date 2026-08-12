@@ -182,5 +182,9 @@ if [ -f "$TARGET_DIR/install-hooks.sh" ]; then
 fi
 
 echo ""
-echo "[Success] CoreSentinel 9.0 successfully installed ($AGENT_NAME) and bound to all local AI coding assistants!"
+CORE_VERSION="unknown"
+if [ -f "$SCRIPT_DIR/VERSION" ]; then
+    CORE_VERSION="$(head -n 1 "$SCRIPT_DIR/VERSION" | tr -d '[:space:]')"
+fi
+echo "[Success] CoreSentinel $CORE_VERSION successfully installed ($AGENT_NAME) and bound to all local AI coding assistants!"
 

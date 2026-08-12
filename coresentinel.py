@@ -17,6 +17,7 @@ import sys
 import os
 import json
 import re
+import platform
 import subprocess
 from pathlib import Path
 import coresentinel_memory as mem
@@ -26,6 +27,52 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 CORESENTINEL_DIR = Path(__file__).parent.resolve()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+VERSION_FILE = CORESENTINEL_DIR / "VERSION"
+
+def read_version():
+    """Single source of truth for the product version. Never guesses a number."""
+    try:
+        version = VERSION_FILE.read_text(encoding="utf-8-sig").strip()
+    except OSError as e:
+        print(f"[!] VERSION file unreadable ({e}) — version reported as 'unknown'", file=sys.stderr)
+        return "unknown"
+    if not version:
+        print("[!] VERSION file is empty — version reported as 'unknown'", file=sys.stderr)
+        return "unknown"
+    return version
 
 def print_header(title):
     print("\n" + "=" * 64)
@@ -238,7 +285,8 @@ def flag_value(args, flag, default=None):
 
 
 def positional(args, index=0, default="."):
-    values = [a for a in args if not a.startswith("--")]
+    """Positional arguments only — any flag form, single or double dash, is skipped."""
+    values = [a for a in args if not a.startswith("-")]
     return values[index] if len(values) > index else default
 
 
@@ -367,7 +415,7 @@ def cmd_adapter(args):
 def cmd_stats(args):
     stats_script = CORESENTINEL_DIR / "agent-stats.py"
     if not stats_script.exists():
-        print("[!] agent-stats.py not found.")
+        print("[!] agent-stats.py not found.", file=sys.stderr)
         return 1
     return subprocess.run([sys.executable, str(stats_script)] + args).returncode
 
@@ -382,6 +430,53 @@ def cmd_hooks(args):
 
 def cmd_check(args):
     return subprocess.run([sys.executable, str(CORESENTINEL_DIR / "sentinel-validator.py")]).returncode
+
+
+def component_versions():
+    """Registry versions, so a bug report says which rule sets were loaded."""
+    components = {}
+    for label, filename in [("adapter registry", "adapters.json"),
+                            ("squad contracts", "squad-contracts.json"),
+                            ("anti-pattern database", "anti-patterns.json")]:
+        path = CORESENTINEL_DIR / filename
+        try:
+            with open(path, "r", encoding="utf-8-sig") as f:
+                components[label] = json.load(f).get("version", "unversioned")
+        except (OSError, json.JSONDecodeError, ValueError) as e:
+            components[label] = f"unreadable ({e})"
+    return components
+
+
+def cmd_version(args):
+    version = read_version()
+    components = component_versions()
+    protocols = len(list(CORESENTINEL_DIR.glob("[0-9][0-9]-*.md")))
+
+    if "--json" in args:
+        print(json.dumps({
+            "coresentinel": version,
+            "core_dir": str(CORESENTINEL_DIR),
+            "python": platform.python_version(),
+            "platform": platform.platform(),
+            "protocols": protocols,
+            "components": components,
+        }, indent=2))
+        return 0
+
+    width = max(len(label) for label in components) + 1
+    width = max(width, len("Core Directory"))
+
+    print(f"\n  🛡️  CoreSentinel {version}")
+    print("  " + "-" * 52)
+    print(f"  {'Core Directory':<{width}} : {CORESENTINEL_DIR}")
+    print(f"  {'Python':<{width}} : {platform.python_version()}")
+    print(f"  {'Platform':<{width}} : {platform.system()} {platform.release()}")
+    print(f"  {'Protocols':<{width}} : {protocols} documents")
+    for label, value in components.items():
+        rendered = value if value.startswith("unreadable") else f"v{value}"
+        print(f"  {label.title():<{width}} : {rendered}")
+    print("")
+    return 0
 
 
 def cmd_help(args):
@@ -483,6 +578,12 @@ COMMANDS = [
      "summary": "Install git pre-commit & pre-push hooks",
      "usage": ["coresentinel hooks"],
      "detail": "Binds the validator into git so unverified work cannot be committed or pushed."},
+    {"name": "version", "aliases": ["--version", "-v"], "group": "Integration & Telemetry",
+     "handler": cmd_version,
+     "summary": "Print the CoreSentinel version and build context",
+     "usage": ["coresentinel version", "coresentinel --version", "coresentinel version --json"],
+     "detail": "Reads the VERSION file at the Core root — the single source of truth. Also\n"
+               "reports Python, platform, protocol count and the registry versions loaded."},
     {"name": "help", "aliases": ["--help", "-h"], "group": "Integration & Telemetry", "handler": cmd_help,
      "summary": "Show this help, or detail for one command",
      "usage": ["coresentinel help", "coresentinel help doctor"],
@@ -500,7 +601,7 @@ def find_command(name):
 
 def print_help():
     print("\n" + "=" * 64)
-    print("  🛡️  CoreSentinel — AI Agent Governance CLI")
+    print(f"  🛡️  CoreSentinel {read_version()} — AI Agent Governance CLI")
     print("=" * 64)
     print("  Usage: coresentinel <command> [options]\n")
 

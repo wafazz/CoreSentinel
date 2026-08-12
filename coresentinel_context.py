@@ -36,7 +36,7 @@ def run_cmd(cmd, cwd=None):
         res = subprocess.run(cmd, cwd=cwd, shell=True, capture_output=True,
                              text=True, encoding="utf-8", errors="replace", timeout=30)
         return res.returncode, res.stdout.strip(), res.stderr.strip()
-    except subprocess.SubprocessError as e:
+    except (subprocess.SubprocessError, OSError) as e:
         return -1, "", str(e)
 
 
@@ -47,7 +47,7 @@ def read_json(path):
         with open(path, "r", encoding="utf-8-sig") as f:
             return json.load(f)
     except (OSError, json.JSONDecodeError, ValueError) as e:
-        print(f"[!] {Path(path).name} unreadable ({e}) — omitted from context pack")
+        print(f"[!] {Path(path).name} unreadable ({e}) — omitted from context pack", file=sys.stderr)
         return None
 
 
@@ -55,7 +55,7 @@ def read_text(path):
     try:
         return Path(path).read_text(encoding="utf-8-sig", errors="replace")
     except OSError as e:
-        print(f"[!] {Path(path).name} unreadable ({e}) — omitted from context pack")
+        print(f"[!] {Path(path).name} unreadable ({e}) — omitted from context pack", file=sys.stderr)
         return ""
 
 
