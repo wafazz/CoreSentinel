@@ -77,11 +77,12 @@ def run_init(target_dir=".", host=None, apply_host=False, force=False):
         json.dump(ctx, f, indent=2)
     print(f"  [✓] Wrote {CONFIG_DIRNAME}/context.json (project context pack)")
 
-    seeded = seed_stack_facts(project)
+    seeded = seed_stack_facts(project, str(target))
     for fact in seeded:
         print(f"  [✓] Seeded project memory: {fact}")
     if not seeded:
         print("  [·] Project memory already holds the detected stack facts")
+    print(f"  [·] Project memory store: {config_dir / 'memory'}")
 
     if host:
         import coresentinel_adapters as adapters
@@ -106,8 +107,12 @@ def run_init(target_dir=".", host=None, apply_host=False, force=False):
     return 0
 
 
-def seed_stack_facts(project):
-    """Record the detected stack into project memory, skipping facts already held."""
+def seed_stack_facts(project, target_dir):
+    """Record the detected stack into the *project's* memory store, skipping facts already held.
+
+    target_dir must be the bound project, so the facts land in its .coresentinel/memory
+    rather than in the Core store shared by every repository.
+    """
     import coresentinel_memory as mem
 
     candidates = []
@@ -122,10 +127,10 @@ def seed_stack_facts(project):
                            0.95, "test configuration file"))
 
     existing = set()
-    project_layer = mem.MEMORY_LAYERS.get("project")
-    if project_layer and Path(project_layer).exists():
+    project_layer = mem.layer_path("project", target_dir)
+    if project_layer.exists():
         try:
-            with open(project_layer, "r", encoding="utf-8") as f:
+            with open(project_layer, "r", encoding="utf-8-sig") as f:
                 existing = {e.get("fact") for e in json.load(f).get("facts", [])}
         except (OSError, json.JSONDecodeError, ValueError) as e:
             print(f"  [!] Existing project memory unreadable ({e}) — seeding without dedupe")
@@ -134,8 +139,8 @@ def seed_stack_facts(project):
     for fact, confidence, source in candidates:
         if fact in existing:
             continue
-        mem.add_fact("project", fact, confidence, source)
-        seeded.append(fact)
+        if mem.add_fact("project", fact, confidence, source, target_dir):
+            seeded.append(fact)
     return seeded
 
 

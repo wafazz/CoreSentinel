@@ -25,5 +25,19 @@
     "impact": "High",
     "status": "Accepted",
     "created_at": "2026-08-12 11:25:19"
+  },
+  {
+    "id": "ADR-003",
+    "decision": "Scope working/session/project memory to the bound project",
+    "reason": "One Core governs many repositories. A single global project.json accumulated every repo's stack facts, so an agent could read another project's frameworks as though they described the current one. Discovered when init seeded scratch-project facts into the real Core store.",
+    "alternatives": [
+      "Project key field on each fact with reader-side filtering",
+      "Registry of per-project files under CoreSentinel/memory/projects/",
+      "Leave global and document the limitation"
+    ],
+    "chosen": "Project-scoped layers resolve to <project>/.coresentinel/memory via upward .coresentinel/config.json discovery, falling back to the Core store when unbound",
+    "impact": "High",
+    "status": "Accepted",
+    "created_at": "2026-08-12 14:08:37"
   }
 ]

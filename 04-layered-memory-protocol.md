@@ -9,19 +9,44 @@
 
 ```
   ┌─────────────────────────────────────────────────────────────┐
-  │ 1. Working Memory    (memory/working.json)                  │ -> Current active task state
+  │ 1. Working Memory    (working.json)    [PROJECT]            │ -> Current active task state
   ├─────────────────────────────────────────────────────────────┤
-  │ 2. Session Memory    (memory/session.json)                  │ -> Current conversation context
+  │ 2. Session Memory    (session.json)    [PROJECT]            │ -> Current conversation context
   ├─────────────────────────────────────────────────────────────┤
-  │ 3. Project Memory    (memory/project.json)                  │ -> Architecture & stack facts
+  │ 3. Project Memory    (project.json)    [PROJECT]            │ -> Architecture & stack facts
   ├─────────────────────────────────────────────────────────────┤
-  │ 4. Long-Term Memory  (memory/longterm.json)                 │ -> Historical codebase knowledge
+  │ 4. Long-Term Memory  (longterm.json)   [CORE]               │ -> Historical codebase knowledge
   ├─────────────────────────────────────────────────────────────┤
-  │ 5. Failure Memory   (memory/failures.json)                 │ -> Bugs, incidents & anti-patterns
+  │ 5. Failure Memory    (failures.json)   [CORE]               │ -> Bugs, incidents & anti-patterns
   ├─────────────────────────────────────────────────────────────┤
-  │ 6. Pattern Memory   (memory/patterns.json)                 │ -> Reusable engineering patterns
+  │ 6. Pattern Memory    (patterns.json)   [CORE]               │ -> Reusable engineering patterns
   └─────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 🎯 Memory Scoping
+
+CoreSentinel governs many repositories from one Core. Layers describing **this codebase and this task** belong to the project; layers holding knowledge that **transfers between projects** stay in the Core.
+
+| Scope | Layers | Location |
+| :--- | :--- | :--- |
+| **Project** | `working`, `session`, `project` | `<project>/.coresentinel/memory/` |
+| **Core** | `longterm`, `failures`, `patterns`, `decisions` | `<CoreSentinel>/memory/` |
+
+**Resolution.** A project-scoped layer resolves by walking up from the working directory looking for `.coresentinel/config.json` — the same way git looks for `.git`. If a bound project is found, the layer lives there. If not, it falls back to the Core store, so an unbound directory behaves exactly as before.
+
+```bash
+coresentinel memory show                 # scope resolved from the current directory
+coresentinel memory show ~/code/api      # scope resolved from a specific project
+coresentinel memory add --layer project --fact "..." --project ~/code/api
+```
+
+Every write reports which store it used, and `coresentinel memory show` labels each layer `project scope` or `core scope`. Scope is never silent.
+
+> **Why this matters:** without the split, running `coresentinel init` across ten repositories piles ten projects' stack facts into one global `project.json`. The agent then reads another project's framework list as though it described the one in front of it.
+
+A project's memory lives inside the repository, so committing `.coresentinel/memory/` shares verified project facts with your team. Add it to `.gitignore` instead if you would rather keep it local.
 
 ---
 

@@ -28,13 +28,59 @@ MEMORY_LAYERS = {
     "decisions": MEMORY_DIR / "decisions.json"
 }
 
+# Layers describing *this* codebase and *this* task belong to the project, not to the
+# shared Core. Without this split, running init across ten repositories piles ten
+# projects' facts into one global layer.
+PROJECT_SCOPED_LAYERS = {"working", "session", "project"}
+CONFIG_DIRNAME = ".coresentinel"
+
+def find_project_root(start_dir="."):
+    """Walk up for a CoreSentinel-bound project, the way git looks for .git."""
+    try:
+        current = Path(start_dir).resolve()
+    except OSError:
+        return None
+    for candidate in [current, *current.parents]:
+        if (candidate / CONFIG_DIRNAME / "config.json").exists():
+            return candidate
+    return None
+
+def layer_path(layer_name, target_dir="."):
+    """Resolve a layer to the project store when bound, else to the Core store."""
+    if layer_name in PROJECT_SCOPED_LAYERS:
+        root = find_project_root(target_dir)
+        if root:
+            return root / CONFIG_DIRNAME / "memory" / f"{layer_name}.json"
+    return MEMORY_LAYERS[layer_name]
+
+def layer_scope(layer_name, target_dir="."):
+    """'project' when the layer resolves into a bound project, otherwise 'core'."""
+    if layer_name in PROJECT_SCOPED_LAYERS and find_project_root(target_dir):
+        return "project"
+    return "core"
+
+def default_layer_content(layer_name):
+    if layer_name == "decisions":
+        return []
+    if layer_name == "working":
+        return {"current_task": "Idle", "status": "Ready"}
+    return {"facts": []}
+
+def ensure_layer(layer_name, target_dir="."):
+    """Create a single layer file wherever it resolves. Returns its path."""
+    path = layer_path(layer_name, target_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists():
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(default_layer_content(layer_name), f, indent=2)
+    return path
+
 def ensure_memory_dir():
     MEMORY_DIR.mkdir(parents=True, exist_ok=True)
     for layer, path in MEMORY_LAYERS.items():
         if not path.exists():
-            default_content = [] if layer == "decisions" else {"facts": []} if layer != "working" else {"current_task": "Idle", "status": "Ready"}
             with open(path, "w", encoding="utf-8") as f:
-                json.dump(default_content, f, indent=2)
+                json.dump(default_layer_content(layer), f, indent=2)
 
 def classify_confidence(score):
     if score >= 0.90:
@@ -44,18 +90,20 @@ def classify_confidence(score):
     else:
         return "Unknown (Unverified)"
 
-def add_fact(layer_name, fact, confidence, source):
-    ensure_memory_dir()
+def add_fact(layer_name, fact, confidence, source, target_dir="."):
     if layer_name not in MEMORY_LAYERS or layer_name == "decisions":
         print(f"[!] Invalid layer '{layer_name}'. Valid layers: working, session, project, longterm, failures, patterns")
         return False
 
-    file_path = MEMORY_LAYERS[layer_name]
+    file_path = ensure_layer(layer_name, target_dir)
+    scope = layer_scope(layer_name, target_dir)
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, "r", encoding="utf-8-sig") as f:
             data = json.load(f)
-    except Exception:
-        data = {"facts": []}
+    except (OSError, json.JSONDecodeError, ValueError) as e:
+        print(f"[!] Refusing to write: {file_path} is unreadable ({e}).")
+        print(f"    Repair or remove the file first — overwriting it would destroy the recorded facts.")
+        return False
 
     if "facts" not in data:
         data["facts"] = []
@@ -72,42 +120,56 @@ def add_fact(layer_name, fact, confidence, source):
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
-    print(f"[✓] Added fact to [{layer_name.upper()} MEMORY]: '{fact}' (Confidence: {confidence} - {entry['classification']})")
+    scope_note = f"project scope: {find_project_root(target_dir)}" if scope == "project" else "core scope"
+    print(f"[✓] Added fact to [{layer_name.upper()} MEMORY] ({scope_note}): '{fact}' (Confidence: {confidence} - {entry['classification']})")
     return True
 
-def show_memory_summary():
+def show_memory_summary(target_dir="."):
     ensure_memory_dir()
+    project_root = find_project_root(target_dir)
+
     print("\n" + "=" * 64)
     print("  🛡️  CoreSentinel Layered Memory Engine & Confidence Index")
     print("=" * 64)
+    if project_root:
+        print(f"  Bound Project : {project_root}")
+        print(f"  Core Store    : {MEMORY_DIR}")
+    else:
+        print(f"  Core Store    : {MEMORY_DIR}")
+        print("  Bound Project : (none — run 'coresentinel init' to scope project memory)")
 
-    for layer, path in MEMORY_LAYERS.items():
+    for layer in MEMORY_LAYERS:
         if layer == "decisions":
             continue
-        print(f"\n  🧠 [{layer.upper()} MEMORY] ({path.name})")
+        path = layer_path(layer, target_dir)
+        scope = layer_scope(layer, target_dir)
+        print(f"\n  🧠 [{layer.upper()} MEMORY] ({path.name}) — {scope} scope")
         print("  " + "-" * 56)
         if not path.exists():
             print("     (Empty)")
             continue
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, "r", encoding="utf-8-sig") as f:
                 content = json.load(f)
-                facts = content.get("facts", [])
-                if not facts:
-                    if layer == "working":
-                        print(f"     Task   : {content.get('current_task', 'None')}")
-                        print(f"     Status : {content.get('status', 'Idle')}")
-                    else:
-                        print("     (No recorded facts)")
-                else:
-                    for item in facts:
-                        status = classify_confidence(item.get("confidence", 0.5))
-                        print(f"     • Fact       : {item.get('fact')}")
-                        print(f"       Confidence : {item.get('confidence')} [{status}]")
-                        print(f"       Source     : {item.get('source')}")
-                        print(f"       Verified   : {item.get('last_verified')}")
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, ValueError) as e:
             print(f"     (Error reading file: {e})")
+            continue
+
+        facts = content.get("facts", [])
+        if not facts:
+            if layer == "working":
+                print(f"     Task   : {content.get('current_task', 'None')}")
+                print(f"     Status : {content.get('status', 'Idle')}")
+            else:
+                print("     (No recorded facts)")
+            continue
+
+        for item in facts:
+            status = classify_confidence(item.get("confidence", 0.5))
+            print(f"     • Fact       : {item.get('fact')}")
+            print(f"       Confidence : {item.get('confidence')} [{status}]")
+            print(f"       Source     : {item.get('source')}")
+            print(f"       Verified   : {item.get('last_verified')}")
 
     print("\n" + "=" * 64 + "\n")
 

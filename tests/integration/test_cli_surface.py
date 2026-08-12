@@ -180,6 +180,47 @@ class TestInitCommand:
         assert "Next.js" in config["frameworks"]
         assert config["test_runner"]
 
+    def test_seeded_facts_land_in_the_project_store(self, run_cli, tmp_path):
+        project = tmp_path / "scoped"
+        project.mkdir()
+        (project / "package.json").write_text('{"dependencies":{"express":"4.18.0"}}',
+                                              encoding="utf-8")
+
+        run_cli("init", str(project))
+
+        store = project / ".coresentinel" / "memory" / "project.json"
+        assert store.exists(), "init did not create the project memory store"
+        facts = [f["fact"] for f in json.loads(store.read_text(encoding="utf-8"))["facts"]]
+        assert any("scoped" in f for f in facts)
+
+    def test_init_does_not_pollute_the_core_memory(self, run_cli, sandbox, tmp_path):
+        """Regression: init used to write every project's facts into the shared Core layer."""
+        core_layer = sandbox / "memory" / "project.json"
+        before = core_layer.read_bytes()
+
+        for name in ("alpha", "beta"):
+            project = tmp_path / name
+            project.mkdir()
+            (project / "package.json").write_text('{"dependencies":{"react":"18.0.0"}}',
+                                                  encoding="utf-8")
+            run_cli("init", str(project))
+
+        assert core_layer.read_bytes() == before, \
+            "init leaked project facts into the shared Core memory layer"
+
+    def test_projects_do_not_see_each_other_in_context(self, run_cli, run_cli_json, tmp_path):
+        for name, dep in (("alpha", "express"), ("beta", "react")):
+            project = tmp_path / name
+            project.mkdir()
+            (project / "package.json").write_text(
+                json.dumps({"dependencies": {dep: "1.0.0"}}), encoding="utf-8")
+            run_cli("init", str(project))
+
+        _, payload = run_cli_json("context", str(tmp_path / "alpha"), "--json")
+        facts = " ".join(f["fact"] or "" for f in payload["memory_facts"])
+        assert "alpha" in facts
+        assert "beta" not in facts, "one project's context exposed another project's facts"
+
     def test_does_not_write_outside_the_target(self, run_cli, tmp_path):
         """init must confine its writes to the project it was pointed at."""
         project = tmp_path / "contained"

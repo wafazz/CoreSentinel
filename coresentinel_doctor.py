@@ -68,6 +68,22 @@ def run_cmd(cmd, cwd=None):
         return -1, "", str(e)
 
 
+def project_memory_store(target_dir="."):
+    """The bound project's own memory directory, if the target sits inside one."""
+    sys.path.insert(0, str(SCRIPT_DIR))
+    try:
+        import coresentinel_memory as mem
+    except ImportError as e:
+        print(f"[!] Memory engine unavailable ({e}) — project store not inspected")
+        return None
+
+    root = mem.find_project_root(target_dir)
+    if not root:
+        return None
+    store = root / mem.CONFIG_DIRNAME / "memory"
+    return store if store.exists() else None
+
+
 def result(name, status, summary, findings=None, fix=None):
     return {"check": name, "status": status, "summary": summary,
             "findings": findings or [], "fix": fix}
@@ -85,7 +101,7 @@ def check_configuration():
     return result("Configuration", "OK", f"{len(CORE_ASSETS)} core assets present", findings)
 
 
-def check_memory():
+def check_memory(target_dir="."):
     if not MEMORY_DIR.exists():
         return result("Memory", "FAIL", "memory/ directory not found", [],
                       "Run: coresentinel init")
@@ -104,6 +120,17 @@ def check_memory():
         count = len(data) if isinstance(data, list) else len(data.get("facts", []))
         total_entries += count
         findings.append(f"{layer}.json valid ({count} entries)")
+
+    project_store = project_memory_store(target_dir)
+    if project_store:
+        findings.append(f"project store: {project_store}")
+        for path in sorted(project_store.glob("*.json")):
+            data, err = read_json(path)
+            if err:
+                corrupt.append(f"project/{path.name}: {err}")
+                continue
+            count = len(data) if isinstance(data, list) else len(data.get("facts", []))
+            findings.append(f"project/{path.name} valid ({count} entries)")
 
     findings += [f"absent: {a}.json" for a in absent]
     findings += [f"CORRUPT: {c}" for c in corrupt]
@@ -294,7 +321,7 @@ def detect_stack(path):
 def run_doctor(target_dir=".", verbose=False, emit_json=False):
     checks = [
         check_configuration(),
-        check_memory(),
+        check_memory(target_dir),
         check_governance(),
         check_agent_registry(),
         check_verification_engine(),

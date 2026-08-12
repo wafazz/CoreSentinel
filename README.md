@@ -233,17 +233,20 @@ The suite never touches the real `memory/` directory, your home directory, or an
 <details>
 <summary><b>🧠 Layered memory & the decision ledger</b></summary>
 
-| Layer | Path | Purpose |
+| Layer | Scope | Purpose |
 | :--- | :--- | :--- |
-| Working | `memory/working.json` | Current task state |
-| Session | `memory/session.json` | Active conversation goals |
-| Project | `memory/project.json` | Verified stack & architecture facts |
-| Long-term | `memory/longterm.json` | Cross-session repository knowledge |
-| Failures | `memory/failures.json` | Incidents, bugs, anti-pattern history |
-| Patterns | `memory/patterns.json` | Reusable engineering patterns |
+| Working | **project** | Current task state |
+| Session | **project** | Active conversation goals |
+| Project | **project** | Verified stack & architecture facts |
+| Long-term | core | Cross-session repository knowledge |
+| Failures | core | Incidents, bugs, anti-pattern history |
+| Patterns | core | Reusable engineering patterns |
+
+State about *this* codebase lives with the project in `<project>/.coresentinel/memory/`, resolved by walking up for `.coresentinel/config.json` the way git finds `.git`. Knowledge that transfers between projects stays in the shared Core. Without that split, running `init` across ten repositories would pile ten projects' facts into one global layer.
 
 ```bash
-coresentinel memory show
+coresentinel memory show                 # scope resolved from the current directory
+coresentinel memory show ~/code/api      # or from a specific project
 coresentinel memory add --layer project --fact "Uses PostgreSQL" --confidence 0.98 --source "docker-compose.yml"
 
 coresentinel decision add \

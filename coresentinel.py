@@ -179,9 +179,14 @@ def run_evidence_verification(target_dir=".", claim="Code changes and protocol e
 
 def handle_memory_cmd(args):
     sub = args[0].lower() if args else "show"
-    if sub == "show":
-        mem.show_memory_summary()
-    elif sub in ("add", "fact"):
+    # Project-scoped layers resolve against this directory; --project overrides it.
+    target = "."
+    if "--project" in args:
+        target = args[args.index("--project") + 1]
+    elif len(args) > 1 and not args[1].startswith("--") and sub == "show":
+        target = args[1]
+
+    if sub in ("add", "fact"):
         layer = "project"
         fact = "New fact"
         conf = 0.95
@@ -194,9 +199,9 @@ def handle_memory_cmd(args):
             conf = float(args[args.index("--confidence") + 1])
         if "--source" in args:
             src = args[args.index("--source") + 1]
-        mem.add_fact(layer, fact, conf, src)
-    else:
-        mem.show_memory_summary()
+        return 0 if mem.add_fact(layer, fact, conf, src, target) else 1
+
+    mem.show_memory_summary(target)
 
 def handle_decision_cmd(args):
     sub = args[0].lower() if args else "list"
@@ -269,7 +274,7 @@ def cmd_verify(args):
 
 
 def cmd_memory(args):
-    handle_memory_cmd(args)
+    return handle_memory_cmd(args)
 
 
 def cmd_decision(args):
@@ -410,10 +415,13 @@ COMMANDS = [
      "detail": "Stack, frameworks, test runner, key files, git history and recorded memory facts."},
     {"name": "memory", "aliases": ["mem"], "group": "Context & Memory", "handler": cmd_memory,
      "summary": "Inspect or extend the 6-layer memory engine",
-     "usage": ["coresentinel memory show",
-               "coresentinel memory add --layer project --fact \"...\" --confidence 0.98 --source \"...\""],
+     "usage": ["coresentinel memory show [project-dir]",
+               "coresentinel memory add --layer project --fact \"...\" --confidence 0.98 --source \"...\"",
+               "coresentinel memory add --layer project --fact \"...\" --project ~/code/api"],
      "detail": "Layers: working, session, project, longterm, failures, patterns.\n"
-               "Confidence >= 0.90 is Known, >= 0.50 Assumed, below that Unknown."},
+               "Confidence >= 0.90 is Known, >= 0.50 Assumed, below that Unknown.\n"
+               "working, session and project are PROJECT-scoped: inside a bound project they\n"
+               "resolve to <project>/.coresentinel/memory/. The rest are shared Core layers."},
     {"name": "decision", "aliases": ["decisions", "adr"], "group": "Context & Memory", "handler": cmd_decision,
      "summary": "Architecture Decision Record ledger",
      "usage": ["coresentinel decision list [--query \"...\"]",

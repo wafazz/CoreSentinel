@@ -98,15 +98,21 @@ def detect_test_runner(target):
     return None
 
 
-def collect_memory_facts():
+def collect_memory_facts(target_dir="."):
+    """Facts visible to this project: its own scoped layers plus the shared Core layers."""
+    sys.path.insert(0, str(SCRIPT_DIR))
+    import coresentinel_memory as mem
+
     facts = []
     for layer in ["project", "patterns", "longterm"]:
-        data = read_json(MEMORY_DIR / f"{layer}.json")
+        path = mem.layer_path(layer, target_dir)
+        data = read_json(path)
         if not data:
             continue
         for entry in data.get("facts", []):
             facts.append({
                 "layer": layer,
+                "scope": mem.layer_scope(layer, target_dir),
                 "fact": entry.get("fact"),
                 "confidence": entry.get("confidence"),
                 "classification": entry.get("classification"),
@@ -145,7 +151,7 @@ def build_project_context(target_dir="."):
             "uncommitted": len(dirty.splitlines()) if dirty else 0,
             "recent_commits": recent.splitlines() if recent else [],
         },
-        "memory_facts": collect_memory_facts(),
+        "memory_facts": collect_memory_facts(target_dir),
     }
 
 
@@ -184,7 +190,7 @@ def print_context(target_dir=".", emit_json=False):
         for f in facts:
             confidence = f["confidence"]
             marker = "✓" if isinstance(confidence, (int, float)) and confidence >= 0.90 else "~"
-            print(f"     [{marker}] ({f['layer']}) {f['fact']}")
+            print(f"     [{marker}] ({f['layer']}/{f.get('scope', 'core')}) {f['fact']}")
             print(f"         confidence {confidence} · source: {f['source']}")
     else:
         print("  Recorded Memory Facts : (none — run 'coresentinel memory add')")
