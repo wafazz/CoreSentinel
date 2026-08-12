@@ -146,13 +146,14 @@ $SUBAGENTS_MD
 - Structured Debugging: $TARGET_DIR/60-debug-protocol.md
 - Emergency Incident: $TARGET_DIR/61-incident-protocol.md
 
-## Active Verification & Enforcement
+## Active Verification & Executable Engine
+- CoreSentinel CLI Executable: Run python3 $TARGET_DIR/coresentinel.py verify (or coresentinel verify)
 - Automated Anti-Pattern Engine: $TARGET_DIR/anti-patterns.json
 - Automated Gate Validator: Run python3 $TARGET_DIR/sentinel-validator.py
 
 ## Commands
+- coresentinel verify -> Runs full 6-point verification suite (Tests, Static Check, Security, Lint, Audit, Diff)
 - show stats -> Run python3 $TARGET_DIR/agent-stats.py to view token usage.
-- verify gate -> Run python3 $TARGET_DIR/sentinel-validator.py to run empirical gate validation.
 - $AGENT_NAME init -> Scaffolds a new project (05-init-protocol.md).
 - mimic this -> Activates MIMIC stack migration (06-mimic-protocol.md).
 - $AGENT_NAME test -> Activates Sentinel QA Mode (01-sentinel-identity.md).
