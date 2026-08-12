@@ -1,41 +1,207 @@
 # 🛡️ CoreSentinel
 
-> **Universal AI Agent Governance, Memory Core & Autonomous Squad System**  
-> *Transform any AI coding assistant into a disciplined, self-evolving software engineering squad.*
+> **The AI engineering governance and context layer.**
+> Give any AI coding assistant the memory, rules, and verification it cannot provide itself.
 
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Platform](https://img.shields.io/badge/Platforms-Claude_Code_%7C_Antigravity_%7C_Gemini_%7C_Codex_%7C_Cursor-blue)](#-supported-ai-tools)
-[![Squad](https://img.shields.io/badge/Squad-17_Specialists-brightgreen)](#-the-17-specialist-squad)
-[![Protocols](https://img.shields.io/badge/Protocols-30+_Files-orange)](#-interactive-protocol-directory)
-
-[🚀 Quick Start](#-quick-start) • [⚡ Interactive Commands](#-interactive-command-console) • [🗺️ SDLC Workflow](#-sdlc-workflow--phase-gates) • [👥 17-Specialist Squad](#-the-17-specialist-squad) • [📊 Telemetry](#-token-usage-telemetry)
+[![Hosts](https://img.shields.io/badge/Hosts-Claude_%7C_Cursor_%7C_Gemini_%7C_Codex_%7C_Copilot_%7C_Windsurf-blue)](#-how-does-it-work)
+[![Tests](https://img.shields.io/badge/Self--tests-305_passing-brightgreen)](#-coresentinel-tests-itself)
+[![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](#-install)
 
 </div>
 
 ---
 
-## 💡 What is CoreSentinel?
+## 💡 What is it?
 
-**CoreSentinel** is an open-source, file-based AI engineering governance and context layer for coding assistants. It provides persistent memory, structured software development lifecycles (SDLC), specialized multi-agent roles, mandatory squad reviews, strict security hardening, **Evidence-Based Verification Gates**, continuous self-evolution, and cross-project token telemetry—giving AI agents the context, structure, and operational discipline needed for reliable software development.
+CoreSentinel is a **file-based governance and context layer that sits underneath your AI coding assistant**.
+
+It is not a prompt, a plugin, or a set of instructions for one tool. It is a vendor-neutral core — persistent memory, enforced rules, agent contracts, and an evidence-based verification engine — that any assistant reads from and is held to. Claude Code, Cursor, Gemini CLI, Codex, Copilot and Windsurf all consume the same core.
 
 ---
 
-## 🧪 CoreSentinel Tests Itself
+## 🤔 Why does it exist?
 
-A governance system that is not itself tested is an unverified claim. CoreSentinel ships a **300-test suite covering its own 8 subsystems**:
+AI coding agents are capable but structurally unreliable in three specific ways. Each one is a governance problem, not a model problem.
+
+| The failure | What it looks like | What CoreSentinel does |
+| :--- | :--- | :--- |
+| **They forget** | Every session restarts from zero. The agent re-derives your stack, re-asks answered questions, and contradicts last week's architecture decision. | A 6-layer memory with confidence scores, plus a permanent decision ledger recording *why* each choice was made. |
+| **They drift** | Different answers to the same question. Rules followed on Monday, ignored on Friday. No consistent standard across projects or tools. | 36 protocols, 8 ordered quality gates, and 17 agent contracts with explicit authority boundaries — identical on every host. |
+| **They can't verify themselves** | *"Fixed the vulnerability."* *"All tests pass."* Claims stated with total confidence and zero evidence. | Verification gates that require artifacts — diff, test run, security scan — and score them. Below 80/100 is `UNVERIFIED`, not "done". |
+
+The third one is the reason this project exists. An agent that cannot prove its work is an agent you have to re-check by hand, which erases the leverage it was supposed to give you.
+
+---
+
+## ⚙️ What does it do?
+
+Seven services. Every host consumes the same ones.
+
+| Service | What it holds | Command |
+| :--- | :--- | :--- |
+| 🧠 **Memory** | 6 layers — working, session, project, long-term, failures, patterns — each fact carrying a confidence score. `≥0.90` is Known, below `0.50` is Unknown, and the agent may not present the second as the first. | `coresentinel memory` |
+| 🗺️ **Context** | The pack an agent needs before touching code: stack, frameworks, test runner, key files, git history, recorded facts. | `coresentinel context` |
+| ⚖️ **Governance** | 36 protocols, 8 quality gates (`Plan → … → Deployment`), an architecture decision ledger, and a controlled self-evolution pipeline for rule changes. | `coresentinel gate` |
+| 👥 **Agents** | 17 specialist contracts declaring input artifacts, output artifacts, authority level and constraints. A read-only researcher cannot silently write files. | `coresentinel agent` |
+| 🧾 **Verification** | Evidence-based gates. A claim requires collected artifacts and scores ≥80/100 to reach `VERIFIED`, plus a static review pass over the working diff. | `coresentinel verify` |
+| 🔒 **Security** | Anti-pattern and secret scanner wired into git pre-commit, so unverified or leaking work cannot be committed. | `coresentinel check` |
+| 📊 **Telemetry** | Token spend, session analytics and hot files, aggregated across every AI tool you have installed. | `coresentinel stats` |
+
+---
+
+## 🏗️ How does it work?
+
+One core. Adapters project it onto whichever assistant you use — they are projections, never forks.
+
+```mermaid
+flowchart TB
+    subgraph Hosts[" Any AI Coding Assistant "]
+        direction LR
+        H1["Claude Code"]
+        H2["Cursor"]
+        H3["Gemini CLI"]
+        H4["Codex"]
+        H5["Copilot"]
+        H6["Windsurf"]
+    end
+
+    Hosts -->|"native rules file · CLI"| Adapter
+
+    Adapter["🔌 Adapter Layer<br/>renders the Core into each host's native format"]
+
+    Adapter --> Core
+
+    subgraph Core[" 🛡️ CoreSentinel Core "]
+        direction LR
+        M["🧠 Memory<br/>6 layers<br/>+ confidence"]
+        C["🗺️ Context<br/>stack · git<br/>· frameworks"]
+        G["⚖️ Governance<br/>36 protocols<br/>8 gates"]
+        A["👥 Agents<br/>17 contracts"]
+        V["🧾 Verification<br/>evidence gates"]
+        S["🔒 Security<br/>anti-pattern<br/>scanner"]
+        T["📊 Telemetry<br/>token spend"]
+    end
+
+    Core --> Repo[("📁 Your Repository")]
+```
+
+Adding a host means appending one entry to [`adapters.json`](./adapters.json) — no engine changes. Sync is a dry run by default, generated files carry a `CORESENTINEL:MANAGED` marker, and a hand-authored rules file is **never** silently overwritten.
+
+---
+
+## 🎬 Show me
+
+Binding a real project and reviewing a change — actual output, nothing staged:
+
+```console
+$ coresentinel init ~/projects/payments-api
+
+================================================================
+  🛡️  CoreSentinel Init — Bind Project to Core
+================================================================
+  Project        : payments-api
+  Stack Detected : Node/TypeScript
+  Frameworks     : Express, Prisma
+  Test Runner    : npm test (jest)
+  ------------------------------------------------------------
+  [✓] Wrote .coresentinel/config.json
+  [✓] Wrote .coresentinel/context.json (project context pack)
+  [✓] Seeded project memory: payments-api stack: Node/TypeScript
+  [✓] Seeded project memory: payments-api frameworks: Express, Prisma
+  [✓] Seeded project memory: payments-api test runner: npm test (jest)
+================================================================
+```
+
+The agent now writes some code. Before it claims to be done:
+
+```console
+$ coresentinel review
+
+================================================================
+  🛡️  CoreSentinel Static Review — Working Diff
+================================================================
+  Changed Files    : 3 (1 source, 0 test)
+  Review Scope     : static pass over added lines only
+  ------------------------------------------------------------
+  Findings (0 blocking, 2 warning, 0 info):
+  ------------------------------------------------------------
+  [!] WARN  AP-003   charge.js:2
+      └─ console.log left in source
+  [!] WARN  AP-002   (diff-wide)
+      └─ 1 source file(s) changed with no test file changed
+  ------------------------------------------------------------
+  Verdict          : APPROVED WITH COMMENTS
+================================================================
+```
+
+And the system checks itself:
+
+```console
+$ coresentinel doctor
+
+================================================================
+  🛡️  CoreSentinel Doctor — Subsystem Diagnostics
+================================================================
+  ────────────────────────────────────────────────────────────
+
+  ✓ Configuration          6 core assets present
+  ✓ Memory                 7 layers valid, 4 recorded entries
+  ✓ Governance             36 protocols, ledgers consistent
+  ✓ Agent Registry         17 contracts complete
+  ✓ Verification Engine    validator + 7 engines operational
+  ✓ Security Rules         5 rules armed, 4 blocking
+  ✓ Project Context        Node/TypeScript on 'main', 6 host(s)
+
+  ────────────────────────────────────────────────────────────
+  CoreSentinel: HEALTHY
+================================================================
+```
+
+Every command exits non-zero on failure and accepts `--json`, so the whole thing drops straight into CI:
+
+```bash
+coresentinel doctor --json | jq '.overall'
+coresentinel review --json | jq '.findings[] | select(.severity == "BLOCK")'
+```
+
+---
+
+## 🚀 Install
+
+```bash
+git clone https://github.com/wafazz/CoreSentinel.git
+cd CoreSentinel
+```
+
+```powershell
+.\setup.ps1          # Windows
+```
+```bash
+chmod +x setup.sh && ./setup.sh    # Linux / macOS
+```
+
+Then bind your assistant and your project:
+
+```bash
+coresentinel adapter detect            # find installed AI hosts
+coresentinel adapter sync cursor --apply
+coresentinel init                      # bind the current project
+coresentinel doctor                    # confirm every subsystem is healthy
+```
+
+Requires Python 3.9+. The installer asks for your agent name, role, and squad preferences; pass `-NonInteractive` (PowerShell) or `NON_INTERACTIVE=1` (Bash) for CI.
+
+---
+
+## 🧪 CoreSentinel tests itself
+
+A governance system that is not itself tested is an unverified claim. **305 tests across the 8 subsystems**, plus a gated CI pipeline:
 
 ```text
-tests/
-├── memory/        Layered memory, confidence classification, ADR ledger
-├── governance/    Quality gates, self-evolution pipeline, protocol integrity
-├── verification/  Evidence suite, health scoring, static review engine
-├── security/      Secret & anti-pattern scanner, rule database integrity
-├── agents/        17-specialist contracts & authority boundaries
-├── recovery/      Corrupt, missing and BOM-encoded state handling
-├── telemetry/     Session log parsing & token accounting
-└── integration/   End-to-end CLI behaviour in a sandboxed Core
+Pull Request ➔ Tests ➔ Security ➔ Lint ➔ Integration ➔ Compatibility ➔ PASS / FAIL
 ```
 
 ```bash
@@ -43,21 +209,14 @@ pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-The suite never touches the real `memory/` directory, your home directory, or any host config path — mutating tests run against a sandbox copy of the Core.
-
-### CI Pipeline
-
-```text
-Pull Request ➔ Tests ➔ Security ➔ Lint ➔ Integration ➔ Compatibility ➔ PASS / FAIL
-```
-
-Each stage gates the next, so a security failure never reaches Integration. Compatibility runs the full suite across **3 operating systems × 3 Python versions** (floor: Python 3.9). See [`30-selftest-protocol.md`](./30-selftest-protocol.md).
+The suite never touches the real `memory/` directory, your home directory, or any host config path — mutating tests run against a sandbox copy of the Core. Compatibility runs everything across 3 operating systems × 3 Python versions. Details in [`30-selftest-protocol.md`](./30-selftest-protocol.md).
 
 ---
 
-## ⌨️ The `coresentinel` CLI
+## 📖 Reference
 
-Every engine is reachable from one command surface, with grouped help, per-command usage (`coresentinel help <command>`), `--json` output, and CI-safe exit codes:
+<details>
+<summary><b>⌨️ Full command surface</b></summary>
 
 ```text
   Setup & Diagnostics      init · doctor · status
@@ -67,99 +226,43 @@ Every engine is reachable from one command surface, with grouped help, per-comma
   Integration & Telemetry  adapter · stats · hooks
 ```
 
-`coresentinel doctor` diagnoses the 7 subsystems that must be healthy for CoreSentinel to govern an agent:
+`coresentinel help <command>` gives usage for any one of them. Unknown commands exit 1 with a suggestion rather than silently running something else. Full reference: [`14-cli-protocol.md`](./14-cli-protocol.md).
 
-```text
-================================================================
-  🛡️  CoreSentinel Doctor — Subsystem Diagnostics
-================================================================
-  ────────────────────────────────────────────────────────────
+</details>
 
-  ✓ Configuration          6 core assets present
-  ✓ Memory                 7 layers valid, 4 recorded entries
-  ✓ Governance             34 protocols, ledgers consistent
-  ✓ Agent Registry         17 contracts complete
-  ✓ Verification Engine    validator + 7 engines operational
-  ✓ Security Rules         5 rules armed, 4 blocking
-  ✓ Project Context        Python on 'main', 6 host(s)
+<details>
+<summary><b>🧠 Layered memory & the decision ledger</b></summary>
 
-  ────────────────────────────────────────────────────────────
-  CoreSentinel: HEALTHY
-================================================================
-```
+| Layer | Path | Purpose |
+| :--- | :--- | :--- |
+| Working | `memory/working.json` | Current task state |
+| Session | `memory/session.json` | Active conversation goals |
+| Project | `memory/project.json` | Verified stack & architecture facts |
+| Long-term | `memory/longterm.json` | Cross-session repository knowledge |
+| Failures | `memory/failures.json` | Incidents, bugs, anti-pattern history |
+| Patterns | `memory/patterns.json` | Reusable engineering patterns |
 
 ```bash
-coresentinel init            # bind a project to the Core
-coresentinel doctor          # 7-subsystem diagnostics (exit 1 on FAIL)
-coresentinel status          # at-a-glance governance dashboard
-coresentinel context         # project context pack for the agent
-coresentinel review          # static review pass over the working diff
+coresentinel memory show
+coresentinel memory add --layer project --fact "Uses PostgreSQL" --confidence 0.98 --source "docker-compose.yml"
+
+coresentinel decision add \
+  --title "Use PostgreSQL instead of MongoDB" \
+  --reason "Transactional consistency required for the payment ledger" \
+  --chosen "PostgreSQL" --alts "MongoDB, MySQL"
 ```
 
-Full command reference: [`14-cli-protocol.md`](./14-cli-protocol.md).
+Confidence is enforced, not decorative: `≥0.90` Known, `≥0.50` Assumed, below that Unknown.
 
----
+</details>
 
-## 🔌 Universal Host Adapter Layer
+<details>
+<summary><b>🧾 Evidence-based verification</b></summary>
 
-CoreSentinel is **not** a Claude-specific configuration. It is an AI infrastructure layer: one vendor-neutral Core, projected onto whichever assistant you happen to be using.
-
-```text
-                        CoreSentinel Core
-          (Memory · Governance · Context · Verification · Telemetry)
-                                │
-                      CoreSentinel Adapter Layer
-                                │
-   ┌──────────┬──────────┬──────┴─────┬──────────┬──────────┐
-   ↓          ↓          ↓            ↓          ↓          ↓
-Claude Code  Cursor   Gemini CLI    Codex    Copilot    Windsurf
-```
-
-Adapters are **projections** of the Core, never forks of it. Adding a host means appending one entry to [`adapters.json`](./adapters.json) — no engine changes.
-
-```text
-================================================================
-  🛡️  CoreSentinel Adapter Layer — Host Adapter Detection
-================================================================
-  [◉] Claude Code                : ACTIVE     (claude-code)
-  [✓] Cursor IDE                 : INSTALLED  (cursor)
-  [✓] Gemini CLI                 : INSTALLED  (gemini-cli)
-  [✓] OpenAI Codex               : INSTALLED  (codex)
-  [ ] Windsurf                   : NOT FOUND  (windsurf)
-  ------------------------------------------------------------
-  Hosts Detected    : 6/8
-================================================================
-```
-
-```bash
-# List registered hosts + the Core-service capability matrix
-coresentinel adapter list
-
-# Scan the machine for installed / currently-active AI coding hosts
-coresentinel adapter detect
-
-# Preview the Core rendered into a host's native rules format (dry run)
-coresentinel adapter sync cursor
-
-# Bind the Core into the host for real (backs up any hand-authored file)
-coresentinel adapter sync cursor --apply
-
-# Emit the host-agnostic context bundle consumed by any agent or CI job
-coresentinel adapter export --json
-```
-
-**Sync is safe by default:** dry run unless `--apply`, generated files carry a `CORESENTINEL:MANAGED` marker, and a target that lacks that marker is **BLOCKED** rather than silently overwritten. See [`13-adapter-protocol.md`](./13-adapter-protocol.md).
-
----
-
-## 🧾 Evidence-Based Verification Gates
-
-Rather than relying on unverified claims, CoreSentinel enforces **Evidence-Based Verification Gates**. Every major claim made by an AI agent (e.g., *"Vulnerability fixed"* or *"Feature implemented"*) requires 5 mandatory evidence artifacts before status is set to `VERIFIED`:
+Every claim requires artifacts before it is allowed to be called done:
 
 ```text
 Claim               : Authentication vulnerability fixed
-Required Evidence   : Code Change | Security Test | Audit Log | Git Diff
-
 Evidence Collected  :
   [✓] Code Change                   : PASS (Edited src/auth.ts)
   [✓] Security / Unit Test          : PASS (npm test - 14 passed)
@@ -170,191 +273,96 @@ Status              : VERIFIED
 Score               : 100/100
 ```
 
----
+`coresentinel score` grades the repository across 7 dimensions (Architecture, Security, Testing, Code Quality, Documentation, Reliability, Dependencies): ≥90 `HEALTHY`, 75–89 `WARNING`, <75 `CRITICAL`.
 
-## 🧬 Controlled Self-Evolution (CSE)
+</details>
 
-CoreSentinel prevents AI agents from unilaterally mutating core governance, security, or identity rules. All self-improvements follow a **governed 8-step pipeline**:
+<details>
+<summary><b>🚦 Quality gates & controlled self-evolution</b></summary>
+
+Eight ordered gates, each resolving to `PASS`, `FAIL`, `BLOCKED` or `WAIVED` — and a waiver always records its rationale:
 
 ```text
-  AI Proposes Improvement ➔ Evidence ➔ Impact Analysis ➔ Human Review ➔ Approval ➔ Versioned Change ➔ Regression Tests ➔ Deploy
+Plan ➔ Architecture ➔ Security ➔ Implementation ➔ Test ➔ Review ➔ Verification ➔ Deployment
 ```
 
 ```bash
-# Register an Evolution Proposal
-coresentinel evolve propose \
-  --target "anti-patterns.json" \
-  --change "Add SQL injection scanner rule" \
-  --evidence "Incident RUN-#9281 AppSec Audit" \
-  --impact "Low risk; adds pre-commit security check"
-
-# List all proposals and status
-coresentinel evolve list
-
-# Approve and version release an evolution proposal
-coresentinel evolve approve EVO-014 --approver "Fakrul"
-```
-
----
-
-## 📊 CoreSentinel Health & Reliability Scorecard
-
-CoreSentinel turns governance into a **quantified, measurable 7-dimension score** (`coresentinel score`):
-
-```text
-================================================================
-  🛡️  CoreSentinel System & Project Health Scorecard
-================================================================
-  Target Directory : C:\Users\fakrul.hakim\OneDrive - Daythree Digital Berhad\Desktop\CoreSentinel
-  ------------------------------------------------------------
-  Architecture       : 100/100  [████████████████████]
-  Security           : 100/100  [████████████████████]
-  Testing            :  90/100  [██████████████████░░]
-  Code Quality       :  96/100  [███████████████████░]
-  Documentation      : 100/100  [████████████████████]
-  Reliability        :  98/100  [███████████████████░]
-  Dependencies       :  97/100  [███████████████████░]
-  ------------------------------------------------------------
-  Overall Score      : 97/100
-  CoreSentinel Status: HEALTHY [✓ HEALTHY]
-================================================================
-```
-
-```bash
-# Evaluate repository health scorecard
-coresentinel score
-
-# Emit machine-readable JSON for CI/CD pipelines
-coresentinel score --json
-```
-
----
-
-## 🔍 AI Accountability Audit Trail Engine
-
-Every major AI action is recorded into a traceable **Audit Trail Log** (`memory/audit_trail.json`), detailing files read/edited, tests created/executed, security scans, reviewer audits, and verification scores:
-
-```text
-================================================================
-  🛡️  Audit Run Record Card: RUN-#9281
-================================================================
-  Run ID            : RUN-#9281
-  Timestamp         : 2026-08-12 11:34:49
-  Agent Persona     : Backend Engineer
-  Task Description  : Implement payment webhook
-----------------------------------------------------------------
-  Actions Execution Breakdown:
-     • Read Files       : 14 files inspected
-     • Modified Files   : 6 files edited
-     • Created Tests    : 3 new test cases
-     • Executed Tests   : 42 test suite executions
-     • Security Scan    : PASS
-     • Reviewer Audit   : PASS
-     • Verification     : 100/100
-----------------------------------------------------------------
-  Overall Result    : PASS
-================================================================
-```
-
-```bash
-# List all recorded AI execution runs
-coresentinel audit list
-
-# Inspect detailed audit card for a specific Run ID
-coresentinel audit show RUN-#9281
-```
-
----
-
-## 🚦 Quality Gates Pipeline
-
-CoreSentinel enforces 8 ordered Quality Gates (`Plan` ➔ `Architecture` ➔ `Security` ➔ `Implementation` ➔ `Test` ➔ `Review` ➔ `Verification` ➔ `Deployment`). Every gate evaluates with status `PASS`, `FAIL`, `BLOCKED`, or `WAIVED`:
-
-```text
-  Plan ➔ Arch ➔ Security Gate ➔ Impl ➔ Test Gate ➔ Review Gate ➔ Verify Gate ➔ Deploy
-```
-
-```bash
-# Run & evaluate all Quality Gates sequentially
 coresentinel gate run
-
-# View current Quality Gates Pipeline status
-coresentinel gate status
-
-# Waive a specific gate with mandatory justification rationale
 coresentinel gate waive --gate Security --reason "Approved exception for sandbox testing"
 ```
 
----
+An agent may not rewrite its own governance. Rule changes go through a proposal pipeline requiring evidence, impact analysis and human approval:
 
-## 🧠 Layered Memory Engine & Confidence Matrix
+```bash
+coresentinel evolve propose --target "anti-patterns.json" \
+  --change "Add SQL injection scanner rule" \
+  --evidence "Incident RUN-#9281 AppSec audit" \
+  --impact "Low risk; adds a pre-commit security check"
 
-CoreSentinel replaces unstructured memory logs with a **6-Layer Memory Architecture** backed by confidence scoring (`Known` vs `Assumed` vs `Unknown`):
+coresentinel evolve approve EVO-014 --approver "Fakrul"
+```
 
-| Memory Layer | Storage Path | Purpose |
+</details>
+
+<details>
+<summary><b>👥 The 17-specialist squad</b></summary>
+
+Each specialist has an explicit contract — input artifacts, output artifacts, authority, constraints, verification gate:
+
+| Category | Specialist | Responsibility |
 | :--- | :--- | :--- |
-| **1. Working Memory** | `memory/working.json` | Current active task state & immediate context |
-| **2. Session Memory** | `memory/session.json` | Active conversation history & session goals |
-| **3. Project Memory** | `memory/project.json` | Verified architecture, tech stack & framework facts |
-| **4. Long-Term Memory**| `memory/longterm.json` | Historical repository context & cross-session knowledge |
-| **5. Failure Memory** | `memory/failures.json` | Incident history, bugs, & anti-pattern logs |
-| **6. Pattern Memory** | `memory/patterns.json` | Reusable engineering & code patterns |
+| **Lead** | **Iris** | Orchestration, phase gates, self-evolution recording |
+| **Fullstack** | **Atlas** | System architecture & structural design |
+| | **Kai** | Third-party integrations & webhooks |
+| | **Nova** | Core feature implementation |
+| | **Rex** | Refactoring & legacy maintenance |
+| **Frontend** | **Luna** | TypeScript/React UI & state management |
+| | **Vera** | Accessibility & responsive polish |
+| **Review** | **Cato** | Logic correctness & edge cases |
+| | **Sage** | Maintainability & pattern review |
+| **Security** | **Argus** | OWASP AppSec & vulnerability auditing |
+| | **Cipher** | Secret protection & encryption |
+| | **Aegis** | Infrastructure hardening, headers, CORS |
+| **Database** | **Delta** | Schema design & idempotent migrations |
+| | **Indra** | Query profiling & N+1 elimination |
+| **Testing** | **Echo** | Unit & feature suites |
+| | **Probe** | End-to-end & contract testing |
+| **Support** | **Scout** | Read-only research |
+| | **Ledger** | Token & cost telemetry |
 
 ```bash
-# View Layered Memory Matrix & Confidence Scores
-coresentinel memory show
-
-# Register a verified fact (Confidence >= 0.90 = Known)
-coresentinel memory add --layer project --fact "Project uses PostgreSQL" --confidence 0.98 --source "docker-compose.yml"
+coresentinel agent list
+coresentinel agent show Architect
 ```
 
----
+</details>
 
-## 📜 Architecture Decision Ledger (ADR)
+<details>
+<summary><b>🔌 Supported hosts</b></summary>
 
-AI agents repeatedly make architectural decisions. CoreSentinel records them permanently into an **Architecture Decision Ledger**:
+| Host | Vendor | Global bind target |
+| :--- | :--- | :--- |
+| 🟢 **Claude Code** | Anthropic | `~/.claude/CLAUDE.md` |
+| 🟣 **Cursor IDE** | Anysphere | `~/.cursor/rules/coresentinel.mdc` |
+| 🟣 **Gemini CLI** | Google | `~/.gemini/GEMINI.md` |
+| 🟢 **OpenAI Codex** | OpenAI | `~/.codex/AGENTS.md` |
+| 🔵 **Google Antigravity** | Google | `~/.antigravity/AGENTS.md` |
+| ⚫ **GitHub Copilot** | GitHub | `.github/copilot-instructions.md` *(project)* |
+| 🟠 **Windsurf** | Codeium | `~/.codeium/windsurf/memories/global_rules.md` |
+| ⚪ **Generic agent** | Open standard | `AGENTS.md` *(project)* |
 
 ```bash
-# View all recorded architecture decisions
-coresentinel decision list
-
-# Record an Architectural Decision Record (ADR)
-coresentinel decision add \
-  --title "Use PostgreSQL instead of MongoDB" \
-  --reason "Transactional consistency required for payment ledger" \
-  --chosen "PostgreSQL" \
-  --alts "MongoDB, MySQL"
+coresentinel adapter list      # capability matrix per host
+coresentinel adapter detect    # what is installed on this machine
+coresentinel adapter export --json    # host-agnostic context bundle
 ```
 
----
+See [`13-adapter-protocol.md`](./13-adapter-protocol.md).
 
-## 👥 17-Specialist Squad Agent Contracts
+</details>
 
-Instead of vague persona descriptions, CoreSentinel enforces **explicit Agent Contracts** specifying Input Artifacts, Output Artifacts, Authority Levels, Constraints, and Verification Gates:
-
-```text
-  ┌─────────────────────────────────────────────────────────────┐
-  │ SPECIALIST AGENT CONTRACT                                  │
-  ├─────────────────────────────────────────────────────────────┤
-  │ Architect : Input [Requirements]  ➔ Output [Arch Proposal]  │
-  │ Security  : Input [Code / Diff]   ➔ Output [AppSec Audit]   │
-  │ Tester    : Input [Code / Spec]   ➔ Output [Test Report]    │
-  │ Reviewer  : Input [Code & Audits] ➔ Output [Gate Approval]  │
-  └─────────────────────────────────────────────────────────────┘
-```
-
-```bash
-# List all 17 specialist agent contracts
-coresentinel squad list
-
-# View full contract specification for a specialist
-coresentinel squad show Architect
-coresentinel squad show Security
-```
-
----
-
-## 🗺️ SDLC Workflow & Phase Gates
+<details>
+<summary><b>🗺️ SDLC workflow & phase gates</b></summary>
 
 ```mermaid
 flowchart TD
@@ -362,217 +370,66 @@ flowchart TD
         A["Iris Init / Mimic"] --> B["Scout Research"]
         B --> C["Architect Design"]
     end
-
     subgraph Build["Phases 1-3: Construction"]
         C --> D["Builder Implementation"]
         D --> E["Database & API Protocols"]
     end
-
     subgraph QA["Phase 4: QA & Testing"]
-        E --> F["Tester / QA Mode ('Iris test')"]
+        E --> F["Tester / QA Mode"]
         F --> G["Flaky Elimination"]
     end
-
     subgraph Security["Phases 5-7: Hardening & Review"]
         G --> H["Cato & Sage Code Review"]
         H --> I["Security Hardening (AppSec)"]
         I --> J["Performance Profiling"]
     end
-
     subgraph Ship["Phase 8: Ship & Self-Evolve"]
         J --> K["CI/CD & Deployment"]
         K --> L["Self-Evolution Recording"]
     end
 ```
 
----
+</details>
 
-## ⚡ Interactive Command Console
+<details>
+<summary><b>💬 Trigger commands</b></summary>
 
-<details open>
-<summary><b>🔥 Click to view available trigger commands</b></summary>
-
-| Trigger Command | Target Protocol | Description |
+| Trigger | Protocol | Description |
 | :--- | :--- | :--- |
-| `show stats` | [`agent-stats.py`](./agent-stats.py) | View token usage & session analytics across all detected AI tools |
-| `<AgentName> init` | [`05-init-protocol.md`](./05-init-protocol.md) | Scaffolds a new project with SDLC phase gates & architecture templates |
-| `mimic this` | [`06-mimic-protocol.md`](./06-mimic-protocol.md) | Activates MIMIC stack migration from an existing codebase |
-| `<AgentName> test` | [`01-sentinel-identity.md`](./01-sentinel-identity.md) | Activates Sentinel QA Mode for unit, integration, and E2E test isolation |
-| `<AgentName> learn` | [`10-learn-protocol.md`](./10-learn-protocol.md) | Auto-learns new tech stacks & records patterns into memory |
-| `<AgentName> migrate` | [`15-migration-protocol.md`](./15-migration-protocol.md) | Idempotent database schema alterations & SQL migration guard |
-| `<AgentName> api` | [`16-api-protocol.md`](./16-api-protocol.md) | Webhook idempotency, signatures & backoff handlers |
-| `<AgentName> ai` | [`17-ai-protocol.md`](./17-ai-protocol.md) | Multi-provider failover, token metering & prompt defense |
-| `<AgentName> perf` | [`45-performance-protocol.md`](./45-performance-protocol.md) | N+1 query profiling & runtime memory optimization |
-| `<AgentName> ci` | [`50-ci-cd-protocol.md`](./50-ci-cd-protocol.md) | Pipeline setup, test environment isolation & build guards |
-| `<AgentName> handoff` | [`52-handoff-protocol.md`](./52-handoff-protocol.md) | Client delivery protocol & handoff report generation |
-| `<AgentName> debug` | [`60-debug-protocol.md`](./60-debug-protocol.md) | Structured 5-step debugging & hypothesis verification |
-| `<AgentName> incident` | [`61-incident-protocol.md`](./61-incident-protocol.md) | Emergency incident response, containment & post-mortem |
-
-</details>
-
----
-
-## 🚀 Quick Start & Interactive Setup
-
-CoreSentinel includes an **interactive installer** that configures your agent name, role, sub-agent squad preferences, and automatically binds rules to all local AI tools.
-
-### 1. Clone CoreSentinel
-```bash
-git clone https://github.com/wafazz/CoreSentinel.git
-cd CoreSentinel
-```
-
-### 2. Run Interactive Installer
-
-#### On Windows (PowerShell):
-```powershell
-.\setup.ps1
-```
-
-#### On Linux / macOS (POSIX Shell):
-```bash
-chmod +x setup.sh
-./setup.sh
-```
-
-<details>
-<summary><b>⚙️ View Interactive Setup Questions Asked During Installation</b></summary>
-
-When you run `setup.ps1` or `setup.sh`, the installer interactively prompts you for:
-
-```text
-1) Agent Name? [Default: Iris]
-2) Agent acts as what? [Default: Universal coding agent for Fakrul]
-3) Create sub-agents or not? (Y/N) [Default: Y]
-4) How many sub-agents? [Default: 17]
-5) Sub-agents auto-named or give name?
-   [1] Auto-named (Standard 17 Squad names: Scout, Architect, Builder, Tester, etc.)
-   [2] Give custom names manually
-```
-
-*(Note: For non-interactive automation or CI runs, pass `-NonInteractive` on PowerShell or `NON_INTERACTIVE=1` on Bash).*
-
-</details>
-
----
-
-## 📚 Interactive Protocol Directory
-
-<details>
-<summary><b>📂 Core Memory & Strategy Protocols (00 – 07)</b></summary>
-
-- 📄 [`00-identity.md`](./00-identity.md) — Central Memory Core & Agent Identity Index
-- 📄 [`01-sentinel-identity.md`](./01-sentinel-identity.md) — QA Automation Mode (`<AgentName> test`)
-- 📄 [`02-team-protocol.md`](./02-team-protocol.md) — 17-Specialist Squad Orchestration & Phase Gates 0–8
-- 📄 [`03-workflow-guide.md`](./03-workflow-guide.md) — Workflow Guide & Session Token Budgeting
-- 📄 [`04-session-memory-format.md`](./04-session-memory-format.md) — Session Memory Template & Auto-Reset Rules
-- 📄 [`05-init-protocol.md`](./05-init-protocol.md) — Project Scaffolding & Context Gathering (`<AgentName> init`)
-- 📄 [`06-mimic-protocol.md`](./06-mimic-protocol.md) — Stack Migration Protocol (`mimic this`)
-- 📄 [`07-git-workflow.md`](./07-git-workflow.md) — Git Branching, Commit Standards & PR Conventions
+| `<Agent> init` | [`05`](./05-init-protocol.md) | Scaffold a new project with phase gates |
+| `mimic this` | [`06`](./06-mimic-protocol.md) | Stack migration from an existing codebase |
+| `<Agent> test` | [`01`](./01-sentinel-identity.md) | Sentinel QA mode |
+| `<Agent> learn` | [`10`](./10-learn-protocol.md) | Auto-learn a new stack into memory |
+| `<Agent> migrate` | [`15`](./15-migration-protocol.md) | Idempotent schema migrations |
+| `<Agent> api` | [`16`](./16-api-protocol.md) | Webhook idempotency & signatures |
+| `<Agent> ai` | [`17`](./17-ai-protocol.md) | Multi-provider failover & prompt defense |
+| `<Agent> perf` | [`45`](./45-performance-protocol.md) | N+1 & runtime profiling |
+| `<Agent> ci` | [`50`](./50-ci-cd-protocol.md) | Pipeline setup & build guards |
+| `<Agent> handoff` | [`52`](./52-handoff-protocol.md) | Client delivery report |
+| `<Agent> debug` | [`60`](./60-debug-protocol.md) | Structured 5-step debugging |
+| `<Agent> incident` | [`61`](./61-incident-protocol.md) | Emergency containment & post-mortem |
 
 </details>
 
 <details>
-<summary><b>🏗️ Build, Migration & Integration Protocols (10 – 17)</b></summary>
+<summary><b>📚 Protocol directory (36 documents)</b></summary>
 
-- 📄 [`10-learn-protocol.md`](./10-learn-protocol.md) — Auto-Learn New Tech Stacks (`<AgentName> learn`)
-- 📄 [`11-pattern-library.md`](./11-pattern-library.md) — Reusable Architecture & Component Patterns
-- 📄 [`13-adapter-protocol.md`](./13-adapter-protocol.md) — Vendor-Neutral Host Adapter Layer (`coresentinel adapter`)
-- 📄 [`14-cli-protocol.md`](./14-cli-protocol.md) — CLI Command Surface, Doctor Checks & Exit Codes
-- 📄 [`15-migration-protocol.md`](./15-migration-protocol.md) — Idempotent Schema & SQL Migrations (`<AgentName> migrate`)
-- 📄 [`16-api-protocol.md`](./16-api-protocol.md) — Webhooks, Idempotency & Signature Guard (`<AgentName> api`)
-- 📄 [`17-ai-protocol.md`](./17-ai-protocol.md) — AI Multi-Provider Failover & Prompt Defense (`<AgentName> ai`)
+**Core memory & strategy (00–08)**
+[`00-identity`](./00-identity.md) · [`01-sentinel-identity`](./01-sentinel-identity.md) · [`02-team`](./02-team-protocol.md) · [`02-quality-gates`](./02-quality-gates-protocol.md) · [`02-squad-contracts`](./02-squad-contracts-protocol.md) · [`03-workflow-guide`](./03-workflow-guide.md) · [`04-layered-memory`](./04-layered-memory-protocol.md) · [`04-session-memory-format`](./04-session-memory-format.md) · [`05-init`](./05-init-protocol.md) · [`06-mimic`](./06-mimic-protocol.md) · [`07-git-workflow`](./07-git-workflow.md) · [`08-decision-ledger`](./08-decision-ledger-protocol.md)
 
-</details>
+**Build, integration & platform (09–17)**
+[`09-audit-trail`](./09-audit-trail-protocol.md) · [`10-learn`](./10-learn-protocol.md) · [`11-pattern-library`](./11-pattern-library.md) · [`12-health-score`](./12-health-score-protocol.md) · [`13-adapter`](./13-adapter-protocol.md) · [`14-cli`](./14-cli-protocol.md) · [`15-migration`](./15-migration-protocol.md) · [`16-api`](./16-api-protocol.md) · [`17-ai`](./17-ai-protocol.md)
 
-<details>
-<summary><b>🧪 Testing & QA Protocols (25 – 29)</b></summary>
+**Testing & QA (25–30)**
+[`25-test`](./25-test-protocol.md) · [`26-test-data`](./26-test-data-protocol.md) · [`27-test-pattern-library`](./27-test-pattern-library.md) · [`28-flaky`](./28-flaky-protocol.md) · [`29-test-review`](./29-test-review-protocol.md) · [`30-selftest`](./30-selftest-protocol.md)
 
-- 📄 [`25-test-protocol.md`](./25-test-protocol.md) — Test Strategy & Speed Budgeting
-- 📄 [`26-test-data-protocol.md`](./26-test-data-protocol.md) — Test Data, Factories & Isolation Rules
-- 📄 [`27-test-pattern-library.md`](./27-test-pattern-library.md) — Proven Test Automation Patterns
-- 📄 [`28-flaky-protocol.md`](./28-flaky-protocol.md) — Flaky Test Root Cause & Isolation
-- 📄 [`29-test-review-protocol.md`](./29-test-review-protocol.md) — Test Suite Quality & Review Checklist
-- 📄 [`30-selftest-protocol.md`](./30-selftest-protocol.md) — CoreSentinel Self-Test Suite & CI Pipeline
+**Security, performance & ops (35–61)**
+[`35-review`](./35-review-protocol.md) · [`40-security`](./40-security-protocol.md) · [`45-performance`](./45-performance-protocol.md) · [`50-ci-cd`](./50-ci-cd-protocol.md) · [`51-deployment`](./51-deployment-protocol.md) · [`52-handoff`](./52-handoff-protocol.md) · [`55-self-evolution`](./55-self-evolution.md) · [`60-debug`](./60-debug-protocol.md) · [`61-incident`](./61-incident-protocol.md)
 
 </details>
-
-<details>
-<summary><b>🔒 Security, Performance & Ops Protocols (35 – 61)</b></summary>
-
-- 📄 [`35-review-protocol.md`](./35-review-protocol.md) — Code Review Checklist (Cato + Sage)
-- 📄 [`40-security-protocol.md`](./40-security-protocol.md) — Secret Protection, AppSec & Hardening
-- 📄 [`45-performance-protocol.md`](./45-performance-protocol.md) — Query Profiling & N+1 Optimization (`<AgentName> perf`)
-- 📄 [`50-ci-cd-protocol.md`](./50-ci-cd-protocol.md) — CI/CD Pipeline Protocol (`<AgentName> ci`)
-- 📄 [`51-deployment-protocol.md`](./51-deployment-protocol.md) — Deployment Recipes & Troubleshooting
-- 📄 [`52-handoff-protocol.md`](./52-handoff-protocol.md) — Client Delivery & Handoff (`<AgentName> handoff`)
-- 📄 [`55-self-evolution.md`](./55-self-evolution.md) — Self-Evolution, Skills & Anti-Patterns Log
-- 📄 [`60-debug-protocol.md`](./60-debug-protocol.md) — Structured Debugging (`<AgentName> debug`)
-- 📄 [`61-incident-protocol.md`](./61-incident-protocol.md) — Emergency Containment & Post-Mortem (`<AgentName> incident`)
-
-</details>
-
----
-
-## 👥 The 17-Specialist Squad
-
-<details open>
-<summary><b>Click to expand squad breakdown</b></summary>
-
-| Category | Specialist | Key Responsibilities |
-| :--- | :--- | :--- |
-| **Lead** | **Iris / Lead Agent** | Squad orchestration, phase gate enforcement, self-evolution recording |
-| **Fullstack** | **Atlas** | System architecture & structural design |
-| | **Kai** | Third-party integrations & webhooks |
-| | **Nova** | Core feature implementation |
-| | **Rex** | Refactoring & legacy maintenance |
-| **Frontend** | **Luna** | TS/React UI implementation & state management |
-| | **Vera** | Keyboard & screen-reader accessibility (A11y) |
-| **Review** | **Cato** | Code logic correctness & edge-case review |
-| | **Sage** | Structural maintainability & pattern review |
-| **Security** | **Argus** | OWASP AppSec & vulnerability auditing |
-| | **Cipher** | Secret protection & encryption handling |
-| | **Aegis** | Infrastructure hardening, headers & CORS safety |
-| **Database** | **Delta** | Schema normalization & idempotent migrations |
-| | **Indra** | Query profiling & N+1 optimization |
-| **Testing** | **Echo** | Unit & feature test suite authoring |
-| | **Probe** | End-to-end integration & contract testing |
-| **Support** | **Scout** | Read-only codebase & doc researcher |
-| | **Ledger** | Token telemetry & cloud expenditure tracking |
-
-</details>
-
----
-
-## 🤖 Supported AI Tools
-
-CoreSentinel binds the same Core across all major AI coding platforms via the [Adapter Layer](#-universal-host-adapter-layer) (`coresentinel adapter sync <host>`):
-
-| Host | Vendor | Global Bind Target |
-| :--- | :--- | :--- |
-| 🟢 **Claude Code** | Anthropic | `~/.claude/CLAUDE.md` |
-| 🟣 **Cursor IDE** | Anysphere | `~/.cursor/rules/coresentinel.mdc` |
-| 🟣 **Gemini CLI** | Google | `~/.gemini/GEMINI.md` |
-| 🟢 **OpenAI Codex** | OpenAI | `~/.codex/AGENTS.md` |
-| 🔵 **Google Antigravity** | Google | `~/.antigravity/AGENTS.md` |
-| ⚫ **GitHub Copilot** | GitHub | `.github/copilot-instructions.md` *(project scope)* |
-| 🟠 **Windsurf** | Codeium | `~/.codeium/windsurf/memories/global_rules.md` |
-| ⚪ **Generic Agent** | Open Standard | `AGENTS.md` *(project scope)* |
-
----
-
-## 📊 Token Usage Telemetry
-
-Track token spend and usage statistics across all installed AI tools:
-
-```bash
-python agent-stats.py
-```
-
-Outputs formatted analytics detailing input/output token counts, tool breakdowns, session durations, and hot files edited.
 
 ---
 
 ## 📄 License
 
-Distributed under the **MIT License**. See [`LICENSE`](./LICENSE) for details.
+MIT — see [`LICENSE`](./LICENSE).
