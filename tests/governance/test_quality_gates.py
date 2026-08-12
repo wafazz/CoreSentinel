@@ -1,0 +1,80 @@
+"""Quality Gates pipeline — ordering, waivers, reset and ledger persistence."""
+
+import json
+
+import pytest
+
+
+@pytest.fixture
+def gates(tmp_path, monkeypatch):
+    import coresentinel_gates as engine
+
+    memory_dir = tmp_path / "memory"
+    memory_dir.mkdir()
+    monkeypatch.setattr(engine, "MEMORY_DIR", memory_dir)
+    monkeypatch.setattr(engine, "GATES_FILE", memory_dir / "gates.json")
+    return engine
+
+
+class TestPipelineDefinition:
+    def test_declares_eight_ordered_gates(self, gates):
+        assert len(gates.GATE_PIPELINE) == 8
+
+    def test_security_precedes_implementation(self, gates):
+        """Security review must gate implementation, not trail it."""
+        pipeline = gates.GATE_PIPELINE
+        assert pipeline.index("Security") < pipeline.index("Implementation")
+
+    def test_verification_precedes_deployment(self, gates):
+        pipeline = gates.GATE_PIPELINE
+        assert pipeline.index("Verification") < pipeline.index("Deployment")
+
+    def test_deployment_is_the_final_gate(self, gates):
+        assert gates.GATE_PIPELINE[-1] == "Deployment"
+
+    def test_gate_names_are_unique(self, gates):
+        assert len(gates.GATE_PIPELINE) == len(set(gates.GATE_PIPELINE))
+
+
+class TestGateLedger:
+    def test_initializes_every_gate(self, gates):
+        gates.ensure_gates_file()
+        state = gates.load_gates()
+        assert len(state["gates"]) == 8
+
+    def test_save_and_load_roundtrip(self, gates):
+        gates.ensure_gates_file()
+        state = gates.load_gates()
+        state["gates"]["Plan"]["status"] = "FAIL"
+        gates.save_gates(state)
+        assert gates.load_gates()["gates"]["Plan"]["status"] == "FAIL"
+
+    def test_reset_clears_prior_results(self, gates):
+        gates.ensure_gates_file()
+        state = gates.load_gates()
+        state["gates"]["Plan"]["status"] = "FAIL"
+        gates.save_gates(state)
+
+        gates.reset_gates()
+        assert gates.load_gates()["gates"]["Plan"]["status"] != "FAIL"
+
+
+class TestWaivers:
+    def test_waiver_records_the_rationale(self, gates):
+        gates.ensure_gates_file()
+        gates.waive_gate("Security", "Sandbox environment, approved by Fakrul")
+
+        gate = gates.load_gates()["gates"]["Security"]
+        assert gate["status"] == "WAIVED"
+        assert "Sandbox environment" in (gate.get("waived_reason") or gate.get("reason") or "")
+
+    def test_waiver_never_silently_reports_pass(self, gates):
+        """A waived gate must stay distinguishable from a genuinely passed one."""
+        gates.ensure_gates_file()
+        gates.waive_gate("Test", "No test suite in this repository")
+        assert gates.load_gates()["gates"]["Test"]["status"] == "WAIVED"
+
+    def test_unknown_gate_is_rejected(self, gates, capsys):
+        gates.ensure_gates_file()
+        gates.waive_gate("NotAGate", "should not apply")
+        assert "NotAGate" not in gates.load_gates()["gates"]

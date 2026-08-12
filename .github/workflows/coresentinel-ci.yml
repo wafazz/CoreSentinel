@@ -1,0 +1,212 @@
+name: CoreSentinel CI
+
+# Pull Request → Tests → Security → Lint → Integration → Compatibility → PASS / FAIL
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONIOENCODING: utf-8
+
+jobs:
+  tests:
+    name: CoreSentinel Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install test dependencies
+        run: python -m pip install --upgrade pip -r requirements-dev.txt
+
+      - name: Unit suite (memory, governance, verification, agents, recovery, telemetry)
+        run: |
+          python -m pytest tests \
+            --ignore=tests/integration \
+            --ignore=tests/security \
+            -q --junitxml=junit-unit.xml
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: junit-unit.xml
+
+  security:
+    name: Security
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: python -m pip install --upgrade pip -r requirements-dev.txt
+
+      - name: Security scanner test suite
+        run: python -m pytest tests/security -q
+
+      - name: Anti-pattern & secret scan of the working tree
+        run: python sentinel-validator.py
+
+      - name: Static review of the pull request diff
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin ${{ github.base_ref }} --depth=1
+          git diff --name-only origin/${{ github.base_ref }}...HEAD
+          python coresentinel.py review
+
+  lint:
+    name: Lint
+    needs: security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: python -m pip install --upgrade pip ruff -r requirements-dev.txt
+
+      - name: Byte-compile every engine
+        run: python -m compileall -q . -x "[.]git"
+
+      - name: Ruff — syntax errors and undefined names
+        run: ruff check --select E9,F63,F7,F82 .
+
+      - name: Validate every JSON registry parses
+        run: |
+          python - <<'PY'
+          import json, sys
+          from pathlib import Path
+          failed = []
+          for path in Path('.').glob('*.json'):
+              try:
+                  json.loads(path.read_text(encoding='utf-8-sig'))
+              except (json.JSONDecodeError, ValueError) as exc:
+                  failed.append(f"{path.name}: {exc}")
+          for path in Path('memory').glob('*.json'):
+              try:
+                  json.loads(path.read_text(encoding='utf-8-sig'))
+              except (json.JSONDecodeError, ValueError) as exc:
+                  failed.append(f"memory/{path.name}: {exc}")
+          if failed:
+              print('Invalid JSON:', *failed, sep='\n  ')
+              sys.exit(1)
+          print('All JSON registries parse cleanly.')
+          PY
+
+  integration:
+    name: Integration
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: python -m pip install --upgrade pip -r requirements-dev.txt
+
+      - name: Integration suite
+        run: python -m pytest tests/integration -q --junitxml=junit-integration.xml
+
+      - name: CLI smoke — doctor must report a healthy Core
+        run: python coresentinel.py doctor --verbose
+
+      - name: CLI smoke — governance surfaces respond
+        run: |
+          python coresentinel.py status
+          python coresentinel.py context
+          python coresentinel.py agent list
+          python coresentinel.py gate status
+          python coresentinel.py adapter list
+
+      - name: CLI smoke — JSON contracts are machine-readable
+        run: |
+          python coresentinel.py doctor --json | python -c "import sys,json; json.load(sys.stdin)"
+          python coresentinel.py status --json | python -c "import sys,json; json.load(sys.stdin)"
+          python coresentinel.py context --json | python -c "import sys,json; json.load(sys.stdin)"
+          python coresentinel.py review --json | python -c "import sys,json; json.load(sys.stdin)"
+          python coresentinel.py adapter export --json | python -c "import sys,json; json.load(sys.stdin)"
+
+      - name: Evidence-Based Verification Suite
+        run: python coresentinel.py verify --claim "CoreSentinel CI integration stage"
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-report
+          path: junit-integration.xml
+
+  compatibility:
+    name: Compatibility
+    needs: integration
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.9', '3.11', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - run: python -m pip install --upgrade pip -r requirements-dev.txt
+
+      - name: Full suite on ${{ matrix.os }} / Python ${{ matrix.python-version }}
+        run: python -m pytest tests -q
+
+      - name: CLI runs on this platform
+        run: |
+          python coresentinel.py doctor
+          python coresentinel.py status
+
+  gate:
+    name: PASS / FAIL
+    needs: [tests, security, lint, integration, compatibility]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate the pipeline result
+        run: |
+          echo "Tests         : ${{ needs.tests.result }}"
+          echo "Security      : ${{ needs.security.result }}"
+          echo "Lint          : ${{ needs.lint.result }}"
+          echo "Integration   : ${{ needs.integration.result }}"
+          echo "Compatibility : ${{ needs.compatibility.result }}"
+          echo "-----------------------------------------------"
+          if [ "${{ needs.tests.result }}" != "success" ] || \
+             [ "${{ needs.security.result }}" != "success" ] || \
+             [ "${{ needs.lint.result }}" != "success" ] || \
+             [ "${{ needs.integration.result }}" != "success" ] || \
+             [ "${{ needs.compatibility.result }}" != "success" ]; then
+            echo "CoreSentinel CI: FAIL"
+            exit 1
+          fi
+          echo "CoreSentinel CI: PASS"

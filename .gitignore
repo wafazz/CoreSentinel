@@ -4,6 +4,12 @@ agent-usage-log.json
 *.tmp
 __pycache__/
 
+# Test & lint runtime artifacts
+.pytest_cache/
+.ruff_cache/
+junit-*.xml
+.coverage
+
 # OS & Editor metadata
 .DS_Store
 Thumbs.db

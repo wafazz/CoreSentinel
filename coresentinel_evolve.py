@@ -8,7 +8,6 @@ Prevents unauthorized autonomous rule/governance mutations.
 import sys
 import os
 import json
-import random
 from pathlib import Path
 from datetime import datetime
 
@@ -40,12 +39,17 @@ def save_proposals(proposals):
     with open(EVOLUTION_FILE, "w", encoding="utf-8") as f:
         json.dump(proposals, f, indent=2)
 
-def generate_evo_id():
-    return f"EVO-{random.randint(100, 999):03d}"
+def generate_evo_id(existing_proposals=None):
+    """Sequential and collision-free — a duplicate id would make approvals ambiguous."""
+    used = {p.get("id") for p in (existing_proposals or [])}
+    number = len(used) + 1
+    while f"EVO-{number:03d}" in used:
+        number += 1
+    return f"EVO-{number:03d}"
 
 def propose_evolution(target_protocol, change_description, evidence, impact_analysis="Low risk; non-breaking rule addition"):
     proposals = load_proposals()
-    evo_id = generate_evo_id()
+    evo_id = generate_evo_id(proposals)
 
     entry = {
         "id": evo_id,

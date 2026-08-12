@@ -22,6 +22,39 @@
 
 ---
 
+## 🧪 CoreSentinel Tests Itself
+
+A governance system that is not itself tested is an unverified claim. CoreSentinel ships a **300-test suite covering its own 8 subsystems**:
+
+```text
+tests/
+├── memory/        Layered memory, confidence classification, ADR ledger
+├── governance/    Quality gates, self-evolution pipeline, protocol integrity
+├── verification/  Evidence suite, health scoring, static review engine
+├── security/      Secret & anti-pattern scanner, rule database integrity
+├── agents/        17-specialist contracts & authority boundaries
+├── recovery/      Corrupt, missing and BOM-encoded state handling
+├── telemetry/     Session log parsing & token accounting
+└── integration/   End-to-end CLI behaviour in a sandboxed Core
+```
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest
+```
+
+The suite never touches the real `memory/` directory, your home directory, or any host config path — mutating tests run against a sandbox copy of the Core.
+
+### CI Pipeline
+
+```text
+Pull Request ➔ Tests ➔ Security ➔ Lint ➔ Integration ➔ Compatibility ➔ PASS / FAIL
+```
+
+Each stage gates the next, so a security failure never reaches Integration. Compatibility runs the full suite across **3 operating systems × 3 Python versions** (floor: Python 3.9). See [`30-selftest-protocol.md`](./30-selftest-protocol.md).
+
+---
+
 ## ⌨️ The `coresentinel` CLI
 
 Every engine is reachable from one command surface, with grouped help, per-command usage (`coresentinel help <command>`), `--json` output, and CI-safe exit codes:
@@ -460,6 +493,7 @@ When you run `setup.ps1` or `setup.sh`, the installer interactively prompts you 
 - 📄 [`27-test-pattern-library.md`](./27-test-pattern-library.md) — Proven Test Automation Patterns
 - 📄 [`28-flaky-protocol.md`](./28-flaky-protocol.md) — Flaky Test Root Cause & Isolation
 - 📄 [`29-test-review-protocol.md`](./29-test-review-protocol.md) — Test Suite Quality & Review Checklist
+- 📄 [`30-selftest-protocol.md`](./30-selftest-protocol.md) — CoreSentinel Self-Test Suite & CI Pipeline
 
 </details>
 

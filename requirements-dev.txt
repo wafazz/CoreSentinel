@@ -1,0 +1,2 @@
+# CoreSentinel self-test suite dependencies
+pytest>=7.4

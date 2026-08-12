@@ -31,10 +31,11 @@
 - **Adapter Layer**: Bind the Core to any AI host. Trigger: `coresentinel adapter sync`. Protocol: [Adapters](./13-adapter-protocol.md)
 
 ## Active Projects
-1. [Daisy CRM](./Projects/01-daisy-crm.md)
-2. [AgenticCore](./Projects/02-agenticcore.md) - Portable agent memory system (Markdown + Bash/PowerShell + Python)
-3. [AutomationSentinel](./Projects/03-automationsentinel.md) - QA automation expansion pack for MemoryCore (Markdown + Bash/PowerShell)
-<!-- Add your projects here as you create them -->
+- [Example Project](./Projects/01-example-project.md) - Reference entry
+- Daisy CRM - *(no project file yet)*
+- AgenticCore - Portable agent memory system (Markdown + Bash/PowerShell + Python) - *(no project file yet)*
+- AutomationSentinel - QA automation expansion pack for MemoryCore (Markdown + Bash/PowerShell) - *(no project file yet)*
+<!-- Copy ./Projects/_template.md to ./Projects/<nn>-<name>.md, then link it above -->
 
 ## Protocols & References (Arranged in Process Order: 00 to 61)
 01. [Sentinel Identity](./01-sentinel-identity.md) - QA automation mode ("Iris test")
@@ -56,6 +57,7 @@
 27. [Test Pattern Library](./27-test-pattern-library.md) - Solved testing patterns
 28. [Flaky Protocol](./28-flaky-protocol.md) - Flaky test elimination
 29. [Test Review Protocol](./29-test-review-protocol.md) - Test code review
+30. [Self-Test Protocol](./30-selftest-protocol.md) - CoreSentinel's own test suite & CI pipeline (`pytest`)
 35. [Review Protocol](./35-review-protocol.md) - Code review checklist
 40. [Security Protocol](./40-security-protocol.md) - Secret protection, injection prevention & auth security
 45. [Performance Protocol](./45-performance-protocol.md) - Query profiling, N+1 & runtime optimization (`Iris perf`)

@@ -18,6 +18,12 @@ if hasattr(sys.stdout, "reconfigure"):
 SCRIPT_DIR = Path(__file__).parent.resolve()
 ANTI_PATTERNS_FILE = SCRIPT_DIR / "anti-patterns.json"
 
+# A scanner's own test fixtures must contain the very patterns it hunts for.
+# Such a file opts out by declaring this marker in its first lines. Every skip is
+# logged, so an opt-out is always visible in the scan output and greppable in review.
+FIXTURE_MARKER = "CORESENTINEL:SCANNER-FIXTURES"
+FIXTURE_MARKER_MAX_LINE = 20
+
 def log(msg, level="INFO"):
     prefixes = {
         "INFO": "[+] ",
@@ -40,11 +46,17 @@ def load_anti_patterns():
         log(f"Error loading anti-patterns: {e}", "ERROR")
         return []
 
+def declares_fixture_marker(content):
+    """True when a file declares itself a scanner-fixture file in its opening lines."""
+    head = content.splitlines()[:FIXTURE_MARKER_MAX_LINE]
+    return any(FIXTURE_MARKER in line for line in head)
+
+
 def check_secrets_and_security(files):
     violations = []
     secret_patterns = [
         (re.compile(r'(?i)(api[_-]?key|secret[_-]?key|auth[_-]?token)\s*=\s*["\'][A-Za-z0-9_\-]{16,}["\']'), "Potential hardcoded secret key"),
-        (re.compile(r'-----BEGIN (RSA|EC|PRIVATE) KEY-----'), "Hardcoded private key block")
+        (re.compile(r'-----BEGIN (?:[A-Z0-9]+ )?PRIVATE KEY-----'), "Hardcoded private key block")
     ]
     for file_path in files:
         if not os.path.isfile(file_path):
@@ -55,6 +67,9 @@ def check_secrets_and_security(files):
         try:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
+                if declares_fixture_marker(content):
+                    log(f"Scanner-fixture file, secret scan skipped: {file_path}", "WARNING")
+                    continue
                 for pattern, desc in secret_patterns:
                     if pattern.search(content):
                         violations.append((file_path, desc))
@@ -78,6 +93,9 @@ def check_superficial_patches(files):
         try:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
+                if declares_fixture_marker(content):
+                    log(f"Scanner-fixture file, anti-pattern scan skipped: {file_path}", "WARNING")
+                    continue
                 for pattern, desc in patch_patterns:
                     if pattern.search(content):
                         violations.append((file_path, desc))
