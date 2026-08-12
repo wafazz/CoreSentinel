@@ -18,8 +18,9 @@
     "proposed_change": "Add CORESENTINEL:SCANNER-FIXTURES opt-out marker (opening 20 lines only) so scanner test-fixture files are exempt from secret/anti-pattern scanning; every skip is logged",
     "evidence": "Self-test suite commit: 8 false-positive violations raised against tests/security, tests/verification and tests/integration fixture files that exist solely to prove the scanner catches those patterns",
     "impact_analysis": "Medium risk; narrows scan scope. Mitigations: marker must appear in the first 20 lines, every exemption is printed in scan output, and 5 tests cover the mechanism including a buried-marker bypass attempt",
-    "review_status": "PENDING_REVIEW",
-    "approver": null,
-    "version": "1.2.0"
+    "review_status": "APPROVED",
+    "approver": "Fakrul",
+    "version": "1.2.0",
+    "approved_at": "2026-08-12 13:56:36"
   }
 ]
