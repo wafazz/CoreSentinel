@@ -1,71 +1,96 @@
 # 🛡️ CoreSentinel
 
-> **Universal AI Agent Protocol, Memory & Autonomous Squad System**  
-> *Transform any AI coding assistant into a disciplined, self-evolving software engineering organization.*
+> **Universal AI Agent Governance, Memory Core & Autonomous Squad System**  
+> *Transform any AI coding assistant into a disciplined, self-evolving software engineering squad.*
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https.LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Claude_Code_|_Antigravity_|_Gemini_|_Codex_|_Cursor-blue)](#-supported-ai-tools)
+<div align="center">
 
-**CoreSentinel** is an open-source, file-based memory and governance framework for AI coding assistants. It equips agents with structured software development lifecycles (SDLC), mandatory 17-specialist squad reviews, strict security hardening, zero-hallucination verification gates, continuous self-evolution, and cross-project token telemetry.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Platform](https://img.shields.io/badge/Platforms-Claude_Code_%7C_Antigravity_%7C_Gemini_%7C_Codex_%7C_Cursor-blue)](#-supported-ai-tools)
+[![Squad](https://img.shields.io/badge/Squad-17_Specialists-brightgreen)](#-the-17-specialist-squad)
+[![Protocols](https://img.shields.io/badge/Protocols-30+_Files-orange)](#-interactive-protocol-directory)
 
----
+[🚀 Quick Start](#-quick-start) • [⚡ Interactive Commands](#-interactive-command-console) • [🗺️ SDLC Workflow](#-sdlc-workflow--phase-gates) • [👥 17-Specialist Squad](#-the-17-specialist-squad) • [📊 Telemetry](#-token-usage-telemetry)
 
-## 🚀 Key Features
-
-- **🏛️ 17-Specialist Autonomous Squad**: Iris leads specialized personas across Architecture, Security, AppSec, Infra Hardening, Database, Testing, Code Review, UX/A11y, and Cost.
-- **🔄 Sequenced SDLC Phase Gates**: 9 ordered phases (Phase 0 Intake → Phase 8 Ship & Persist) with zero skipped gates.
-- **🛡️ QA Sentinel Mode (`Iris test`)**: Dedicated test-driven automation mode designed to detect flakes, enforce test independence, and prevent false-pass assertions.
-- **🧠 Continuous Self-Evolution Engine**: Auto-records skills and anti-patterns after every task so past mistakes are never repeated.
-- **📊 Cross-Tool Telemetry & Analytics**: Scans logs from Claude Code, OpenAI Codex, Antigravity, Gemini CLI, Cursor, and Windsurf to report real-time token spend per project.
-- **🔌 Universal Compatibility**: Works seamlessly with any AI CLI or IDE assistant without requiring binary plugins or language lock-in.
+</div>
 
 ---
 
-## 🗺️ Process Roadmap & Protocols
+## 💡 What is CoreSentinel?
 
-CoreSentinel arranges all protocols chronologically from initial project intake down to post-deployment evolution and incident response:
-
-| Stage / Phase | Protocol File | Purpose / Trigger |
-|---|---|---|
-| **00 — Identity** | [`00-identity.md`](./00-identity.md) | Central Memory Core & Agent Identity Index |
-| | [`01-sentinel-identity.md`](./01-sentinel-identity.md) | QA Automation Mode (`Iris test`) |
-| | [`02-team-protocol.md`](./02-team-protocol.md) | 17-Specialist Squad Orchestration & Phase Gates 0–8 |
-| | [`03-workflow-guide.md`](./03-workflow-guide.md) | Workflow Guide & Session Token Budgeting |
-| | [`04-session-memory-format.md`](./04-session-memory-format.md) | Session Memory Template & Auto-Reset Rules |
-| **Phase 0 — Intake** | [`05-init-protocol.md`](./05-init-protocol.md) | Project Scaffolding & Context Gathering (`Iris init`) |
-| | [`06-mimic-protocol.md`](./06-mimic-protocol.md) | Stack Migration Protocol (`mimic this`) |
-| | [`07-git-workflow.md`](./07-git-workflow.md) | Git Branching, Commit Standards & PR Conventions |
-| **Phase 1 — Research** | [`10-learn-protocol.md`](./10-learn-protocol.md) | Auto-Learn New Tech Stacks (`Iris learn`) |
-| | [`11-pattern-library.md`](./11-pattern-library.md) | Reusable Architecture & Component Patterns |
-| **Phase 2 & 3 — Build** | [`15-migration-protocol.md`](./15-migration-protocol.md) | Idempotent Schema & SQL Migrations (`Iris migrate`) |
-| | [`16-api-protocol.md`](./16-api-protocol.md) | Webhooks, Idempotency & Signature Guard (`Iris api`) |
-| | [`17-ai-protocol.md`](./17-ai-protocol.md) | AI Multi-Provider Failover & Prompt Defense (`Iris ai`) |
-| **Phase 4 — Testing** | [`25-test-protocol.md`](./25-test-protocol.md) | Test Strategy & Speed Budgeting |
-| | [`26-test-data-protocol.md`](./26-test-data-protocol.md) | Test Data, Factories & Isolation Rules |
-| | [`27-test-pattern-library.md`](./27-test-pattern-library.md) | Proven Test Automation Patterns |
-| | [`28-flaky-protocol.md`](./28-flaky-protocol.md) | Flaky Test Root Cause & Isolation |
-| | [`29-test-review-protocol.md`](./29-test-review-protocol.md) | Test Suite Quality & Review Checklist |
-| **Phase 5 — Review** | [`35-review-protocol.md`](./35-review-protocol.md) | Code Review Checklist (Cato + Sage) |
-| **Phase 6 — Security** | [`40-security-protocol.md`](./40-security-protocol.md) | Secret Protection, AppSec & Hardening |
-| **Phase 7 — Cost & Perf**| [`45-performance-protocol.md`](./45-performance-protocol.md) | Query Profiling & N+1 Optimization (`Iris perf`) |
-| **Phase 8 — Ship** | [`50-ci-cd-protocol.md`](./50-ci-cd-protocol.md) | CI/CD Pipeline Protocol (`Iris ci`) |
-| | [`51-deployment-protocol.md`](./51-deployment-protocol.md) | Deployment Recipes & Troubleshooting |
-| | [`52-handoff-protocol.md`](./52-handoff-protocol.md) | Client Delivery & Handoff (`Iris handoff`) |
-| **Post-Ship & Ops** | [`55-self-evolution.md`](./55-self-evolution.md) | Self-Evolution, Skills & Anti-Patterns Log |
-| | [`60-debug-protocol.md`](./60-debug-protocol.md) | Structured Debugging (`Iris debug`) |
-| | [`61-incident-protocol.md`](./61-incident-protocol.md) | Emergency Containment & Post-Mortem (`Iris incident`) |
+**CoreSentinel** is an open-source, file-based memory and governance framework for AI coding assistants. It equips agents with structured software development lifecycles (SDLC), mandatory multi-specialist squad reviews, strict security hardening, zero-hallucination verification gates, continuous self-evolution, and cross-project token telemetry.
 
 ---
 
-## ⚡ Quick Start
+## 🗺️ SDLC Workflow & Phase Gates
+
+```mermaid
+flowchart TD
+    subgraph Intake["Phase 0: Intake & Architecture"]
+        A["Iris Init / Mimic"] --> B["Scout Research"]
+        B --> C["Architect Design"]
+    end
+
+    subgraph Build["Phases 1-3: Construction"]
+        C --> D["Builder Implementation"]
+        D --> E["Database & API Protocols"]
+    end
+
+    subgraph QA["Phase 4: QA & Testing"]
+        E --> F["Tester / QA Mode ('Iris test')"]
+        F --> G["Flaky Elimination"]
+    end
+
+    subgraph Security["Phases 5-7: Hardening & Review"]
+        G --> H["Cato & Sage Code Review"]
+        H --> I["Security Hardening (AppSec)"]
+        I --> J["Performance Profiling"]
+    end
+
+    subgraph Ship["Phase 8: Ship & Self-Evolve"]
+        J --> K["CI/CD & Deployment"]
+        K --> L["Self-Evolution Recording"]
+    end
+```
+
+---
+
+## ⚡ Interactive Command Console
+
+<details open>
+<summary><b>🔥 Click to view available trigger commands</b></summary>
+
+| Trigger Command | Target Protocol | Description |
+| :--- | :--- | :--- |
+| `show stats` | [`agent-stats.py`](./agent-stats.py) | View token usage & session analytics across all detected AI tools |
+| `<AgentName> init` | [`05-init-protocol.md`](./05-init-protocol.md) | Scaffolds a new project with SDLC phase gates & architecture templates |
+| `mimic this` | [`06-mimic-protocol.md`](./06-mimic-protocol.md) | Activates MIMIC stack migration from an existing codebase |
+| `<AgentName> test` | [`01-sentinel-identity.md`](./01-sentinel-identity.md) | Activates Sentinel QA Mode for unit, integration, and E2E test isolation |
+| `<AgentName> learn` | [`10-learn-protocol.md`](./10-learn-protocol.md) | Auto-learns new tech stacks & records patterns into memory |
+| `<AgentName> migrate` | [`15-migration-protocol.md`](./15-migration-protocol.md) | Idempotent database schema alterations & SQL migration guard |
+| `<AgentName> api` | [`16-api-protocol.md`](./16-api-protocol.md) | Webhook idempotency, signatures & backoff handlers |
+| `<AgentName> ai` | [`17-ai-protocol.md`](./17-ai-protocol.md) | Multi-provider failover, token metering & prompt defense |
+| `<AgentName> perf` | [`45-performance-protocol.md`](./45-performance-protocol.md) | N+1 query profiling & runtime memory optimization |
+| `<AgentName> ci` | [`50-ci-cd-protocol.md`](./50-ci-cd-protocol.md) | Pipeline setup, test environment isolation & build guards |
+| `<AgentName> handoff` | [`52-handoff-protocol.md`](./52-handoff-protocol.md) | Client delivery protocol & handoff report generation |
+| `<AgentName> debug` | [`60-debug-protocol.md`](./60-debug-protocol.md) | Structured 5-step debugging & hypothesis verification |
+| `<AgentName> incident` | [`61-incident-protocol.md`](./61-incident-protocol.md) | Emergency incident response, containment & post-mortem |
+
+</details>
+
+---
+
+## 🚀 Quick Start & Interactive Setup
+
+CoreSentinel includes an **interactive installer** that configures your agent name, role, sub-agent squad preferences, and automatically binds rules to all local AI tools.
 
 ### 1. Clone CoreSentinel
 ```bash
-git clone https://github.com/your-username/CoreSentinel.git
+git clone https://github.com/wafazz/CoreSentinel.git
 cd CoreSentinel
 ```
 
-### 2. Run Auto-Installer / Tool Binder
+### 2. Run Interactive Installer
 
 #### On Windows (PowerShell):
 ```powershell
@@ -78,36 +103,121 @@ chmod +x setup.sh
 ./setup.sh
 ```
 
-The installer updates `memorycore.conf` and binds CoreSentinel system instructions directly into your global AI tool configuration directories (`~/.claude`, `~/.antigravity`, `~/.gemini`, `~/.codex`, `~/.cursor`).
+<details>
+<summary><b>⚙️ View Interactive Setup Questions Asked During Installation</b></summary>
+
+When you run `setup.ps1` or `setup.sh`, the installer interactively prompts you for:
+
+```text
+1) Agent Name? [Default: Iris]
+2) Agent acts as what? [Default: Universal coding agent for Fakrul]
+3) Create sub-agents or not? (Y/N) [Default: Y]
+4) How many sub-agents? [Default: 17]
+5) Sub-agents auto-named or give name?
+   [1] Auto-named (Standard 17 Squad names: Scout, Architect, Builder, Tester, etc.)
+   [2] Give custom names manually
+```
+
+*(Note: For non-interactive automation or CI runs, pass `-NonInteractive` on PowerShell or `NON_INTERACTIVE=1` on Bash).*
+
+</details>
 
 ---
 
-## 🤖 Supported AI Tools
+## 📚 Interactive Protocol Directory
 
-CoreSentinel binds to all major agentic AI coding platforms out of the box:
-- **Claude Code** (`~/.claude/CLAUDE.md`)
-- **Google Antigravity** (`~/.antigravity/AGENTS.md`)
-- **Gemini CLI** (`~/.gemini/GEMINI.md`)
-- **OpenAI Codex** (`~/.codex/AGENTS.md`)
-- **Cursor IDE** (`~/.cursor/rules/coresentinel.mdc`)
-- **Windsurf, Copilot, Cline, Aider** (via `AGENTS.md` standard)
+<details>
+<summary><b>📂 Core Memory & Strategy Protocols (00 – 07)</b></summary>
+
+- 📄 [`00-identity.md`](./00-identity.md) — Central Memory Core & Agent Identity Index
+- 📄 [`01-sentinel-identity.md`](./01-sentinel-identity.md) — QA Automation Mode (`<AgentName> test`)
+- 📄 [`02-team-protocol.md`](./02-team-protocol.md) — 17-Specialist Squad Orchestration & Phase Gates 0–8
+- 📄 [`03-workflow-guide.md`](./03-workflow-guide.md) — Workflow Guide & Session Token Budgeting
+- 📄 [`04-session-memory-format.md`](./04-session-memory-format.md) — Session Memory Template & Auto-Reset Rules
+- 📄 [`05-init-protocol.md`](./05-init-protocol.md) — Project Scaffolding & Context Gathering (`<AgentName> init`)
+- 📄 [`06-mimic-protocol.md`](./06-mimic-protocol.md) — Stack Migration Protocol (`mimic this`)
+- 📄 [`07-git-workflow.md`](./07-git-workflow.md) — Git Branching, Commit Standards & PR Conventions
+
+</details>
+
+<details>
+<summary><b>🏗️ Build, Migration & Integration Protocols (10 – 17)</b></summary>
+
+- 📄 [`10-learn-protocol.md`](./10-learn-protocol.md) — Auto-Learn New Tech Stacks (`<AgentName> learn`)
+- 📄 [`11-pattern-library.md`](./11-pattern-library.md) — Reusable Architecture & Component Patterns
+- 📄 [`15-migration-protocol.md`](./15-migration-protocol.md) — Idempotent Schema & SQL Migrations (`<AgentName> migrate`)
+- 📄 [`16-api-protocol.md`](./16-api-protocol.md) — Webhooks, Idempotency & Signature Guard (`<AgentName> api`)
+- 📄 [`17-ai-protocol.md`](./17-ai-protocol.md) — AI Multi-Provider Failover & Prompt Defense (`<AgentName> ai`)
+
+</details>
+
+<details>
+<summary><b>🧪 Testing & QA Protocols (25 – 29)</b></summary>
+
+- 📄 [`25-test-protocol.md`](./25-test-protocol.md) — Test Strategy & Speed Budgeting
+- 📄 [`26-test-data-protocol.md`](./26-test-data-protocol.md) — Test Data, Factories & Isolation Rules
+- 📄 [`27-test-pattern-library.md`](./27-test-pattern-library.md) — Proven Test Automation Patterns
+- 📄 [`28-flaky-protocol.md`](./28-flaky-protocol.md) — Flaky Test Root Cause & Isolation
+- 📄 [`29-test-review-protocol.md`](./29-test-review-protocol.md) — Test Suite Quality & Review Checklist
+
+</details>
+
+<details>
+<summary><b>🔒 Security, Performance & Ops Protocols (35 – 61)</b></summary>
+
+- 📄 [`35-review-protocol.md`](./35-review-protocol.md) — Code Review Checklist (Cato + Sage)
+- 📄 [`40-security-protocol.md`](./40-security-protocol.md) — Secret Protection, AppSec & Hardening
+- 📄 [`45-performance-protocol.md`](./45-performance-protocol.md) — Query Profiling & N+1 Optimization (`<AgentName> perf`)
+- 📄 [`50-ci-cd-protocol.md`](./50-ci-cd-protocol.md) — CI/CD Pipeline Protocol (`<AgentName> ci`)
+- 📄 [`51-deployment-protocol.md`](./51-deployment-protocol.md) — Deployment Recipes & Troubleshooting
+- 📄 [`52-handoff-protocol.md`](./52-handoff-protocol.md) — Client Delivery & Handoff (`<AgentName> handoff`)
+- 📄 [`55-self-evolution.md`](./55-self-evolution.md) — Self-Evolution, Skills & Anti-Patterns Log
+- 📄 [`60-debug-protocol.md`](./60-debug-protocol.md) — Structured Debugging (`<AgentName> debug`)
+- 📄 [`61-incident-protocol.md`](./61-incident-protocol.md) — Emergency Containment & Post-Mortem (`<AgentName> incident`)
+
+</details>
 
 ---
 
 ## 👥 The 17-Specialist Squad
 
-Iris leads 17 specialized roles who participate across the project lifecycle:
+<details open>
+<summary><b>Click to expand squad breakdown</b></summary>
 
-| Category | Specialists | Key Responsibilities |
-|---|---|---|
-| **Lead** | **Iris** | Squad orchestration, phase gate enforcement, self-evolution recording |
-| **Fullstack** | **Atlas**, **Kai**, **Nova**, **Rex** | Architecture, integrations, core features, refactoring & maintenance |
-| **Frontend** | **Luna**, **Vera** | TS/React implementation, UI polish, keyboard/screen-reader accessibility |
-| **Code Review** | **Cato**, **Sage** | Logic correctness, edge cases, structural maintainability |
-| **Security** | **Argus**, **Cipher**, **Aegis** | Supply chain, OWASP AppSec, infrastructure hardening & CORS/headers |
-| **Database** | **Delta**, **Indra** | Normalization & migrations, index profiling & N+1 query optimization |
-| **Testing** | **Echo**, **Probe** | Unit/feature suites, end-to-end integration & contract testing |
-| **Support** | **Scout**, **Ledger** | Documentation research (read-only), token & cloud infra cost metering |
+| Category | Specialist | Key Responsibilities |
+| :--- | :--- | :--- |
+| **Lead** | **Iris / Lead Agent** | Squad orchestration, phase gate enforcement, self-evolution recording |
+| **Fullstack** | **Atlas** | System architecture & structural design |
+| | **Kai** | Third-party integrations & webhooks |
+| | **Nova** | Core feature implementation |
+| | **Rex** | Refactoring & legacy maintenance |
+| **Frontend** | **Luna** | TS/React UI implementation & state management |
+| | **Vera** | Keyboard & screen-reader accessibility (A11y) |
+| **Review** | **Cato** | Code logic correctness & edge-case review |
+| | **Sage** | Structural maintainability & pattern review |
+| **Security** | **Argus** | OWASP AppSec & vulnerability auditing |
+| | **Cipher** | Secret protection & encryption handling |
+| | **Aegis** | Infrastructure hardening, headers & CORS safety |
+| **Database** | **Delta** | Schema normalization & idempotent migrations |
+| | **Indra** | Query profiling & N+1 optimization |
+| **Testing** | **Echo** | Unit & feature test suite authoring |
+| | **Probe** | End-to-end integration & contract testing |
+| **Support** | **Scout** | Read-only codebase & doc researcher |
+| | **Ledger** | Token telemetry & cloud expenditure tracking |
+
+</details>
+
+---
+
+## 🤖 Supported AI Tools
+
+CoreSentinel automatically binds rules across all major AI coding platforms:
+
+- 🟢 **Claude Code** (`~/.claude/CLAUDE.md`)
+- 🔵 **Google Antigravity** (`~/.antigravity/AGENTS.md`)
+- 🟣 **Gemini CLI** (`~/.gemini/GEMINI.md`)
+- 🟢 **OpenAI Codex** (`~/.codex/AGENTS.md`)
+- 🟣 **Cursor IDE** (`~/.cursor/rules/coresentinel.mdc`)
 
 ---
 
@@ -119,10 +229,7 @@ Track token spend and usage statistics across all installed AI tools:
 python agent-stats.py
 ```
 
-Outputs formatted tables detailing:
-- Input / Output token counts per project
-- Tool breakdown (Claude, Antigravity, Gemini, Codex)
-- Total session counts & estimated expenditure
+Outputs formatted analytics detailing input/output token counts, tool breakdowns, session durations, and hot files edited.
 
 ---
 
