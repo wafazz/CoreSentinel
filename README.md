@@ -42,6 +42,47 @@ Score               : 100/100
 
 ---
 
+## 🧠 Layered Memory Engine & Confidence Matrix
+
+CoreSentinel replaces unstructured memory logs with a **6-Layer Memory Architecture** backed by confidence scoring (`Known` vs `Assumed` vs `Unknown`):
+
+| Memory Layer | Storage Path | Purpose |
+| :--- | :--- | :--- |
+| **1. Working Memory** | `memory/working.json` | Current active task state & immediate context |
+| **2. Session Memory** | `memory/session.json` | Active conversation history & session goals |
+| **3. Project Memory** | `memory/project.json` | Verified architecture, tech stack & framework facts |
+| **4. Long-Term Memory**| `memory/longterm.json` | Historical repository context & cross-session knowledge |
+| **5. Failure Memory** | `memory/failures.json` | Incident history, bugs, & anti-pattern logs |
+| **6. Pattern Memory** | `memory/patterns.json` | Reusable engineering & code patterns |
+
+```bash
+# View Layered Memory Matrix & Confidence Scores
+coresentinel memory show
+
+# Register a verified fact (Confidence >= 0.90 = Known)
+coresentinel memory add --layer project --fact "Project uses PostgreSQL" --confidence 0.98 --source "docker-compose.yml"
+```
+
+---
+
+## 📜 Architecture Decision Ledger (ADR)
+
+AI agents repeatedly make architectural decisions. CoreSentinel records them permanently into an **Architecture Decision Ledger**:
+
+```bash
+# View all recorded architecture decisions
+coresentinel decision list
+
+# Record an Architectural Decision Record (ADR)
+coresentinel decision add \
+  --title "Use PostgreSQL instead of MongoDB" \
+  --reason "Transactional consistency required for payment ledger" \
+  --chosen "PostgreSQL" \
+  --alts "MongoDB, MySQL"
+```
+
+---
+
 ## 🗺️ SDLC Workflow & Phase Gates
 
 ```mermaid

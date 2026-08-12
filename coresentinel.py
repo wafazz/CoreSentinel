@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """
-CoreSentinel CLI Executable Engine — Evidence-Based Verification Suite
-Universal Evidence & Governance CLI for AI Agents.
+CoreSentinel CLI Executable Engine — Evidence-Based Verification Suite & Layered Memory Engine
+Universal Evidence, Governance, Memory & Decision Ledger CLI for AI Agents.
 
 Usage:
-  coresentinel verify [--claim "text"]   Run Evidence-Based Verification Suite & 6-point checks
-  coresentinel evidence                 Display Evidence-Based Verification matrix
-  coresentinel stats                    Display token usage & session telemetry
-  coresentinel hooks                    Install git pre-commit & pre-push verification hooks
-  coresentinel check                    Run anti-pattern & security scanner
+  coresentinel verify [--claim "text"]     Run Evidence-Based Verification Suite & 6-point checks
+  coresentinel memory show                 Display Layered Memory Engine & Confidence Matrix
+  coresentinel memory add --layer project --fact "..." --confidence 0.98 --source "..."
+  coresentinel decision list [--query "..."] Display Architecture Decision Records (ADR)
+  coresentinel decision add --title "..." --reason "..." --chosen "..." [--alts "..."]
+  coresentinel stats                      Display token usage & session telemetry
+  coresentinel hooks                      Install git pre-commit & pre-push verification hooks
+  coresentinel check                      Run anti-pattern & security scanner
 """
 
 import sys
@@ -17,6 +20,7 @@ import json
 import re
 import subprocess
 from pathlib import Path
+import coresentinel_memory as mem
 
 # Ensure UTF-8 output encoding on Windows console
 if hasattr(sys.stdout, "reconfigure"):
@@ -26,7 +30,7 @@ CORESENTINEL_DIR = Path(__file__).parent.resolve()
 
 def print_header(title):
     print("\n" + "=" * 64)
-    print(f"  🛡️  CoreSentinel Evidence-Based Verification — {title}")
+    print(f"  🛡️  CoreSentinel Engine — {title}")
     print("=" * 64)
 
 def run_cmd(cmd, cwd=None):
@@ -174,6 +178,53 @@ def run_evidence_verification(target_dir=".", claim="Code changes and protocol e
 
     return 0 if evidence_status == "VERIFIED" else 1
 
+def handle_memory_cmd(args):
+    sub = args[0].lower() if args else "show"
+    if sub == "show":
+        mem.show_memory_summary()
+    elif sub in ("add", "fact"):
+        layer = "project"
+        fact = "New fact"
+        conf = 0.95
+        src = "User input"
+        if "--layer" in args:
+            layer = args[args.index("--layer") + 1]
+        if "--fact" in args:
+            fact = args[args.index("--fact") + 1]
+        if "--confidence" in args:
+            conf = float(args[args.index("--confidence") + 1])
+        if "--source" in args:
+            src = args[args.index("--source") + 1]
+        mem.add_fact(layer, fact, conf, src)
+    else:
+        mem.show_memory_summary()
+
+def handle_decision_cmd(args):
+    sub = args[0].lower() if args else "list"
+    if sub == "list":
+        query = None
+        if "--query" in args:
+            query = args[args.index("--query") + 1]
+        elif len(args) > 1 and not args[1].startswith("--"):
+            query = args[1]
+        mem.list_decisions(query)
+    elif sub == "add":
+        title = "Architectural decision"
+        reason = "Engineering requirement"
+        chosen = "Selected solution"
+        alts = None
+        if "--title" in args:
+            title = args[args.index("--title") + 1]
+        if "--reason" in args:
+            reason = args[args.index("--reason") + 1]
+        if "--chosen" in args:
+            chosen = args[args.index("--chosen") + 1]
+        if "--alts" in args:
+            alts = args[args.index("--alts") + 1]
+        mem.add_decision(title, reason, chosen, alts)
+    else:
+        mem.list_decisions()
+
 def main():
     args = sys.argv[1:]
     command = args[0].lower() if args else "verify"
@@ -188,6 +239,12 @@ def main():
             if idx + 1 < len(args):
                 claim = args[idx + 1]
         sys.exit(run_evidence_verification(target, claim))
+
+    elif command == "memory":
+        handle_memory_cmd(args[1:])
+
+    elif command in ("decision", "decisions", "adr"):
+        handle_decision_cmd(args[1:])
 
     elif command == "stats":
         stats_script = CORESENTINEL_DIR / "agent-stats.py"

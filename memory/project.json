@@ -1,0 +1,18 @@
+{
+  "facts": [
+    {
+      "fact": "CoreSentinel utilizes Python 3.8+ CLI with PowerShell/Bash wrappers",
+      "confidence": 0.98,
+      "classification": "Known (Empirically Verified)",
+      "source": "coresentinel.py + setup.ps1",
+      "last_verified": "2026-08-12 11:25:04"
+    },
+    {
+      "fact": "Verification engine executes 6-point evidence checks",
+      "confidence": 0.99,
+      "classification": "Known (Empirically Verified)",
+      "source": "coresentinel.py",
+      "last_verified": "2026-08-12 11:25:04"
+    }
+  ]
+}

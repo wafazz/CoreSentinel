@@ -1,0 +1,29 @@
+[
+  {
+    "id": "ADR-001",
+    "decision": "Use File-Based Layered Memory System",
+    "reason": "Zero external dependencies required; portable across IDEs",
+    "alternatives": [
+      "SQLite",
+      "PostgreSQL",
+      "Redis"
+    ],
+    "chosen": "File-based JSON Layered Memory",
+    "impact": "High",
+    "status": "Accepted",
+    "created_at": "2026-08-12 11:25:04"
+  },
+  {
+    "id": "ADR-002",
+    "decision": "Use Layered Memory Engine with Confidence Classification",
+    "reason": "Distinguish Known facts from Assumed vs Unknown hypotheses",
+    "alternatives": [
+      "Unstructured Markdown",
+      "Single Flat JSON"
+    ],
+    "chosen": "6-Layer JSON Memory Engine",
+    "impact": "High",
+    "status": "Accepted",
+    "created_at": "2026-08-12 11:25:19"
+  }
+]
