@@ -28,6 +28,7 @@
 - **Learn Protocol**: Auto-learn new stacks. Trigger: "Iris learn". Protocol: [Learn](./10-learn-protocol.md)
 - **Debug Protocol**: Structured debugging. Trigger: "Iris debug". Protocol: [Debug](./60-debug-protocol.md)
 - **Handoff Protocol**: Client delivery. Trigger: "Iris handoff". Protocol: [Handoff](./52-handoff-protocol.md)
+- **Adapter Layer**: Bind the Core to any AI host. Trigger: `coresentinel adapter sync`. Protocol: [Adapters](./13-adapter-protocol.md)
 
 ## Active Projects
 1. [Daisy CRM](./Projects/01-daisy-crm.md)
@@ -45,6 +46,7 @@
 07. [Git Workflow](./07-git-workflow.md) - Branch, commit, PR conventions
 10. [Learn Protocol](./10-learn-protocol.md) - Auto-learn new tech stacks (`Iris learn`)
 11. [Pattern Library](./11-pattern-library.md) - Cross-project reusable solutions
+13. [Adapter Protocol](./13-adapter-protocol.md) - Vendor-neutral host adapter layer (`coresentinel adapter`)
 15. [Migration Protocol](./15-migration-protocol.md) - Idempotent SQL, lock avoidance & data safety (`Iris migrate`)
 16. [API & Integration Protocol](./16-api-protocol.md) - Webhook idempotency, signatures & backoff (`Iris api`)
 17. [AI Protocol](./17-ai-protocol.md) - Multi-provider failover, token metering & prompt defense (`Iris ai`)

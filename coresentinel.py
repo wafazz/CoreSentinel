@@ -9,6 +9,11 @@ Usage:
   coresentinel memory add --layer project --fact "..." --confidence 0.98 --source "..."
   coresentinel decision list [--query "..."] Display Architecture Decision Records (ADR)
   coresentinel decision add --title "..." --reason "..." --chosen "..." [--alts "..."]
+  coresentinel adapter list                Display registered host adapters & capability matrix
+  coresentinel adapter detect              Scan for installed/active AI coding hosts
+  coresentinel adapter show claude-code    Display a single host adapter card
+  coresentinel adapter sync cursor [--scope global|project] [--apply] [--force]
+  coresentinel adapter export [--json]     Emit host-agnostic CoreSentinel context bundle
   coresentinel stats                      Display token usage & session telemetry
   coresentinel hooks                      Install git pre-commit & pre-push verification hooks
   coresentinel check                      Run anti-pattern & security scanner
@@ -353,6 +358,27 @@ def main():
             audit.record_run(agent, task, read_f, mod_f, c_test, e_test, "PASS", "PASS", 100, res)
         else:
             audit.list_runs()
+
+    elif command in ("adapter", "adapters", "host"):
+        import coresentinel_adapters as adapters
+        sub_args = args[1:]
+        sub = sub_args[0].lower() if sub_args else "list"
+        if sub == "list":
+            adapters.list_adapters()
+        elif sub == "detect":
+            adapters.detect_hosts(sub_args[1] if len(sub_args) > 1 and not sub_args[1].startswith("--") else ".")
+        elif sub == "show":
+            adapters.show_adapter(sub_args[1] if len(sub_args) > 1 else "claude-code")
+        elif sub == "sync":
+            aid = sub_args[1] if len(sub_args) > 1 and not sub_args[1].startswith("--") else "claude-code"
+            scope = "global"
+            if "--scope" in sub_args:
+                scope = sub_args[sub_args.index("--scope") + 1]
+            adapters.sync_adapter(aid, scope, "--apply" in sub_args, "--force" in sub_args)
+        elif sub == "export":
+            adapters.export_context(".", "--json" in sub_args)
+        else:
+            adapters.list_adapters()
 
     elif command == "stats":
         stats_script = CORESENTINEL_DIR / "agent-stats.py"

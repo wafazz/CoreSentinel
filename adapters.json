@@ -1,0 +1,181 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "version": "1.0.0",
+  "description": "CoreSentinel Host Adapter Registry — maps the vendor-neutral CoreSentinel Core (Memory, Governance, Context, Verification, Telemetry) onto each AI coding assistant's native rules transport",
+  "capability_legend": {
+    "native": "Host consumes this service through a first-class built-in mechanism",
+    "file": "Service is injected by rendering a host-native rules/instructions file",
+    "cli": "Service is consumed by shelling out to the coresentinel CLI",
+    "none": "Host exposes no channel for this service"
+  },
+  "adapters": [
+    {
+      "id": "claude-code",
+      "name": "Claude Code",
+      "vendor": "Anthropic",
+      "surface": "CLI / Desktop / IDE Extension",
+      "transport": "rules_file",
+      "format": "markdown",
+      "global_path": "~/.claude/CLAUDE.md",
+      "project_path": "./CLAUDE.md",
+      "detect": ["~/.claude", "~/.claude/CLAUDE.md"],
+      "detect_env": ["CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT"],
+      "capabilities": {
+        "memory": "file",
+        "governance": "file",
+        "context": "file",
+        "verification": "cli",
+        "telemetry": "native"
+      },
+      "extensions": ["Hooks", "Sub-agents", "Slash Commands", "MCP Servers"],
+      "notes": "Richest host. Verification gates can be bound to pre-commit hooks; squad contracts map onto sub-agents."
+    },
+    {
+      "id": "cursor",
+      "name": "Cursor IDE",
+      "vendor": "Anysphere",
+      "surface": "IDE",
+      "transport": "rules_file",
+      "format": "mdc",
+      "global_path": "~/.cursor/rules/coresentinel.mdc",
+      "project_path": "./.cursor/rules/coresentinel.mdc",
+      "detect": ["~/.cursor", "~/.cursor/rules"],
+      "detect_env": ["CURSOR_TRACE_ID"],
+      "capabilities": {
+        "memory": "file",
+        "governance": "file",
+        "context": "file",
+        "verification": "cli",
+        "telemetry": "cli"
+      },
+      "extensions": ["MDC Frontmatter Scoping", "Glob-Targeted Rules", "MCP Servers"],
+      "notes": "Rules require MDC frontmatter with alwaysApply to load globally rather than on-demand."
+    },
+    {
+      "id": "gemini-cli",
+      "name": "Gemini CLI",
+      "vendor": "Google",
+      "surface": "CLI",
+      "transport": "rules_file",
+      "format": "markdown",
+      "global_path": "~/.gemini/GEMINI.md",
+      "project_path": "./GEMINI.md",
+      "detect": ["~/.gemini", "~/.gemini/GEMINI.md"],
+      "detect_env": ["GEMINI_API_KEY", "GEMINI_CLI"],
+      "capabilities": {
+        "memory": "file",
+        "governance": "file",
+        "context": "file",
+        "verification": "cli",
+        "telemetry": "cli"
+      },
+      "extensions": ["MCP Servers", "Hierarchical GEMINI.md Resolution"],
+      "notes": "Resolves GEMINI.md hierarchically; project file overlays the global core rather than replacing it."
+    },
+    {
+      "id": "codex",
+      "name": "OpenAI Codex",
+      "vendor": "OpenAI",
+      "surface": "CLI / IDE Extension",
+      "transport": "rules_file",
+      "format": "markdown",
+      "global_path": "~/.codex/AGENTS.md",
+      "project_path": "./AGENTS.md",
+      "detect": ["~/.codex", "~/.codex/AGENTS.md"],
+      "detect_env": ["CODEX_SANDBOX", "OPENAI_API_KEY"],
+      "capabilities": {
+        "memory": "file",
+        "governance": "file",
+        "context": "file",
+        "verification": "cli",
+        "telemetry": "none"
+      },
+      "extensions": ["Sandbox Execution Policy", "MCP Servers"],
+      "notes": "Sandboxed execution may block CLI verification shell-outs; declare coresentinel as an approved command."
+    },
+    {
+      "id": "antigravity",
+      "name": "Google Antigravity",
+      "vendor": "Google",
+      "surface": "IDE",
+      "transport": "rules_file",
+      "format": "markdown",
+      "global_path": "~/.antigravity/AGENTS.md",
+      "project_path": "./AGENTS.md",
+      "detect": ["~/.antigravity"],
+      "detect_env": [],
+      "capabilities": {
+        "memory": "file",
+        "governance": "file",
+        "context": "file",
+        "verification": "cli",
+        "telemetry": "none"
+      },
+      "extensions": ["Agent Manager", "Browser Automation"],
+      "notes": "Shares the AGENTS.md convention with Codex; a single project file serves both hosts."
+    },
+    {
+      "id": "copilot",
+      "name": "GitHub Copilot",
+      "vendor": "GitHub / Microsoft",
+      "surface": "VS Code / JetBrains",
+      "transport": "rules_file",
+      "format": "markdown",
+      "global_path": null,
+      "project_path": "./.github/copilot-instructions.md",
+      "detect": ["./.github/copilot-instructions.md", "~/.vscode"],
+      "detect_env": ["GITHUB_COPILOT_TOKEN"],
+      "capabilities": {
+        "memory": "file",
+        "governance": "file",
+        "context": "file",
+        "verification": "none",
+        "telemetry": "none"
+      },
+      "extensions": ["Repository Custom Instructions"],
+      "notes": "Project-scoped only — no global instruction path exists, so the core must be synced per repository."
+    },
+    {
+      "id": "windsurf",
+      "name": "Windsurf",
+      "vendor": "Codeium",
+      "surface": "IDE",
+      "transport": "rules_file",
+      "format": "markdown",
+      "global_path": "~/.codeium/windsurf/memories/global_rules.md",
+      "project_path": "./.windsurfrules",
+      "detect": ["~/.codeium/windsurf", "~/.codeium"],
+      "detect_env": ["WINDSURF_SESSION"],
+      "capabilities": {
+        "memory": "file",
+        "governance": "file",
+        "context": "file",
+        "verification": "cli",
+        "telemetry": "none"
+      },
+      "extensions": ["Cascade Memories", "MCP Servers"],
+      "notes": "Global rules file is capped in size; the sync renderer emits the compact core profile for this host."
+    },
+    {
+      "id": "generic",
+      "name": "Generic AGENTS.md Agent",
+      "vendor": "Open Standard",
+      "surface": "Any",
+      "transport": "rules_file",
+      "format": "markdown",
+      "global_path": null,
+      "project_path": "./AGENTS.md",
+      "detect": ["./AGENTS.md"],
+      "detect_env": [],
+      "capabilities": {
+        "memory": "file",
+        "governance": "file",
+        "context": "cli",
+        "verification": "cli",
+        "telemetry": "none"
+      },
+      "extensions": ["AGENTS.md Convention"],
+      "notes": "Fallback adapter for any assistant that reads the AGENTS.md convention or accepts a JSON context bundle."
+    }
+  ]
+}

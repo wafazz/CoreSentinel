@@ -22,6 +22,58 @@
 
 ---
 
+## 🔌 Universal Host Adapter Layer
+
+CoreSentinel is **not** a Claude-specific configuration. It is an AI infrastructure layer: one vendor-neutral Core, projected onto whichever assistant you happen to be using.
+
+```text
+                        CoreSentinel Core
+          (Memory · Governance · Context · Verification · Telemetry)
+                                │
+                      CoreSentinel Adapter Layer
+                                │
+   ┌──────────┬──────────┬──────┴─────┬──────────┬──────────┐
+   ↓          ↓          ↓            ↓          ↓          ↓
+Claude Code  Cursor   Gemini CLI    Codex    Copilot    Windsurf
+```
+
+Adapters are **projections** of the Core, never forks of it. Adding a host means appending one entry to [`adapters.json`](./adapters.json) — no engine changes.
+
+```text
+================================================================
+  🛡️  CoreSentinel Adapter Layer — Host Adapter Detection
+================================================================
+  [◉] Claude Code                : ACTIVE     (claude-code)
+  [✓] Cursor IDE                 : INSTALLED  (cursor)
+  [✓] Gemini CLI                 : INSTALLED  (gemini-cli)
+  [✓] OpenAI Codex               : INSTALLED  (codex)
+  [ ] Windsurf                   : NOT FOUND  (windsurf)
+  ------------------------------------------------------------
+  Hosts Detected    : 6/8
+================================================================
+```
+
+```bash
+# List registered hosts + the Core-service capability matrix
+coresentinel adapter list
+
+# Scan the machine for installed / currently-active AI coding hosts
+coresentinel adapter detect
+
+# Preview the Core rendered into a host's native rules format (dry run)
+coresentinel adapter sync cursor
+
+# Bind the Core into the host for real (backs up any hand-authored file)
+coresentinel adapter sync cursor --apply
+
+# Emit the host-agnostic context bundle consumed by any agent or CI job
+coresentinel adapter export --json
+```
+
+**Sync is safe by default:** dry run unless `--apply`, generated files carry a `CORESENTINEL:MANAGED` marker, and a target that lacks that marker is **BLOCKED** rather than silently overwritten. See [`13-adapter-protocol.md`](./13-adapter-protocol.md).
+
+---
+
 ## 🧾 Evidence-Based Verification Gates
 
 Rather than relying on unverified claims, CoreSentinel enforces **Evidence-Based Verification Gates**. Every major claim made by an AI agent (e.g., *"Vulnerability fixed"* or *"Feature implemented"*) requires 5 mandatory evidence artifacts before status is set to `VERIFIED`:
@@ -347,6 +399,7 @@ When you run `setup.ps1` or `setup.sh`, the installer interactively prompts you 
 
 - 📄 [`10-learn-protocol.md`](./10-learn-protocol.md) — Auto-Learn New Tech Stacks (`<AgentName> learn`)
 - 📄 [`11-pattern-library.md`](./11-pattern-library.md) — Reusable Architecture & Component Patterns
+- 📄 [`13-adapter-protocol.md`](./13-adapter-protocol.md) — Vendor-Neutral Host Adapter Layer (`coresentinel adapter`)
 - 📄 [`15-migration-protocol.md`](./15-migration-protocol.md) — Idempotent Schema & SQL Migrations (`<AgentName> migrate`)
 - 📄 [`16-api-protocol.md`](./16-api-protocol.md) — Webhooks, Idempotency & Signature Guard (`<AgentName> api`)
 - 📄 [`17-ai-protocol.md`](./17-ai-protocol.md) — AI Multi-Provider Failover & Prompt Defense (`<AgentName> ai`)
@@ -413,13 +466,18 @@ When you run `setup.ps1` or `setup.sh`, the installer interactively prompts you 
 
 ## 🤖 Supported AI Tools
 
-CoreSentinel automatically binds rules across all major AI coding platforms:
+CoreSentinel binds the same Core across all major AI coding platforms via the [Adapter Layer](#-universal-host-adapter-layer) (`coresentinel adapter sync <host>`):
 
-- 🟢 **Claude Code** (`~/.claude/CLAUDE.md`)
-- 🔵 **Google Antigravity** (`~/.antigravity/AGENTS.md`)
-- 🟣 **Gemini CLI** (`~/.gemini/GEMINI.md`)
-- 🟢 **OpenAI Codex** (`~/.codex/AGENTS.md`)
-- 🟣 **Cursor IDE** (`~/.cursor/rules/coresentinel.mdc`)
+| Host | Vendor | Global Bind Target |
+| :--- | :--- | :--- |
+| 🟢 **Claude Code** | Anthropic | `~/.claude/CLAUDE.md` |
+| 🟣 **Cursor IDE** | Anysphere | `~/.cursor/rules/coresentinel.mdc` |
+| 🟣 **Gemini CLI** | Google | `~/.gemini/GEMINI.md` |
+| 🟢 **OpenAI Codex** | OpenAI | `~/.codex/AGENTS.md` |
+| 🔵 **Google Antigravity** | Google | `~/.antigravity/AGENTS.md` |
+| ⚫ **GitHub Copilot** | GitHub | `.github/copilot-instructions.md` *(project scope)* |
+| 🟠 **Windsurf** | Codeium | `~/.codeium/windsurf/memories/global_rules.md` |
+| ⚪ **Generic Agent** | Open Standard | `AGENTS.md` *(project scope)* |
 
 ---
 
