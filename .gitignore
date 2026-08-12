@@ -1,0 +1,11 @@
+# Logs & statistics runtime files
+agent-usage-log.json
+*.log
+*.tmp
+__pycache__/
+
+# OS & Editor metadata
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
