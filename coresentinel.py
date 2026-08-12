@@ -282,6 +282,35 @@ def main():
         else:
             gates.show_status()
 
+    elif command in ("evolve", "evolution", "cse"):
+        import coresentinel_evolve as evolve
+        sub_args = args[1:]
+        sub = sub_args[0].lower() if sub_args else "list"
+        if sub == "list":
+            evolve.list_proposals()
+        elif sub == "propose":
+            target = "anti-patterns.json"
+            change = "Proposed rule change"
+            evidence = "Empirical evidence"
+            impact = "Low risk"
+            if "--target" in sub_args:
+                target = sub_args[sub_args.index("--target") + 1]
+            if "--change" in sub_args:
+                change = sub_args[sub_args.index("--change") + 1]
+            if "--evidence" in sub_args:
+                evidence = sub_args[sub_args.index("--evidence") + 1]
+            if "--impact" in sub_args:
+                impact = sub_args[sub_args.index("--impact") + 1]
+            evolve.propose_evolution(target, change, evidence, impact)
+        elif sub == "approve":
+            eid = sub_args[1] if len(sub_args) > 1 and not sub_args[1].startswith("--") else "EVO-014"
+            app = "Fakrul"
+            if "--approver" in sub_args:
+                app = sub_args[sub_args.index("--approver") + 1]
+            evolve.approve_proposal(eid, app)
+        else:
+            evolve.list_proposals()
+
     elif command in ("score", "health"):
         import coresentinel_score as score_engine
         emit_json = "--json" in args

@@ -1,0 +1,14 @@
+[
+  {
+    "id": "EVO-014",
+    "timestamp": "2026-08-12 11:42:00",
+    "target_protocol": "anti-patterns.json",
+    "proposed_change": "Add automated SQL injection and hardcoded key scanner rule",
+    "evidence": "Incident RUN-#9281 AppSec Audit",
+    "impact_analysis": "Zero breaking changes; adds pre-commit validation layer",
+    "review_status": "APPROVED",
+    "approver": "Fakrul",
+    "approved_at": "2026-08-12 11:42:05",
+    "version": "1.1.0"
+  }
+]

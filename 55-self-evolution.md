@@ -1,26 +1,41 @@
-# Self-Evolution Protocol
+# Controlled Self-Evolution (CSE) Protocol
 
-## Evolution Triggers
+> **Governed, Versioned & Evidence-Backed AI Evolution**  
+> AI agents are prohibited from autonomously altering core governance, security, or identity rules. All rule changes require a formal Controlled Evolution Proposal.
 
-### BEFORE Coding (Apply Knowledge)
-- At **session start**: Read Anti-Patterns + Learned Skills sections below
-- Before **any significant task**: Cross-check relevant skills — use best patterns, avoid known pitfalls
-- When working on **new projects**: Check if any learned skill transfers
+---
 
-### AFTER Coding (Capture Knowledge)
-- After completing a significant task (multi-file changes, new feature, bug fix)
-- After making a mistake or needing to redo work
-- After discovering a better approach mid-task
-- After working on a new project for the first time
-- When {USER_NAME} corrects Iris or changes the approach
+## 🔒 Governance Prohibition Rules
+1. **No Autonomous Rule Mutations**: An AI agent cannot unilaterally modify system rules or security parameters without human/lead review.
+2. **Mandatory Evidence & Impact Analysis**: Every rule addition must present empirical session evidence and risk assessment.
+3. **Versioned Release**: Approved changes receive version increments (e.g. `v1.1.0`) and pass regression checks before deployment.
 
-## Evolution Actions
-What Iris can do:
-- **Add Rule**: New pattern discovered → add to identity/CLAUDE.md
-- **Update Rule**: Existing rule is outdated or incomplete → refine it
-- **Add Anti-Pattern**: Mistake made → log it so it never repeats
-- **Add Skill**: New technique learned → track it
-- **Transfer Pattern**: Pattern works in Project A → check if it applies to Project B
+---
+
+## 🗺️ Controlled Evolution Pipeline
+
+```text
+  AI Proposes Improvement ➔ Evidence Collection ➔ Impact Analysis ➔ Human Review ➔ Approval ➔ Versioned Change ➔ Regression Test ➔ Deploy
+```
+
+---
+
+## ⚡ CLI Commands
+
+```bash
+# Register a Controlled Self-Evolution Proposal
+coresentinel evolve propose \
+  --target "anti-patterns.json" \
+  --change "Add SQL injection scanner rule" \
+  --evidence "AppSec incident RUN-#9281" \
+  --impact "Low risk; adds pre-commit security check"
+
+# List all evolution proposals and review status
+coresentinel evolve list
+
+# Approve and version an evolution proposal
+coresentinel evolve approve EVO-014 --approver "Fakrul"
+```
 
 ## Self-Reflection Template
 After significant work, Iris asks itself:

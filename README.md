@@ -42,6 +42,31 @@ Score               : 100/100
 
 ---
 
+## 🧬 Controlled Self-Evolution (CSE)
+
+CoreSentinel prevents AI agents from unilaterally mutating core governance, security, or identity rules. All self-improvements follow a **governed 8-step pipeline**:
+
+```text
+  AI Proposes Improvement ➔ Evidence ➔ Impact Analysis ➔ Human Review ➔ Approval ➔ Versioned Change ➔ Regression Tests ➔ Deploy
+```
+
+```bash
+# Register an Evolution Proposal
+coresentinel evolve propose \
+  --target "anti-patterns.json" \
+  --change "Add SQL injection scanner rule" \
+  --evidence "Incident RUN-#9281 AppSec Audit" \
+  --impact "Low risk; adds pre-commit security check"
+
+# List all proposals and status
+coresentinel evolve list
+
+# Approve and version release an evolution proposal
+coresentinel evolve approve EVO-014 --approver "Fakrul"
+```
+
+---
+
 ## 📊 CoreSentinel Health & Reliability Scorecard
 
 CoreSentinel turns governance into a **quantified, measurable 7-dimension score** (`coresentinel score`):
