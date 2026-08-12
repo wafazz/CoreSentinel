@@ -282,6 +282,14 @@ def main():
         else:
             gates.show_status()
 
+    elif command in ("score", "health"):
+        import coresentinel_score as score_engine
+        emit_json = "--json" in args
+        target = "."
+        if len(args) > 1 and not args[1].startswith("--"):
+            target = args[1]
+        score_engine.print_scorecard(target, emit_json)
+
     elif command in ("audit", "trail"):
         import coresentinel_audit as audit
         sub_args = args[1:]

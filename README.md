@@ -42,6 +42,39 @@ Score               : 100/100
 
 ---
 
+## 📊 CoreSentinel Health & Reliability Scorecard
+
+CoreSentinel turns governance into a **quantified, measurable 7-dimension score** (`coresentinel score`):
+
+```text
+================================================================
+  🛡️  CoreSentinel System & Project Health Scorecard
+================================================================
+  Target Directory : C:\Users\fakrul.hakim\OneDrive - Daythree Digital Berhad\Desktop\CoreSentinel
+  ------------------------------------------------------------
+  Architecture       : 100/100  [████████████████████]
+  Security           : 100/100  [████████████████████]
+  Testing            :  90/100  [██████████████████░░]
+  Code Quality       :  96/100  [███████████████████░]
+  Documentation      : 100/100  [████████████████████]
+  Reliability        :  98/100  [███████████████████░]
+  Dependencies       :  97/100  [███████████████████░]
+  ------------------------------------------------------------
+  Overall Score      : 97/100
+  CoreSentinel Status: HEALTHY [✓ HEALTHY]
+================================================================
+```
+
+```bash
+# Evaluate repository health scorecard
+coresentinel score
+
+# Emit machine-readable JSON for CI/CD pipelines
+coresentinel score --json
+```
+
+---
+
 ## 🔍 AI Accountability Audit Trail Engine
 
 Every major AI action is recorded into a traceable **Audit Trail Log** (`memory/audit_trail.json`), detailing files read/edited, tests created/executed, security scans, reviewer audits, and verification scores:
