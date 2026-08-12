@@ -22,6 +22,51 @@
 
 ---
 
+## ⌨️ The `coresentinel` CLI
+
+Every engine is reachable from one command surface, with grouped help, per-command usage (`coresentinel help <command>`), `--json` output, and CI-safe exit codes:
+
+```text
+  Setup & Diagnostics      init · doctor · status
+  Context & Memory         context · memory · decision
+  Verification & Review    verify · review · gate · check
+  Squad & Governance       agent · audit · score · evolve
+  Integration & Telemetry  adapter · stats · hooks
+```
+
+`coresentinel doctor` diagnoses the 7 subsystems that must be healthy for CoreSentinel to govern an agent:
+
+```text
+================================================================
+  🛡️  CoreSentinel Doctor — Subsystem Diagnostics
+================================================================
+  ────────────────────────────────────────────────────────────
+
+  ✓ Configuration          6 core assets present
+  ✓ Memory                 7 layers valid, 4 recorded entries
+  ✓ Governance             34 protocols, ledgers consistent
+  ✓ Agent Registry         17 contracts complete
+  ✓ Verification Engine    validator + 7 engines operational
+  ✓ Security Rules         5 rules armed, 4 blocking
+  ✓ Project Context        Python on 'main', 6 host(s)
+
+  ────────────────────────────────────────────────────────────
+  CoreSentinel: HEALTHY
+================================================================
+```
+
+```bash
+coresentinel init            # bind a project to the Core
+coresentinel doctor          # 7-subsystem diagnostics (exit 1 on FAIL)
+coresentinel status          # at-a-glance governance dashboard
+coresentinel context         # project context pack for the agent
+coresentinel review          # static review pass over the working diff
+```
+
+Full command reference: [`14-cli-protocol.md`](./14-cli-protocol.md).
+
+---
+
 ## 🔌 Universal Host Adapter Layer
 
 CoreSentinel is **not** a Claude-specific configuration. It is an AI infrastructure layer: one vendor-neutral Core, projected onto whichever assistant you happen to be using.
@@ -400,6 +445,7 @@ When you run `setup.ps1` or `setup.sh`, the installer interactively prompts you 
 - 📄 [`10-learn-protocol.md`](./10-learn-protocol.md) — Auto-Learn New Tech Stacks (`<AgentName> learn`)
 - 📄 [`11-pattern-library.md`](./11-pattern-library.md) — Reusable Architecture & Component Patterns
 - 📄 [`13-adapter-protocol.md`](./13-adapter-protocol.md) — Vendor-Neutral Host Adapter Layer (`coresentinel adapter`)
+- 📄 [`14-cli-protocol.md`](./14-cli-protocol.md) — CLI Command Surface, Doctor Checks & Exit Codes
 - 📄 [`15-migration-protocol.md`](./15-migration-protocol.md) — Idempotent Schema & SQL Migrations (`<AgentName> migrate`)
 - 📄 [`16-api-protocol.md`](./16-api-protocol.md) — Webhooks, Idempotency & Signature Guard (`<AgentName> api`)
 - 📄 [`17-ai-protocol.md`](./17-ai-protocol.md) — AI Multi-Provider Failover & Prompt Defense (`<AgentName> ai`)

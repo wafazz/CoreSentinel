@@ -47,6 +47,7 @@
 10. [Learn Protocol](./10-learn-protocol.md) - Auto-learn new tech stacks (`Iris learn`)
 11. [Pattern Library](./11-pattern-library.md) - Cross-project reusable solutions
 13. [Adapter Protocol](./13-adapter-protocol.md) - Vendor-neutral host adapter layer (`coresentinel adapter`)
+14. [CLI Protocol](./14-cli-protocol.md) - Command surface, doctor diagnostics & exit codes (`coresentinel help`)
 15. [Migration Protocol](./15-migration-protocol.md) - Idempotent SQL, lock avoidance & data safety (`Iris migrate`)
 16. [API & Integration Protocol](./16-api-protocol.md) - Webhook idempotency, signatures & backoff (`Iris api`)
 17. [AI Protocol](./17-ai-protocol.md) - Multi-provider failover, token metering & prompt defense (`Iris ai`)
