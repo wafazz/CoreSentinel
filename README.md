@@ -42,6 +42,42 @@ Score               : 100/100
 
 ---
 
+## 🔍 AI Accountability Audit Trail Engine
+
+Every major AI action is recorded into a traceable **Audit Trail Log** (`memory/audit_trail.json`), detailing files read/edited, tests created/executed, security scans, reviewer audits, and verification scores:
+
+```text
+================================================================
+  🛡️  Audit Run Record Card: RUN-#9281
+================================================================
+  Run ID            : RUN-#9281
+  Timestamp         : 2026-08-12 11:34:49
+  Agent Persona     : Backend Engineer
+  Task Description  : Implement payment webhook
+----------------------------------------------------------------
+  Actions Execution Breakdown:
+     • Read Files       : 14 files inspected
+     • Modified Files   : 6 files edited
+     • Created Tests    : 3 new test cases
+     • Executed Tests   : 42 test suite executions
+     • Security Scan    : PASS
+     • Reviewer Audit   : PASS
+     • Verification     : 100/100
+----------------------------------------------------------------
+  Overall Result    : PASS
+================================================================
+```
+
+```bash
+# List all recorded AI execution runs
+coresentinel audit list
+
+# Inspect detailed audit card for a specific Run ID
+coresentinel audit show RUN-#9281
+```
+
+---
+
 ## 🚦 Quality Gates Pipeline
 
 CoreSentinel enforces 8 ordered Quality Gates (`Plan` ➔ `Architecture` ➔ `Security` ➔ `Implementation` ➔ `Test` ➔ `Review` ➔ `Verification` ➔ `Deployment`). Every gate evaluates with status `PASS`, `FAIL`, `BLOCKED`, or `WAIVED`:

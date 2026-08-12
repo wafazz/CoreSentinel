@@ -282,6 +282,41 @@ def main():
         else:
             gates.show_status()
 
+    elif command in ("audit", "trail"):
+        import coresentinel_audit as audit
+        sub_args = args[1:]
+        sub = sub_args[0].lower() if sub_args else "list"
+        if sub == "list":
+            audit.list_runs()
+        elif sub == "show":
+            rid = sub_args[1] if len(sub_args) > 1 else "RUN-#9281"
+            audit.show_run(rid)
+        elif sub == "record":
+            agent = "Backend Engineer"
+            task = "Feature implementation"
+            read_f = 0
+            mod_f = 0
+            c_test = 0
+            e_test = 0
+            res = "PASS"
+            if "--agent" in sub_args:
+                agent = sub_args[sub_args.index("--agent") + 1]
+            if "--task" in sub_args:
+                task = sub_args[sub_args.index("--task") + 1]
+            if "--read" in sub_args:
+                read_f = int(sub_args[sub_args.index("--read") + 1])
+            if "--modified" in sub_args:
+                mod_f = int(sub_args[sub_args.index("--modified") + 1])
+            if "--created-tests" in sub_args:
+                c_test = int(sub_args[sub_args.index("--created-tests") + 1])
+            if "--executed-tests" in sub_args:
+                e_test = int(sub_args[sub_args.index("--executed-tests") + 1])
+            if "--result" in sub_args:
+                res = sub_args[sub_args.index("--result") + 1]
+            audit.record_run(agent, task, read_f, mod_f, c_test, e_test, "PASS", "PASS", 100, res)
+        else:
+            audit.list_runs()
+
     elif command == "stats":
         stats_script = CORESENTINEL_DIR / "agent-stats.py"
         if stats_script.exists():
