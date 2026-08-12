@@ -83,6 +83,32 @@ coresentinel decision add \
 
 ---
 
+## 👥 17-Specialist Squad Agent Contracts
+
+Instead of vague persona descriptions, CoreSentinel enforces **explicit Agent Contracts** specifying Input Artifacts, Output Artifacts, Authority Levels, Constraints, and Verification Gates:
+
+```text
+  ┌─────────────────────────────────────────────────────────────┐
+  │ SPECIALIST AGENT CONTRACT                                  │
+  ├─────────────────────────────────────────────────────────────┤
+  │ Architect : Input [Requirements]  ➔ Output [Arch Proposal]  │
+  │ Security  : Input [Code / Diff]   ➔ Output [AppSec Audit]   │
+  │ Tester    : Input [Code / Spec]   ➔ Output [Test Report]    │
+  │ Reviewer  : Input [Code & Audits] ➔ Output [Gate Approval]  │
+  └─────────────────────────────────────────────────────────────┘
+```
+
+```bash
+# List all 17 specialist agent contracts
+coresentinel squad list
+
+# View full contract specification for a specialist
+coresentinel squad show Architect
+coresentinel squad show Security
+```
+
+---
+
 ## 🗺️ SDLC Workflow & Phase Gates
 
 ```mermaid

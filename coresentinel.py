@@ -246,6 +246,17 @@ def main():
     elif command in ("decision", "decisions", "adr"):
         handle_decision_cmd(args[1:])
 
+    elif command in ("squad", "contracts", "contract"):
+        import coresentinel_squad as squad
+        sub_args = args[1:]
+        if not sub_args or sub_args[0].lower() == "list":
+            squad.list_squad()
+        elif sub_args[0].lower() == "show":
+            agent = sub_args[1] if len(sub_args) > 1 else "Architect"
+            squad.show_agent_contract(agent)
+        else:
+            squad.show_agent_contract(sub_args[0])
+
     elif command == "stats":
         stats_script = CORESENTINEL_DIR / "agent-stats.py"
         if stats_script.exists():

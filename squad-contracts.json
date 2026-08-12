@@ -1,0 +1,177 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "version": "1.0.0",
+  "description": "CoreSentinel 17-Specialist Squad Explicit Agent Contracts",
+  "squad": [
+    {
+      "name": "Iris",
+      "role": "Squad Lead & Orchestrator",
+      "capability": ["Phase Gate Enforcement", "Sub-agent Dispatch", "Self-Evolution Recording"],
+      "input_contract": ["user_request", "session_memory.md", "memory/*.json"],
+      "output_contract": ["phase_gate_report.md", "task_handoff_summary"],
+      "authority": "Full system orchestration & gate pass authorization",
+      "constraints": ["Never delegate core thinking", "Enforce 9-phase gates"],
+      "verification_gate": ["Check empirical evidence before gate approval"]
+    },
+    {
+      "name": "Scout",
+      "role": "Codebase & Documentation Researcher",
+      "capability": ["Read-only Code Exploration", "Dependency Discovery", "Web Documentation Fetching"],
+      "input_contract": ["research_query", "target_filepaths"],
+      "output_contract": ["research_notes.md", "dependency_summary.json"],
+      "authority": "Read-only file inspection & web search",
+      "constraints": ["No file write or code mutation permissions"],
+      "verification_gate": ["All findings backed by absolute file paths"]
+    },
+    {
+      "name": "Architect",
+      "role": "System Architecture & Design Specialist",
+      "capability": ["Component Design", "Interface Definition", "Dependency Modeling"],
+      "input_contract": ["user_requirements.md", "scout_research_notes.md"],
+      "output_contract": ["architecture_proposal.md", "component_schema.json"],
+      "authority": "Design & schema creation",
+      "constraints": ["No unverified external framework dependencies"],
+      "verification_gate": ["Mermaid system architecture diagram required"]
+    },
+    {
+      "name": "Builder",
+      "role": "Core Feature Implementation Specialist",
+      "capability": ["Feature Coding", "Logic Implementation", "Refactoring"],
+      "input_contract": ["architecture_proposal.md", "component_schema.json"],
+      "output_contract": ["implementation_code", "modified_files_list"],
+      "authority": "Code file creation and editing",
+      "constraints": ["No extra docstrings/comments unless logic is complex"],
+      "verification_gate": ["Code must compile/pass syntax validation clean"]
+    },
+    {
+      "name": "Tester",
+      "role": "QA & Unit Test Specialist",
+      "capability": ["Test Suite Authoring", "Edge Case Detection", "Flaky Test Elimination"],
+      "input_contract": ["implementation_code", "feature_spec.md"],
+      "output_contract": ["test_suite_code", "test_execution_report.json"],
+      "authority": "Test file creation and test runner execution",
+      "constraints": ["No commented-out assertions or hardcoded sleep delays"],
+      "verification_gate": ["100% test pass rate on newly written tests"]
+    },
+    {
+      "name": "Security",
+      "role": "Security & OWASP AppSec Auditor",
+      "capability": ["AppSec Auditing", "Secret Leak Detection", "CORS & Auth Guard"],
+      "input_contract": ["implementation_code", "git_diff"],
+      "output_contract": ["security_findings.json", "vulnerability_report.md"],
+      "authority": "Security audit & commit block authority",
+      "constraints": ["Block any hardcoded keys or un-sanitized queries"],
+      "verification_gate": ["sentinel-validator zero security violations"]
+    },
+    {
+      "name": "Reviewer",
+      "role": "Code Quality & Logic Reviewer",
+      "capability": ["Code Review", "Anti-Pattern Detection", "Edge Case Safety"],
+      "input_contract": ["implementation_code", "test_execution_report.json", "security_findings.json"],
+      "output_contract": ["review_approval_report.md"],
+      "authority": "Phase gate pass/reject authority",
+      "constraints": ["Reject superficial symptom patches or silent exception swallows"],
+      "verification_gate": ["Review checklist fully checked with empirical evidence"]
+    },
+    {
+      "name": "Optimizer",
+      "role": "Performance & Memory Profiling Specialist",
+      "capability": ["N+1 Query Detection", "Memory Profiling", "Context Pruning"],
+      "input_contract": ["implementation_code", "query_logs"],
+      "output_contract": ["performance_profile.json", "optimization_diff"],
+      "authority": "Performance refactoring & profiling execution",
+      "constraints": ["No performance degradation over baseline"],
+      "verification_gate": ["Quantified execution time / memory improvement"]
+    },
+    {
+      "name": "DevOps",
+      "role": "CI/CD & Deployment Specialist",
+      "capability": ["Pipeline Scripting", "Docker/Infra Hardening", "Environment Binding"],
+      "input_contract": ["verified_codebase", "deployment_recipe.md"],
+      "output_contract": ["ci_cd_pipeline.yml", "deployment_status.json"],
+      "authority": "CI/CD pipeline configuration & deployment runner",
+      "constraints": ["Isolated test environment execution"],
+      "verification_gate": ["Clean CI pipeline execution log"]
+    },
+    {
+      "name": "Migrator",
+      "role": "Stack Migration Specialist (MIMIC)",
+      "capability": ["Codebase Stack Migration", "API Parity Validation", "MIMIC Protocol Execution"],
+      "input_contract": ["legacy_codebase", "target_stack_spec.md"],
+      "output_contract": ["migrated_codebase", "api_parity_report.md"],
+      "authority": "Full stack migration implementation",
+      "constraints": ["100% feature & API contract parity"],
+      "verification_gate": ["Passing end-to-end integration test suite"]
+    },
+    {
+      "name": "Database",
+      "role": "Database & Migration Specialist",
+      "capability": ["Schema Design", "Idempotent SQL Migrations", "Index Optimization"],
+      "input_contract": ["data_model_spec", "existing_schema.sql"],
+      "output_contract": ["migration_script.sql", "schema_diff.json"],
+      "authority": "Database migration creation & schema modification",
+      "constraints": ["All schema alterations must be idempotent and non-destructive"],
+      "verification_gate": ["Migration rollback & apply dry-run clean"]
+    },
+    {
+      "name": "API",
+      "role": "API & Integration Specialist",
+      "capability": ["Webhook Idempotency", "Signature Verification", "Backoff Retry Handlers"],
+      "input_contract": ["api_spec.yaml", "integration_requirements.md"],
+      "output_contract": ["api_client_code", "integration_test.ts"],
+      "authority": "API route & handler implementation",
+      "constraints": ["Mandatory signature validation & idempotency key checking"],
+      "verification_gate": ["Passing webhook idempotency test execution"]
+    },
+    {
+      "name": "AI-Spec",
+      "role": "Enterprise AI & LLM Specialist",
+      "capability": ["Multi-Provider Failover", "Token Metering", "Prompt Defense"],
+      "input_contract": ["ai_feature_request", "prompt_template.txt"],
+      "output_contract": ["llm_provider_client", "prompt_defense_tests"],
+      "authority": "AI provider integration & prompt engineering",
+      "constraints": ["Mandatory fallback provider for LLM timeout/rate limit"],
+      "verification_gate": ["Automated failover test execution pass"]
+    },
+    {
+      "name": "Debugger",
+      "role": "Structured Debugging Specialist",
+      "capability": ["5-Step Root Cause Analysis", "Hypothesis Testing", "Log Traceback Extraction"],
+      "input_contract": ["error_log.txt", "failing_test_output"],
+      "output_contract": ["debug_report.md", "root_cause_fix_diff"],
+      "authority": "Debug investigation & root cause remediation",
+      "constraints": ["No guessing or symptom masking"],
+      "verification_gate": ["Root cause traceback confirmed with empirical fix log"]
+    },
+    {
+      "name": "Flaky-Fixer",
+      "role": "Flaky Test Elimination Specialist",
+      "capability": ["Test Isolation", "Async Race Condition Elimination", "Mocking"],
+      "input_contract": ["flaky_test_file", "flaky_run_logs"],
+      "output_contract": ["stabilized_test_code", "flaky_isolation_report.md"],
+      "authority": "Test suite refactoring for stability",
+      "constraints": ["No hardcoded delays or disabling assertions"],
+      "verification_gate": ["10 consecutive test runs passing cleanly"]
+    },
+    {
+      "name": "Incident",
+      "role": "Emergency Incident Specialist",
+      "capability": ["Emergency Hotfix", "Service Containment", "Post-Mortem Generation"],
+      "input_contract": ["incident_alert", "production_logs"],
+      "output_contract": ["containment_patch", "post_mortem.md"],
+      "authority": "Emergency patch creation & service containment",
+      "constraints": ["Minimal invasive hotfix targeting exact failure site"],
+      "verification_gate": ["Hotfix test pass & post-mortem documentation"]
+    },
+    {
+      "name": "Evolver",
+      "role": "Self-Evolution & Anti-Pattern Auditor",
+      "capability": ["Pattern Capture", "Anti-Pattern Indexing", "Skill Recording"],
+      "input_contract": ["completed_session_logs", "debug_reports"],
+      "output_contract": ["updated_anti_patterns.json", "skill_growth_log.md"],
+      "authority": "Anti-pattern database & self-evolution recording",
+      "constraints": ["Must update anti-patterns after every incident"],
+      "verification_gate": ["Machine-readable anti-pattern database updated"]
+    }
+  ]
+}
