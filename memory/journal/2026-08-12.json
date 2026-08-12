@@ -1,0 +1,15 @@
+{
+  "date": "2026-08-12",
+  "entries": [
+    {
+      "time": "2026-08-12 17:26:30",
+      "entry": "Built the memory ecosystem upgrade: recall search, session briefing, journal, and the decay/promote/consolidate/compact/snapshot lifecycle. 131 new tests, suite now 436 green.",
+      "tags": [
+        "memory",
+        "feature",
+        "release"
+      ],
+      "agent": "Iris"
+    }
+  ]
+}

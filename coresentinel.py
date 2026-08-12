@@ -233,6 +233,9 @@ def handle_memory_cmd(args):
     elif len(args) > 1 and not args[1].startswith("--") and sub == "show":
         target = args[1]
 
+    emit_json = "--json" in args
+    apply_changes = "--apply" in args
+
     if sub in ("add", "fact"):
         layer = "project"
         fact = "New fact"
@@ -246,9 +249,154 @@ def handle_memory_cmd(args):
             conf = float(args[args.index("--confidence") + 1])
         if "--source" in args:
             src = args[args.index("--source") + 1]
-        return 0 if mem.add_fact(layer, fact, conf, src, target) else 1
+        recorded = mem.add_fact(layer, fact, conf, src, target,
+                                pinned="--pinned" in args, transferable="--transferable" in args)
+        return 0 if recorded else 1
+
+    if sub == "recall":
+        return handle_recall_cmd(args[1:])
+
+    import coresentinel_lifecycle as lifecycle
+
+    if sub == "decay":
+        return lifecycle.print_decay(target, apply_changes, emit_json)
+    if sub == "promote":
+        return lifecycle.print_promote(target, apply_changes, emit_json)
+    if sub == "consolidate":
+        return lifecycle.print_consolidate(target, apply_changes, emit_json)
+    if sub == "compact":
+        budget = int(flag_value(args, "--budget", lifecycle.COMPACT_BUDGET))
+        return lifecycle.print_compact(target, budget, apply_changes, emit_json)
+    if sub in ("verify", "reverify"):
+        match = flag_value(args, "--match") or free_arg(args, 1)
+        confidence = flag_value(args, "--confidence")
+        report = lifecycle.reverify(match, target,
+                                    float(confidence) if confidence else None,
+                                    flag_value(args, "--layer"), "--pinned" in args)
+        if report.get("error"):
+            print(f"[!] {report['error']}", file=sys.stderr)
+            return 1
+        for item in report["updated"]:
+            print(f"[✓] Re-verified ({item['layer']}) {item['fact']}: "
+                  f"{item['from']} -> {item['to']}")
+        if not report["updated"]:
+            print(f"[!] No fact matches '{match}' — nothing re-verified.", file=sys.stderr)
+            return 1
+        return 0
+    if sub == "snapshot":
+        manifest = lifecycle.create_snapshot(target, flag_value(args, "--label", "manual"))
+        print(f"[✓] Snapshot {manifest['id']} captured {len(manifest['files'])} layer(s)")
+        return 0
+    if sub == "snapshots":
+        return lifecycle.print_snapshots(target, emit_json)
+    if sub == "restore":
+        snap_id = free_arg(args, 1)
+        report = lifecycle.restore_snapshot(snap_id, target, apply_changes)
+        if report.get("error"):
+            print(f"[!] {report['error']}", file=sys.stderr)
+            return 1
+        for item in report["restored"]:
+            print(f"  {'restored' if apply_changes else 'would restore'} {item['layer']} -> {item['path']}")
+        if not apply_changes:
+            print(f"  Dry run — apply with: coresentinel memory restore {snap_id} --apply")
+        return 0
+
+    if sub == "journal":
+        return handle_journal_cmd(args[1:])
 
     mem.show_memory_summary(target)
+
+
+# Flags that consume the token after them. Needed so a query like
+# `recall "auth" --layer project` does not swallow "project" as a search term.
+VALUE_FLAGS = {"--project", "--layer", "--min-confidence", "--limit", "--label",
+               "--budget", "--match", "--confidence", "--tags", "--agent",
+               "--entry", "--days", "--older-than", "--source", "--fact"}
+
+
+def free_args(args):
+    """Positional arguments, with flags and the values they consume removed."""
+    values, skip = [], False
+    for token in args:
+        if skip:
+            skip = False
+            continue
+        if token.startswith("-"):
+            skip = token in VALUE_FLAGS
+            continue
+        values.append(token)
+    return values
+
+
+def free_arg(args, index=0, default=""):
+    values = free_args(args)
+    return values[index] if len(values) > index else default
+
+
+def handle_recall_cmd(args):
+    import coresentinel_recall as recall_engine
+    query = " ".join(free_args(args))
+    target = flag_value(args, "--project", ".")
+    layers = flag_value(args, "--layer")
+    minimum = float(flag_value(args, "--min-confidence", 0.0))
+    limit = int(flag_value(args, "--limit", 20))
+    return recall_engine.print_recall(query, target,
+                                      [l.strip() for l in layers.split(",")] if layers else None,
+                                      minimum, limit, "--json" in args)
+
+
+def handle_journal_cmd(args):
+    import coresentinel_recall as recall_engine
+    sub = args[0].lower() if args and not args[0].startswith("-") else "show"
+    target = flag_value(args, "--project", ".")
+
+    if sub == "add":
+        entry = flag_value(args, "--entry") or free_arg(args, 1)
+        if not entry:
+            print("[!] An entry is required: coresentinel journal add --entry \"...\"", file=sys.stderr)
+            return 1
+        written = recall_engine.add_journal_entry(entry, flag_value(args, "--tags"),
+                                                  flag_value(args, "--agent", "Iris"), target)
+        return 0 if written else 1
+
+    if sub == "archive":
+        days = int(flag_value(args, "--older-than", 30))
+        report = recall_engine.archive_journal(days, target, "--apply" in args)
+        for item in report["archived_days"]:
+            verb = "archived" if report["applied"] else "would archive"
+            print(f"  {verb} {item['date']} ({item['entries']} entries) -> {item['month']}.json")
+        if not report["archived_days"]:
+            print(f"  No journal days older than {days} days.")
+        elif not report["applied"]:
+            print(f"  Dry run — apply with: coresentinel journal archive --older-than {days} --apply")
+        return 0
+
+    days = flag_value(args, "--days")
+    entries = recall_engine.read_journal(target, int(days) if days else None)
+    if "--json" in args:
+        print(json.dumps({"entries": entries, "count": len(entries)}, indent=2))
+        return 0
+
+    print("\n" + "=" * 64)
+    print("  📓 CoreSentinel Session Journal")
+    print("=" * 64)
+    if not entries:
+        print("  No entries recorded yet.")
+        print("  Record one: coresentinel journal add --entry \"...\" --tags \"refactor,api\"")
+        print("=" * 64 + "\n")
+        return 0
+
+    current_day = None
+    for item in entries:
+        if item["date"] != current_day:
+            current_day = item["date"]
+            print(f"\n  {current_day}{'  (archived)' if item.get('archived') else ''}")
+            print("  " + "-" * 60)
+        tags = ", ".join(item.get("tags", []) or [])
+        print(f"     • {item.get('entry')}")
+        print(f"       {item.get('time', '-')} · {item.get('agent', '-')}{' · ' + tags if tags else ''}")
+    print("\n" + "=" * 64 + "\n")
+    return 0
 
 def handle_decision_cmd(args):
     sub = args[0].lower() if args else "list"
@@ -323,6 +471,21 @@ def cmd_verify(args):
 
 def cmd_memory(args):
     return handle_memory_cmd(args)
+
+
+def cmd_recall(args):
+    return handle_recall_cmd(args)
+
+
+def cmd_brief(args):
+    import coresentinel_recall as recall_engine
+    days = flag_value(args, "--days")
+    return recall_engine.print_briefing(flag_value(args, "--project", positional(args)),
+                                        "--json" in args, int(days) if days else 7)
+
+
+def cmd_journal(args):
+    return handle_journal_cmd(args)
 
 
 def cmd_decision(args):
@@ -516,7 +679,37 @@ COMMANDS = [
      "detail": "Layers: working, session, project, longterm, failures, patterns.\n"
                "Confidence >= 0.90 is Known, >= 0.50 Assumed, below that Unknown.\n"
                "working, session and project are PROJECT-scoped: inside a bound project they\n"
-               "resolve to <project>/.coresentinel/memory/. The rest are shared Core layers."},
+               "resolve to <project>/.coresentinel/memory/. The rest are shared Core layers.\n"
+               "\n"
+               "Lifecycle subcommands (every one is a dry run until --apply):\n"
+               "  decay        erode confidence of facts nobody has re-verified\n"
+               "  verify       restart the decay clock on facts matching a substring\n"
+               "  promote      move earned facts up a tier (session -> project -> longterm)\n"
+               "  consolidate  merge duplicates within a layer and across the tier chain\n"
+               "  compact      fold old low-confidence facts into a summary entry\n"
+               "  snapshot     capture every layer; snapshots / restore manage the vault"},
+    {"name": "recall", "aliases": ["search", "remember"], "group": "Context & Memory", "handler": cmd_recall,
+     "summary": "Search every memory layer, decision and journal entry",
+     "usage": ["coresentinel recall \"postgres migration\"",
+               "coresentinel recall \"auth\" --layer project,longterm --min-confidence 0.9",
+               "coresentinel recall \"rate limit\" --json"],
+     "detail": "Ranks by term coverage, bonuses an exact phrase hit and weights by confidence.\n"
+               "Low-confidence facts stay findable — an Unknown fact you can see is safer\n"
+               "than one you cannot. Exits 1 when nothing matches."},
+    {"name": "brief", "aliases": ["briefing"], "group": "Context & Memory", "handler": cmd_brief,
+     "summary": "Session-start briefing: where the work left off",
+     "usage": ["coresentinel brief [target-dir] [--days 7] [--json]"],
+     "detail": "Last task and status, recent journal entries, established facts, facts still\n"
+               "unverified, facts gone stale, known failures and the latest decisions.\n"
+               "Run this before the first action of a session."},
+    {"name": "journal", "aliases": ["diary", "log"], "group": "Context & Memory", "handler": cmd_journal,
+     "summary": "Narrative session journal",
+     "usage": ["coresentinel journal add --entry \"...\" [--tags \"api,refactor\"]",
+               "coresentinel journal show [--days 7] [--json]",
+               "coresentinel journal archive [--older-than 30] [--apply]"],
+     "detail": "The record of what was done and why, which the fact layers deliberately do not\n"
+               "keep. Archiving folds old day files into one file per month; archived entries\n"
+               "stay searchable through recall."},
     {"name": "decision", "aliases": ["decisions", "adr"], "group": "Context & Memory", "handler": cmd_decision,
      "summary": "Architecture Decision Record ledger",
      "usage": ["coresentinel decision list [--query \"...\"]",

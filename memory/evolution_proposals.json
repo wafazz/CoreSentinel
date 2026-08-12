@@ -22,5 +22,16 @@
     "approver": "Fakrul",
     "version": "1.2.0",
     "approved_at": "2026-08-12 13:56:36"
+  },
+  {
+    "id": "EVO-003",
+    "timestamp": "2026-08-12 17:26:41",
+    "target_protocol": "04-memory-ecosystem-protocol.md",
+    "proposed_change": "Add the Memory Ecosystem Protocol: confidence decay (0.05 per 30 unverified days, floor 0.30, failures and pinned facts exempt), tiered promotion with an opt-in transferable gate for the project-to-core hop, duplicate consolidation that keeps max confidence rather than boosting, and budgeted compaction. Every operation is a dry run until --apply and snapshots before destroying.",
+    "evidence": "Recorded facts had no expiry, no dedup and no search: 436-test suite (131 new) covers decay idempotence, promotion scope containment, no-confidence-manufacture on merge and snapshot reversibility",
+    "impact_analysis": "Medium risk; decay mutates stored confidence. Mitigations: opt-in --apply on every operation, automatic pre-operation snapshots with restore, decay computed from base_confidence so it is idempotent, and re-verification requires an explicit match string",
+    "review_status": "PENDING_REVIEW",
+    "approver": null,
+    "version": "1.3.0"
   }
 ]

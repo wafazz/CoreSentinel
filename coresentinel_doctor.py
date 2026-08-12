@@ -37,6 +37,8 @@ MEMORY_LAYERS = ["working", "session", "project", "longterm", "failures", "patte
 
 ENGINE_MODULES = [
     "coresentinel_memory",
+    "coresentinel_recall",
+    "coresentinel_lifecycle",
     "coresentinel_squad",
     "coresentinel_gates",
     "coresentinel_audit",

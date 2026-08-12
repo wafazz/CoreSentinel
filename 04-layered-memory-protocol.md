@@ -70,4 +70,24 @@ coresentinel memory show
 
 # Add a verified fact
 coresentinel memory add --layer project --fact "Project uses PostgreSQL" --confidence 0.98 --source "docker-compose.yml"
+
+# A fact that must never decay, or one portable enough to leave project scope
+coresentinel memory add --layer project --fact "..." --confidence 0.99 --source "..." --pinned
+coresentinel memory add --layer project --fact "..." --confidence 0.99 --source "..." --transferable
+```
+
+---
+
+## ♻️ What happens next
+
+This protocol defines **where** memory lives. What happens to a fact *after* it is recorded —
+how it is searched, how its confidence ages, when it is promoted, merged or compacted, and how
+every one of those operations is reversed — is governed by
+[04-memory-ecosystem-protocol.md](./04-memory-ecosystem-protocol.md).
+
+```bash
+coresentinel brief                       # where the work left off
+coresentinel recall "<topic>"            # search every layer, decision and journal entry
+coresentinel memory decay --apply        # confidence erodes until re-verified
+coresentinel memory promote --apply      # facts that survive scrutiny move up a tier
 ```

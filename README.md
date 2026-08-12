@@ -5,10 +5,10 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/CoreSentinel-10.0.0-8A2BE2)](./VERSION)
+[![Version](https://img.shields.io/badge/CoreSentinel-10.1.0-8A2BE2)](./VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Hosts](https://img.shields.io/badge/Hosts-Claude_%7C_Cursor_%7C_Gemini_%7C_Codex_%7C_Copilot_%7C_Windsurf-blue)](#-how-does-it-work)
-[![Tests](https://img.shields.io/badge/Self--tests-305_passing-brightgreen)](#-coresentinel-tests-itself)
+[![Tests](https://img.shields.io/badge/Self--tests-436_passing-brightgreen)](#-coresentinel-tests-itself)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](#-install)
 
 </div>
@@ -30,7 +30,7 @@ AI coding agents are capable but structurally unreliable in three specific ways.
 | The failure | What it looks like | What CoreSentinel does |
 | :--- | :--- | :--- |
 | **They forget** | Every session restarts from zero. The agent re-derives your stack, re-asks answered questions, and contradicts last week's architecture decision. | A 6-layer memory with confidence scores, plus a permanent decision ledger recording *why* each choice was made. |
-| **They drift** | Different answers to the same question. Rules followed on Monday, ignored on Friday. No consistent standard across projects or tools. | 36 protocols, 8 ordered quality gates, and 17 agent contracts with explicit authority boundaries — identical on every host. |
+| **They drift** | Different answers to the same question. Rules followed on Monday, ignored on Friday. No consistent standard across projects or tools. | 37 protocols, 8 ordered quality gates, and 17 agent contracts with explicit authority boundaries — identical on every host. |
 | **They can't verify themselves** | *"Fixed the vulnerability."* *"All tests pass."* Claims stated with total confidence and zero evidence. | Verification gates that require artifacts — diff, test run, security scan — and score them. Below 80/100 is `UNVERIFIED`, not "done". |
 
 The third one is the reason this project exists. An agent that cannot prove its work is an agent you have to re-check by hand, which erases the leverage it was supposed to give you.
@@ -43,9 +43,9 @@ Seven services. Every host consumes the same ones.
 
 | Service | What it holds | Command |
 | :--- | :--- | :--- |
-| 🧠 **Memory** | 6 layers — working, session, project, long-term, failures, patterns — each fact carrying a confidence score. `≥0.90` is Known, below `0.50` is Unknown, and the agent may not present the second as the first. | `coresentinel memory` |
+| 🧠 **Memory** | 6 layers — working, session, project, long-term, failures, patterns — each fact carrying a confidence score. `≥0.90` is Known, below `0.50` is Unknown, and the agent may not present the second as the first. Facts are searchable, decay until re-verified, and are promoted, merged or compacted as they age. | `coresentinel memory` `recall` `brief` |
 | 🗺️ **Context** | The pack an agent needs before touching code: stack, frameworks, test runner, key files, git history, recorded facts. | `coresentinel context` |
-| ⚖️ **Governance** | 36 protocols, 8 quality gates (`Plan → … → Deployment`), an architecture decision ledger, and a controlled self-evolution pipeline for rule changes. | `coresentinel gate` |
+| ⚖️ **Governance** | 37 protocols, 8 quality gates (`Plan → … → Deployment`), an architecture decision ledger, and a controlled self-evolution pipeline for rule changes. | `coresentinel gate` |
 | 👥 **Agents** | 17 specialist contracts declaring input artifacts, output artifacts, authority level and constraints. A read-only researcher cannot silently write files. | `coresentinel agent` |
 | 🧾 **Verification** | Evidence-based gates. A claim requires collected artifacts and scores ≥80/100 to reach `VERIFIED`, plus a static review pass over the working diff. | `coresentinel verify` |
 | 🔒 **Security** | Anti-pattern and secret scanner wired into git pre-commit, so unverified or leaking work cannot be committed. | `coresentinel check` |
@@ -79,7 +79,7 @@ flowchart TB
         direction LR
         M["🧠 Memory<br/>6 layers<br/>+ confidence"]
         C["🗺️ Context<br/>stack · git<br/>· frameworks"]
-        G["⚖️ Governance<br/>36 protocols<br/>8 gates"]
+        G["⚖️ Governance<br/>37 protocols<br/>8 gates"]
         A["👥 Agents<br/>17 contracts"]
         V["🧾 Verification<br/>evidence gates"]
         S["🔒 Security<br/>anti-pattern<br/>scanner"]
@@ -150,9 +150,9 @@ $ coresentinel doctor
 
   ✓ Configuration          6 core assets present
   ✓ Memory                 7 layers valid, 4 recorded entries
-  ✓ Governance             36 protocols, ledgers consistent
+  ✓ Governance             37 protocols, ledgers consistent
   ✓ Agent Registry         17 contracts complete
-  ✓ Verification Engine    validator + 7 engines operational
+  ✓ Verification Engine    validator + 9 engines operational
   ✓ Security Rules         5 rules armed, 4 blocking
   ✓ Project Context        Node/TypeScript on 'main', 6 host(s)
 
@@ -199,7 +199,7 @@ Requires Python 3.9+. The installer asks for your agent name, role, and squad pr
 
 ## 🧪 CoreSentinel tests itself
 
-A governance system that is not itself tested is an unverified claim. **305 tests across the 8 subsystems**, plus a gated CI pipeline:
+A governance system that is not itself tested is an unverified claim. **436 tests across the 8 subsystems**, plus a gated CI pipeline:
 
 ```text
 Pull Request ➔ Tests ➔ Security ➔ Lint ➔ Integration ➔ Compatibility ➔ PASS / FAIL
@@ -221,7 +221,7 @@ The suite never touches the real `memory/` directory, your home directory, or an
 
 ```text
   Setup & Diagnostics      init · doctor · status
-  Context & Memory         context · memory · decision
+  Context & Memory         context · memory · recall · brief · journal · decision
   Verification & Review    verify · review · gate · check
   Squad & Governance       agent · audit · score · evolve
   Integration & Telemetry  adapter · stats · hooks · version
@@ -259,6 +259,34 @@ coresentinel decision add \
 ```
 
 Confidence is enforced, not decorative: `≥0.90` Known, `≥0.50` Assumed, below that Unknown.
+
+</details>
+
+<details>
+<summary><b>♻️ Memory lifecycle — recall, decay, promotion, journal</b></summary>
+
+A memory store that only ever grows is a memory store that eventually lies. Recording a fact is the easy half; the ecosystem governs what happens to it afterwards.
+
+```bash
+coresentinel brief                        # where the work left off — read this first
+coresentinel recall "postgres migration"  # one query across layers, decisions and journal
+coresentinel journal add --entry "Rewrote the token refresh path" --tags "auth,refactor"
+```
+
+`recall` ranks by term coverage, bonuses an exact phrase hit and weights by confidence — scaled to `[0.5, 1.0]`, never to zero, because a low-confidence fact you can see is safer than one you cannot.
+
+Every lifecycle operation is a **dry run until `--apply`**, and every destructive one snapshots first:
+
+| Command | What it does |
+| :--- | :--- |
+| `memory decay` | Confidence erodes 0.05 per 30 unverified days, floor 0.30. Computed from `base_confidence` and age, so it is idempotent. `failures` and `--pinned` facts are exempt. |
+| `memory verify --match "..."` | Restarts the decay clock. Requires a match string — re-verifying everything at once would launder every guess into a fact. |
+| `memory promote` | `session → project` at ≥0.90. `project → longterm` needs ≥0.95, 14 days and an explicit `--transferable` mark, so one repo's stack never becomes global truth. |
+| `memory consolidate` | Merges duplicates within a layer and across the tier chain. Keeps the **highest** confidence, never an average or a boost — three recordings of a guess make one guess with `occurrences: 3`. |
+| `memory compact` | Folds old sub-0.90 facts into a summary keeping the count, date range and a sample. Summarised, not deleted. |
+| `memory snapshots` / `restore` | The undo button. Manifests record absolute origins, so project and Core layers both restore correctly. |
+
+Full protocol: [`04-memory-ecosystem-protocol.md`](./04-memory-ecosystem-protocol.md).
 
 </details>
 

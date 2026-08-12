@@ -39,5 +39,19 @@
     "impact": "High",
     "status": "Accepted",
     "created_at": "2026-08-12 14:08:37"
+  },
+  {
+    "id": "ADR-004",
+    "decision": "Project-to-longterm memory promotion requires an explicit transferable mark",
+    "reason": "A project-scoped fact is a claim about one codebase by definition. Auto-promoting high-confidence project facts into the shared Core would leak one repository's stack into every repository the Core governs - the exact failure the project/core scoping split exists to prevent.",
+    "alternatives": [
+      "Fully automatic promotion on confidence alone",
+      "No promotion at all",
+      "Promote only facts sourced from the Core"
+    ],
+    "chosen": "Opt-in: project to longterm needs confidence >= 0.95, 14+ days age AND an explicit transferable flag; session to project stays automatic at >= 0.90 because both are project-scoped",
+    "impact": "High",
+    "status": "Accepted",
+    "created_at": "2026-08-12 17:26:30"
   }
 ]

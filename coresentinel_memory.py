@@ -8,6 +8,7 @@ and provides an Architecture Decision Record (ADR) Ledger.
 import os
 import sys
 import json
+import hashlib
 from datetime import datetime
 from pathlib import Path
 
@@ -34,6 +35,12 @@ MEMORY_LAYERS = {
 PROJECT_SCOPED_LAYERS = {"working", "session", "project"}
 CONFIG_DIRNAME = ".coresentinel"
 
+# Layers that hold confidence-scored facts. 'decisions' is an append-only ledger with a
+# different shape, so every fact-walking engine iterates this list instead of MEMORY_LAYERS.
+FACT_LAYERS = ["working", "session", "project", "longterm", "failures", "patterns"]
+
+TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
+
 def find_project_root(start_dir="."):
     """Walk up for a CoreSentinel-bound project, the way git looks for .git."""
     try:
@@ -58,6 +65,80 @@ def layer_scope(layer_name, target_dir="."):
     if layer_name in PROJECT_SCOPED_LAYERS and find_project_root(target_dir):
         return "project"
     return "core"
+
+def memory_root(target_dir="."):
+    """The memory store this directory writes to: the bound project's, else the Core's.
+
+    Journals and snapshots follow the same rule as project-scoped layers — work done on a
+    repository belongs to that repository, not to whichever Core happened to be driving it.
+    """
+    root = find_project_root(target_dir)
+    return root / CONFIG_DIRNAME / "memory" if root else MEMORY_DIR
+
+
+def fact_id(text):
+    """A stable identifier derived from the fact itself, so the same fact recorded twice
+    in two layers is recognisably the same fact to the consolidator."""
+    digest = hashlib.sha1(normalize_fact(text).encode("utf-8")).hexdigest()
+    return f"MEM-{digest[:10]}"
+
+
+def normalize_fact(text):
+    """Case- and whitespace-insensitive form used for duplicate detection only."""
+    return " ".join(str(text or "").lower().split()).rstrip(".")
+
+
+def parse_timestamp(value):
+    """Read any timestamp CoreSentinel has ever written. Returns None if unparseable —
+    callers treat that as 'age unknown' rather than guessing a date."""
+    if not value:
+        return None
+    for fmt in (TIMESTAMP_FORMAT, "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(str(value), fmt)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def age_in_days(value, now=None):
+    """Days since a timestamp, or None when the timestamp cannot be read."""
+    stamp = parse_timestamp(value)
+    if stamp is None:
+        return None
+    delta = (now or datetime.now()) - stamp
+    return max(0.0, delta.total_seconds() / 86400.0)
+
+
+def load_layer(layer_name, target_dir="."):
+    """Read a layer as (data, error). A corrupt file yields (None, reason) — never a
+    silent empty layer, which would let a caller overwrite recorded facts with nothing."""
+    path = layer_path(layer_name, target_dir)
+    if not path.exists():
+        return default_layer_content(layer_name), None
+    try:
+        with open(path, "r", encoding="utf-8-sig") as f:
+            return json.load(f), None
+    except (OSError, json.JSONDecodeError, ValueError) as e:
+        return None, str(e)
+
+
+def save_layer(layer_name, data, target_dir="."):
+    """Write a layer wherever it resolves. Returns the path written."""
+    path = ensure_layer(layer_name, target_dir)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+    return path
+
+
+def layer_facts(layer_name, target_dir="."):
+    """Facts in one layer, or [] when the layer is absent or unreadable."""
+    data, error = load_layer(layer_name, target_dir)
+    if error or not isinstance(data, dict):
+        return []
+    facts = data.get("facts", [])
+    return facts if isinstance(facts, list) else []
+
 
 def default_layer_content(layer_name):
     if layer_name == "decisions":
@@ -90,7 +171,8 @@ def classify_confidence(score):
     else:
         return "Unknown (Unverified)"
 
-def add_fact(layer_name, fact, confidence, source, target_dir="."):
+def add_fact(layer_name, fact, confidence, source, target_dir=".",
+             pinned=False, transferable=False):
     if layer_name not in MEMORY_LAYERS or layer_name == "decisions":
         print(f"[!] Invalid layer '{layer_name}'. Valid layers: working, session, project, longterm, failures, patterns", file=sys.stderr)
         return False
@@ -109,13 +191,21 @@ def add_fact(layer_name, fact, confidence, source, target_dir="."):
     if "facts" not in data:
         data["facts"] = []
 
+    now = datetime.now().strftime(TIMESTAMP_FORMAT)
     entry = {
+        "id": fact_id(fact),
         "fact": fact,
         "confidence": float(confidence),
         "classification": classify_confidence(float(confidence)),
         "source": source,
-        "last_verified": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        "created_at": now,
+        "last_verified": now
     }
+    # Only recorded when set, so an ordinary fact keeps the schema it has always had.
+    if pinned:
+        entry["pinned"] = True          # exempt from confidence decay
+    if transferable:
+        entry["transferable"] = True    # eligible to leave project scope for the Core
     data["facts"].append(entry)
 
     with open(file_path, "w", encoding="utf-8") as f:

@@ -41,6 +41,8 @@
 01. [Sentinel Identity](./01-sentinel-identity.md) - QA automation mode ("Iris test")
 02. [Team Protocol](./02-team-protocol.md) - 17-specialist Squad orchestration & phase gates
 03. [Workflow Guide](./03-workflow-guide.md) - Session budget & token tips
+04. [Layered Memory Protocol](./04-layered-memory-protocol.md) - 6-layer engine, confidence scores & project/core scoping (`coresentinel memory`)
+04. [Memory Ecosystem Protocol](./04-memory-ecosystem-protocol.md) - Recall, decay, promotion, consolidation & journal (`coresentinel recall` / `brief`)
 04. [Session Memory Format](./04-session-memory-format.md) - Session memory template & reset protocol
 05. [Init Protocol](./05-init-protocol.md) - New project scaffolding (`Iris init`)
 06. [MIMIC Protocol](./06-mimic-protocol.md) - Stack migration protocol (`mimic this`)
