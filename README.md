@@ -42,6 +42,27 @@ Score               : 100/100
 
 ---
 
+## 🚦 Quality Gates Pipeline
+
+CoreSentinel enforces 8 ordered Quality Gates (`Plan` ➔ `Architecture` ➔ `Security` ➔ `Implementation` ➔ `Test` ➔ `Review` ➔ `Verification` ➔ `Deployment`). Every gate evaluates with status `PASS`, `FAIL`, `BLOCKED`, or `WAIVED`:
+
+```text
+  Plan ➔ Arch ➔ Security Gate ➔ Impl ➔ Test Gate ➔ Review Gate ➔ Verify Gate ➔ Deploy
+```
+
+```bash
+# Run & evaluate all Quality Gates sequentially
+coresentinel gate run
+
+# View current Quality Gates Pipeline status
+coresentinel gate status
+
+# Waive a specific gate with mandatory justification rationale
+coresentinel gate waive --gate Security --reason "Approved exception for sandbox testing"
+```
+
+---
+
 ## 🧠 Layered Memory Engine & Confidence Matrix
 
 CoreSentinel replaces unstructured memory logs with a **6-Layer Memory Architecture** backed by confidence scoring (`Known` vs `Assumed` vs `Unknown`):

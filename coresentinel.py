@@ -257,6 +257,31 @@ def main():
         else:
             squad.show_agent_contract(sub_args[0])
 
+    elif command in ("gate", "gates"):
+        import coresentinel_gates as gates
+        sub_args = args[1:]
+        sub = sub_args[0].lower() if sub_args else "status"
+        if sub == "run":
+            gates.run_all_gates()
+        elif sub == "status":
+            gates.show_status()
+        elif sub == "reset":
+            gates.reset_gates()
+        elif sub == "waive":
+            g_name = "Security"
+            r_text = "Approved exception"
+            if "--gate" in sub_args:
+                g_name = sub_args[sub_args.index("--gate") + 1]
+            elif len(sub_args) > 1 and not sub_args[1].startswith("--"):
+                g_name = sub_args[1]
+            if "--reason" in sub_args:
+                r_text = sub_args[sub_args.index("--reason") + 1]
+            elif len(sub_args) > 2 and not sub_args[2].startswith("--"):
+                r_text = sub_args[2]
+            gates.waive_gate(g_name, r_text)
+        else:
+            gates.show_status()
+
     elif command == "stats":
         stats_script = CORESENTINEL_DIR / "agent-stats.py"
         if stats_script.exists():
