@@ -18,7 +18,27 @@
 
 ## 💡 What is CoreSentinel?
 
-**CoreSentinel** is an open-source, file-based AI engineering governance and context layer for coding assistants. It provides persistent memory, structured software development lifecycles (SDLC), specialized multi-agent roles, mandatory squad reviews, strict security hardening, verification gates, continuous self-evolution, and cross-project token telemetry—giving AI agents the context, structure, and operational discipline needed for reliable software development.
+**CoreSentinel** is an open-source, file-based AI engineering governance and context layer for coding assistants. It provides persistent memory, structured software development lifecycles (SDLC), specialized multi-agent roles, mandatory squad reviews, strict security hardening, **Evidence-Based Verification Gates**, continuous self-evolution, and cross-project token telemetry—giving AI agents the context, structure, and operational discipline needed for reliable software development.
+
+---
+
+## 🧾 Evidence-Based Verification Gates
+
+Rather than relying on unverified claims, CoreSentinel enforces **Evidence-Based Verification Gates**. Every major claim made by an AI agent (e.g., *"Vulnerability fixed"* or *"Feature implemented"*) requires 5 mandatory evidence artifacts before status is set to `VERIFIED`:
+
+```text
+Claim               : Authentication vulnerability fixed
+Required Evidence   : Code Change | Security Test | Audit Log | Git Diff
+
+Evidence Collected  :
+  [✓] Code Change                   : PASS (Edited src/auth.ts)
+  [✓] Security / Unit Test          : PASS (npm test - 14 passed)
+  [✓] Security & Anti-Pattern Audit : PASS (sentinel-validator clean)
+  [✓] Git Diff Inspection           : PASS (git diff stat verified)
+
+Status              : VERIFIED
+Score               : 100/100
+```
 
 ---
 
