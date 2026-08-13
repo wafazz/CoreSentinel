@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 """
 CoreSentinel Doctor & Status Engine
-Self-diagnostics across the 7 subsystems that must be healthy for CoreSentinel to
-govern an AI agent: Configuration, Memory, Governance, Agent Registry, Verification
-Engine, Security Rules, and Project Context.
+Self-diagnostics across the 9 subsystems that must be healthy for CoreSentinel to
+govern an AI agent: Configuration, Runtime, Storage, Memory, Governance, Agent
+Registry, Verification Engine, Security Rules, and Project Context.
 """
 
 import os
 import sys
 import json
 import importlib
-import subprocess
 from pathlib import Path
 from datetime import datetime
 
@@ -19,6 +18,10 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 SCRIPT_DIR = Path(__file__).parent.resolve()
+sys.path.insert(0, str(SCRIPT_DIR))
+
+from coresentinel_exec import run_cmd
+
 MEMORY_DIR = SCRIPT_DIR / "memory"
 
 STATUS_ICON = {"OK": "✓", "WARN": "!", "FAIL": "✗"}
@@ -36,6 +39,8 @@ CORE_ASSETS = [
 MEMORY_LAYERS = ["working", "session", "project", "longterm", "failures", "patterns", "decisions"]
 
 ENGINE_MODULES = [
+    "coresentinel_exec",
+    "coresentinel_evidence",
     "coresentinel_memory",
     "coresentinel_recall",
     "coresentinel_lifecycle",
@@ -49,6 +54,11 @@ ENGINE_MODULES = [
 
 CONTRACT_FIELDS = ["name", "role", "input_contract", "output_contract", "authority"]
 
+try:
+    from coresentinel_core.runtime.events import KNOWN_EVENTS as EVENT_NAMES
+except ImportError:
+    EVENT_NAMES = []
+
 
 def read_json(path):
     """Return (data, error_message). Never masks a parse failure."""
@@ -59,16 +69,6 @@ def read_json(path):
             return json.load(f), None
     except (OSError, json.JSONDecodeError, ValueError) as e:
         return None, f"{Path(path).name}: {e}"
-
-
-def run_cmd(cmd, cwd=None):
-    try:
-        res = subprocess.run(cmd, cwd=cwd, shell=True, capture_output=True,
-                             text=True, encoding="utf-8", errors="replace", timeout=30)
-        return res.returncode, res.stdout.strip(), res.stderr.strip()
-    except (subprocess.SubprocessError, OSError) as e:
-        # A missing or invalid working directory must degrade the check, not crash the run.
-        return -1, "", str(e)
 
 
 def project_memory_store(target_dir="."):
@@ -196,13 +196,34 @@ def check_agent_registry():
     findings = [f"{len(squad)} specialist contracts registered"]
     findings += [f"INCOMPLETE: {i}" for i in incomplete]
 
+    defaulted = []
+    sys.path.insert(0, str(SCRIPT_DIR))
+    try:
+        from coresentinel_core.agents import registry as agent_registry, builtin
+        overview = agent_registry.audit()
+        defaulted = overview["defaulted"]
+        findings.append(f"{len(overview['declared'])}/{overview['total']} declare enforced "
+                        "permissions")
+        findings.append(f"{sum(1 for name in overview['declared'] if builtin.supports(name))} "
+                        "role(s) have a built-in executor; the rest need an agent adapter")
+        for agent, granted in overview["escalation_holders"].items():
+            findings.append(f"escalation: {agent} may request {', '.join(granted)}")
+        findings += [f"DEFAULTED TO READ-ONLY: {name}" for name in defaulted]
+    except ImportError as e:
+        findings.append(f"permission layer unavailable: {e}")
+
     if not squad:
         return result("Agent Registry", "FAIL", "no agent contracts registered", findings,
                       "Restore squad-contracts.json")
     if incomplete:
         return result("Agent Registry", "WARN", f"{len(incomplete)} contract(s) incomplete",
                       findings, "Complete the missing contract fields in squad-contracts.json")
-    return result("Agent Registry", "OK", f"{len(squad)} contracts complete", findings)
+    if defaulted:
+        return result("Agent Registry", "WARN",
+                      f"{len(defaulted)} contract(s) declare no permissions", findings,
+                      "Add a 'permissions' block, or they stay read-only at runtime")
+    return result("Agent Registry", "OK",
+                  f"{len(squad)} contracts complete, permissions enforced", findings)
 
 
 def check_verification_engine():
@@ -264,10 +285,10 @@ def check_project_context(target_dir="."):
     findings = []
     target = Path(target_dir).resolve()
 
-    code, branch, _ = run_cmd("git rev-parse --abbrev-ref HEAD", cwd=target_dir)
+    code, branch, _ = run_cmd(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=target_dir)
     if code == 0 and branch:
         findings.append(f"git repository on branch '{branch}'")
-        _, dirty, _ = run_cmd("git status --short", cwd=target_dir)
+        _, dirty, _ = run_cmd(["git", "status", "--short"], cwd=target_dir)
         findings.append(f"working tree: {len(dirty.splitlines())} uncommitted change(s)"
                         if dirty else "working tree clean")
     else:
@@ -298,6 +319,81 @@ def check_project_context(target_dir="."):
                   findings)
 
 
+def check_runtime(target_dir="."):
+    """The runtime layer: does it bootstrap, how fast, and did config load cleanly."""
+    sys.path.insert(0, str(SCRIPT_DIR))
+    try:
+        from coresentinel_core.runtime.container import Runtime
+        from coresentinel_core.runtime.config import CORE_CONFIG_FILE
+    except ImportError as e:
+        return result("Runtime", "FAIL", f"runtime package unavailable ({e})", [],
+                      "Restore the coresentinel_core/ package")
+
+    try:
+        runtime = Runtime.bootstrap(target_dir)
+    except Exception as e:
+        return result("Runtime", "FAIL", f"runtime failed to bootstrap ({e})", [],
+                      "Run 'coresentinel config list' to inspect the resolved settings")
+
+    findings = [f"bootstrapped in {runtime.bootstrap_ms:.1f} ms",
+                f"services: {', '.join(runtime.container.names())}",
+                f"storage backend: {runtime.config.get('storage.backend')} "
+                f"(from {runtime.config.origin('storage.backend')})",
+                f"events: {'enabled' if runtime.events.enabled else 'disabled'}, "
+                f"{len(EVENT_NAMES)} defined"]
+    findings.append(f"core config: {CORE_CONFIG_FILE.name}"
+                    if CORE_CONFIG_FILE.exists() else "core config: not present (defaults in use)")
+    non_default = [k for k in runtime.config.keys() if runtime.config.origin(k) != "default"]
+    findings.append(f"{len(non_default)} setting(s) overridden: {', '.join(non_default) or 'none'}")
+    findings += [f"CONFIG: {p}" for p in runtime.config.problems]
+    runtime.shutdown()
+
+    if runtime.config.problems:
+        return result("Runtime", "WARN",
+                      f"{len(runtime.config.problems)} configuration problem(s)", findings,
+                      "Repair the reported config file, or unset the offending variable")
+    return result("Runtime", "OK",
+                  f"bootstrap {runtime.bootstrap_ms:.0f} ms, {len(runtime.container.names())} services",
+                  findings)
+
+
+def check_storage(target_dir="."):
+    """The persistence port: can the configured backend open, migrate and be read."""
+    sys.path.insert(0, str(SCRIPT_DIR))
+    try:
+        from coresentinel_core.runtime.container import Runtime
+        from coresentinel_core.storage import BACKENDS
+    except ImportError as e:
+        return result("Storage", "FAIL", f"storage package unavailable ({e})", [],
+                      "Restore the coresentinel_core/ package")
+
+    try:
+        runtime = Runtime.bootstrap(target_dir)
+        store = runtime.store
+        detail = store.describe()
+    except Exception as e:
+        return result("Storage", "FAIL", f"storage could not be opened ({e})", [],
+                      "Run 'coresentinel migrate' or set storage.backend to json")
+
+    findings = [f"backend: {detail['backend']} (of {', '.join(sorted(BACKENDS))})",
+                f"root: {detail['root']}"]
+    if detail.get("schema"):
+        findings.append(f"schema migrations applied: {', '.join(detail['schema'])}")
+    total = sum(detail["collections"].values())
+    findings.append(f"{len(detail['collections'])} collections, {total} record(s)")
+    findings += [f"{name}: {count}" for name, count in detail["collections"].items() if count]
+
+    damaged = detail.get("skipped_lines") or {}
+    findings += [f"CORRUPT: {name} has {count} unreadable line(s)" for name, count in damaged.items()]
+    runtime.shutdown()
+
+    if damaged:
+        return result("Storage", "WARN",
+                      f"{sum(damaged.values())} unreadable record line(s)", findings,
+                      "The affected lines are skipped on read; remove them to silence this")
+    return result("Storage", "OK", f"{detail['backend']} backend, {total} record(s)", findings)
+
+
 def detect_stack(path):
     p = Path(path)
     markers = [
@@ -324,6 +420,8 @@ def detect_stack(path):
 def run_doctor(target_dir=".", verbose=False, emit_json=False):
     checks = [
         check_configuration(),
+        check_runtime(target_dir),
+        check_storage(target_dir),
         check_memory(target_dir),
         check_governance(),
         check_agent_registry(),
@@ -416,8 +514,8 @@ def run_status(target_dir=".", emit_json=False):
     except ImportError as e:
         print(f"[!] Adapter layer unavailable ({e}) — host status omitted", file=sys.stderr)
 
-    _, branch, _ = run_cmd("git rev-parse --abbrev-ref HEAD", cwd=target_dir)
-    _, dirty, _ = run_cmd("git status --short", cwd=target_dir)
+    _, branch, _ = run_cmd(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=target_dir)
+    _, dirty, _ = run_cmd(["git", "status", "--short"], cwd=target_dir)
     stack = detect_stack(Path(target_dir).resolve())
 
     snapshot = {

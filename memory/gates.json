@@ -1,53 +1,75 @@
 {
-  "last_updated": "2026-08-12 11:32:44",
   "gates": {
+    "Requirement": {
+      "status": "UNKNOWN",
+      "code": "REQUIREMENT_MISSING",
+      "reason": "no objective given and no requirement artifact found \u2014 pass one with: coresentinel gate run --objective \"...\"",
+      "basis": null,
+      "waived_reason": null
+    },
     "Plan": {
-      "status": "PASS",
-      "reason": "Plan & requirement specs verified clean",
-      "timestamp": "2026-08-12 11:32:43",
+      "status": "UNKNOWN",
+      "code": "NO_AUTOMATED_CHECK",
+      "reason": "no automated check for requirement completeness \u2014 waive with: coresentinel gate waive --gate Plan --reason \"...\"",
+      "basis": null,
       "waived_reason": null
     },
     "Architecture": {
-      "status": "PASS",
-      "reason": "Architecture proposal & component schema validated",
-      "timestamp": "2026-08-12 11:32:43",
+      "status": "UNKNOWN",
+      "code": "NO_AUTOMATED_CHECK",
+      "reason": "no automated check for design adequacy \u2014 waive with: coresentinel gate waive --gate Architecture --reason \"...\"",
+      "basis": null,
       "waived_reason": null
     },
     "Security": {
-      "status": "PASS",
-      "reason": "Security & secret scanner zero violations",
-      "timestamp": "2026-08-12 11:32:43",
+      "status": "UNKNOWN",
+      "code": "NO_AUTOMATED_CHECK",
+      "reason": "not a git repository \u2014 the scanner has no change set to read",
+      "basis": "git rev-parse --git-dir",
       "waived_reason": null
     },
     "Implementation": {
-      "status": "PASS",
-      "reason": "Implementation code changes confirmed clean",
-      "timestamp": "2026-08-12 11:32:43",
+      "status": "UNKNOWN",
+      "code": "NO_REPOSITORY",
+      "reason": "not a git repository \u2014 no implementation to inspect",
+      "basis": null,
       "waived_reason": null
     },
     "Test": {
-      "status": "PASS",
-      "reason": "Test baseline clean (No test runner script required)",
-      "timestamp": "2026-08-12 11:32:43",
+      "status": "UNKNOWN",
+      "code": "NO_TEST_RUNNER",
+      "reason": "no test runner detected for this project",
+      "basis": "no command available",
       "waived_reason": null
     },
     "Review": {
-      "status": "PASS",
-      "reason": "Code review & anti-pattern checklist approved",
-      "timestamp": "2026-08-12 11:32:44",
+      "status": "UNKNOWN",
+      "code": "NO_CHANGES",
+      "reason": "not a git repository \u2014 there is no diff to inspect",
+      "basis": "coresentinel review \u2014 static pass over added lines",
       "waived_reason": null
     },
     "Verification": {
-      "status": "PASS",
-      "reason": "Full 6-point verification suite score >= 80/100",
-      "timestamp": "2026-08-12 11:32:44",
+      "status": "UNKNOWN",
+      "code": "EVIDENCE_INSUFFICIENT",
+      "reason": "only 0/100 of the evidence budget could be executed; 50 is the minimum for any verdict",
+      "basis": "coresentinel verify \u2014 0/100 evidence coverage",
+      "waived_reason": null
+    },
+    "Documentation": {
+      "status": "UNKNOWN",
+      "code": "NO_REPOSITORY",
+      "reason": "not a git repository \u2014 nothing to compare",
+      "basis": null,
       "waived_reason": null
     },
     "Deployment": {
-      "status": "PASS",
-      "reason": "Deployment recipe & isolated build check clean",
-      "timestamp": "2026-08-12 11:32:44",
+      "status": "UNKNOWN",
+      "code": "NO_AUTOMATED_CHECK",
+      "reason": "no automated check without a deployment target \u2014 waive with: coresentinel gate waive --gate Deployment --reason \"...\"",
+      "basis": null,
       "waived_reason": null
     }
-  }
+  },
+  "last_updated": "2026-08-14 04:23:59"
 }

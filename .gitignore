@@ -4,6 +4,18 @@ agent-usage-log.json
 *.tmp
 __pycache__/
 
+# Runtime state, not source. The record store and this machine's resolved
+# settings are local to an install; memory layers, decisions and the journal
+# are NOT here and stay committed.
+coresentinel.config.json
+coresentinel.db
+coresentinel.db-journal
+coresentinel.db-wal
+records/
+memory/evolution_snapshots/
+memory/patterns_library.json
+memory/incidents.json
+
 # Test & lint runtime artifacts
 .pytest_cache/
 .ruff_cache/

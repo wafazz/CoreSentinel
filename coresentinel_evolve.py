@@ -47,7 +47,9 @@ def generate_evo_id(existing_proposals=None):
         number += 1
     return f"EVO-{number:03d}"
 
-def propose_evolution(target_protocol, change_description, evidence, impact_analysis="Low risk; non-breaking rule addition"):
+def propose_evolution(target_protocol, change_description, evidence,
+                      impact_analysis="Low risk; non-breaking rule addition",
+                      candidate=None):
     proposals = load_proposals()
     evo_id = generate_evo_id(proposals)
 
@@ -60,7 +62,10 @@ def propose_evolution(target_protocol, change_description, evidence, impact_anal
         "impact_analysis": impact_analysis,
         "review_status": "PENDING_REVIEW",
         "approver": None,
-        "version": f"1.{len(proposals) + 1}.0"
+        "version": f"1.{len(proposals) + 1}.0",
+        "candidate": candidate,
+        "applied_at": None,
+        "snapshot": None,
     }
 
     proposals.append(entry)
@@ -97,6 +102,23 @@ def list_proposals():
 
     print("\n" + "=" * 64 + "\n")
 
+def get_proposal(evo_id):
+    key = str(evo_id or "").lower()
+    return next((p for p in load_proposals() if str(p.get("id", "")).lower() == key), None)
+
+
+def update_proposal(evo_id, **changes):
+    """Amend a proposal in place. Additive: v1 records gain fields, lose none."""
+    proposals = load_proposals()
+    for index, proposal in enumerate(proposals):
+        if str(proposal.get("id", "")).lower() != str(evo_id).lower():
+            continue
+        proposals[index] = {**proposal, **changes}
+        save_proposals(proposals)
+        return proposals[index]
+    return None
+
+
 def approve_proposal(evo_id, approver="Fakrul"):
     proposals = load_proposals()
     matched = [p for p in proposals if p["id"].lower() == evo_id.lower()]
@@ -111,8 +133,11 @@ def approve_proposal(evo_id, approver="Fakrul"):
     proposal["approved_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     save_proposals(proposals)
-    print(f"\n[✓] Evolution Proposal [{proposal['id']}] APPROVED by {approver}!")
-    print(f"    Versioned Change Released: {proposal['target_protocol']} v{proposal['version']}")
+    print(f"\n[✓] Evolution Proposal [{proposal['id']}] APPROVED by {approver}")
+    # Approval and application are separate acts. Printing "released" here was a
+    # claim about a file this function never touched.
+    print(f"    Nothing has changed yet. Apply it with:")
+    print(f"      coresentinel evolve apply {proposal['id']}")
     return True
 
 if __name__ == "__main__":

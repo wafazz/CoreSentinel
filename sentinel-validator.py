@@ -25,6 +25,13 @@ FIXTURE_MARKER = "CORESENTINEL:SCANNER-FIXTURES"
 FIXTURE_MARKER_MAX_LINE = 20
 
 def log(msg, level="INFO"):
+    """Diagnostics go to stderr.
+
+    The scanner's payload is its exit code and its violation lines; everything
+    else is commentary. Other engines exec this module in-process to reuse its
+    rules, so a diagnostic printed to stdout landed in the middle of their
+    --json payload and broke every downstream consumer.
+    """
     prefixes = {
         "INFO": "[+] ",
         "SUCCESS": "[OK] ",
@@ -32,7 +39,7 @@ def log(msg, level="INFO"):
         "ERROR": "[ERR] "
     }
     prefix = prefixes.get(level, "[+] ")
-    print(f"{prefix}{msg}")
+    print(f"{prefix}{msg}", file=sys.stderr)
 
 def load_anti_patterns():
     if not ANTI_PATTERNS_FILE.exists():
@@ -104,16 +111,27 @@ def check_superficial_patches(files):
     return violations
 
 def get_staged_or_changed_files():
-    try:
-        res = subprocess.run(["git", "diff", "--cached", "--name-only"], capture_output=True, text=True, check=True)
-        files = [f.strip() for f in res.stdout.splitlines() if f.strip()]
-        if not files:
-            res = subprocess.run(["git", "diff", "--name-only"], capture_output=True, text=True, check=True)
-            files = [f.strip() for f in res.stdout.splitlines() if f.strip()]
-        return files
-    except subprocess.SubprocessError as e:
-        log(f"Git diff query warning: {e}", "WARNING")
-        return []
+    """Staged, unstaged and untracked paths.
+
+    Untracked files used to be invisible here: `git diff` cannot see a file git
+    has never heard of. A brand-new file carrying a hardcoded secret therefore
+    produced "No changed files detected" and a clean exit — a passing scan of
+    nothing, which is the strongest form of the fabricated-evidence problem.
+    """
+    files = []
+    for command in (["git", "diff", "--cached", "--name-only"],
+                    ["git", "diff", "--name-only"],
+                    ["git", "ls-files", "--others", "--exclude-standard"]):
+        try:
+            res = subprocess.run(command, capture_output=True, text=True, check=True)
+        except (subprocess.SubprocessError, OSError) as e:
+            log(f"Git query warning ({' '.join(command)}): {e}", "WARNING")
+            continue
+        for line in res.stdout.splitlines():
+            name = line.strip()
+            if name and name not in files:
+                files.append(name)
+    return files
 
 def main():
     log("Running CoreSentinel Verification & Gate Validator...", "INFO")

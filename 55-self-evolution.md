@@ -20,21 +20,114 @@
 
 ---
 
+## 🔬 From Observation to Candidate
+
+An observation is not a lesson, and a lesson is not a rule. The gap is deliberate: a system
+that turns every incident straight into governance produces a rulebook nobody reads and a
+review queue nobody reads either — and a reviewer who rubber-stamps has stopped being a control.
+
+```bash
+coresentinel evolve observe        # derive candidates from what is already recorded
+coresentinel evolve candidates     # the queue, by status
+```
+
+Three sources, all of them things somebody already wrote down:
+
+| Source | Signal |
+| :--- | :--- |
+| **Incidents** | A resolved incident's `learning` field |
+| **Failures** | The failures memory layer — a fact there is a mistake that happened |
+| **Patterns** | A pattern whose occurrence count has risen |
+
+Nothing reads code and infers a lesson. An observer that invents rules from source it does
+not understand produces governance nobody agreed to.
+
+### The evidence threshold
+
+A candidate needs **2 distinct sources** before it may be proposed. One incident is an
+anecdote; the second is what makes it worth a rule.
+
+- The same source **cannot corroborate itself** — a single noisy incident must not argue its
+  way into the rulebook.
+- Re-running the observer **never inflates evidence**. It is idempotent by construction.
+- A **rejected candidate stays rejected**. Resurfacing a declined lesson on every run is how
+  a review queue becomes noise, and noise is how a control stops working.
+
+```bash
+coresentinel evolve reject CAND-8efb2da38b --reason "already covered by AP-002"
+coresentinel evolve promote CAND-8efb2da38b --reason "obvious enough not to need repeating"
+```
+
+`promote` is the escape hatch for a lesson too obvious to wait for. It requires a stated
+reason, so the shortcut is visible in the record.
+
+---
+
+## ✅ Approval, and then Application
+
+These are **two separate acts**, and the separation is the point.
+
+`approve` records a human decision and changes no file. Until v10.9 it printed *"Versioned
+Change Released"* while writing nothing — the pipeline stopped one step short of doing
+anything, and said otherwise.
+
+```bash
+coresentinel evolve apply EVO-014      # refused: PENDING_REVIEW, not APPROVED
+coresentinel evolve approve EVO-014 --approver "Fakrul"
+coresentinel evolve apply EVO-014      # now it happens
+coresentinel evolve revert EVO-014     # and it is undone, byte for byte
+```
+
+`apply` does five things, in order, and skips none:
+
+1. **The proposal must be `APPROVED`.** An evolution is applied by a human decision, never by
+   reaching the end of a pipeline.
+2. **The change must be one CoreSentinel knows how to make safely.** Anything else is
+   *refused, not attempted* — blindly patching a governance file because a proposal asked
+   nicely is the failure this protocol exists to prevent.
+3. **The target is snapshotted**, byte for byte.
+4. **The change is written** and the registry version bumped.
+5. **The result is audited.**
+
+| Target | Change it can make |
+| :--- | :--- |
+| `anti-patterns.json` | Add a rule |
+| `11-pattern-library.md` | Append a pattern in the documented capture format |
+| `55-self-evolution.md` | Append an anti-pattern entry |
+
+A newly applied rule is recorded at **`WARNING`**, never `STRICT_BLOCK`. Promotion to blocking
+is its own decision, made once the rule has proved itself. Each rule records the proposal and
+evidence it came from.
+
+`revert` restores the snapshot **byte-identically**. Every evolution is reversible, which is
+what makes approving one a decision rather than a commitment.
+
+---
+
 ## ⚡ CLI Commands
 
 ```bash
+# Observe, and inspect the candidate queue
+coresentinel evolve observe
+coresentinel evolve candidates
+coresentinel evolve reject CAND-abc123 --reason "..."
+coresentinel evolve promote CAND-abc123 --reason "..."
+
 # Register a Controlled Self-Evolution Proposal
 coresentinel evolve propose \
   --target "anti-patterns.json" \
-  --change "Add SQL injection scanner rule" \
-  --evidence "AppSec incident RUN-#9281" \
-  --impact "Low risk; adds pre-commit security check"
+  --change "Flag repeated relationship queries inside a loop" \
+  --evidence "INC-0001, INC-0002" \
+  --candidate CAND-abc123 \
+  --impact "Low risk; adds a review check"
 
 # List all evolution proposals and review status
 coresentinel evolve list
 
-# Approve and version an evolution proposal
+# Approve (a human act), then apply (a separate one), then undo if needed
 coresentinel evolve approve EVO-014 --approver "Fakrul"
+coresentinel evolve apply   EVO-014
+coresentinel evolve revert  EVO-014
 ```
 
 ## Self-Reflection Template

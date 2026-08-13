@@ -177,6 +177,21 @@ def archive_journal(older_than_days=30, target_dir=".", apply_changes=False, now
 
 # ---------------------------------------------------------------- recall
 
+def read_decisions(target_dir="."):
+    """The decision ledger visible from this directory.
+
+    Decisions became project-scoped in Phase 3. Reading the Core file directly,
+    as this module used to, meant recall and the session briefing silently
+    omitted every decision made about the project actually being worked on.
+    """
+    try:
+        from coresentinel_core.decisions import ledger
+    except ImportError:
+        data, error = _read_json(mem.MEMORY_LAYERS["decisions"], [])
+        return data if not error and isinstance(data, list) else []
+    return ledger.load(target_dir)
+
+
 def tokenize(text):
     return [t for t in TOKEN_PATTERN.findall(str(text or "").lower())
             if len(t) > 1 and t not in STOP_WORDS]
@@ -239,9 +254,7 @@ def recall(query, target_dir=".", layers=None, min_confidence=0.0,
             })
 
     if include_decisions:
-        data, error = _read_json(mem.MEMORY_LAYERS["decisions"], [])
-        ledger = data if not error and isinstance(data, list) else []
-        for entry in ledger:
+        for entry in read_decisions(target_dir):
             haystack = " ".join(str(entry.get(k, "")) for k in ("decision", "reason", "chosen"))
             haystack += " " + " ".join(entry.get("alternatives", []) or [])
             score, matched = score_record(terms, phrase, haystack, DECISION_WEIGHT)
@@ -250,7 +263,7 @@ def recall(query, target_dir=".", layers=None, min_confidence=0.0,
             results.append({
                 "kind": "decision",
                 "layer": "decisions",
-                "scope": "core",
+                "scope": entry.get("scope", "core"),
                 "text": f"{entry.get('id')}: {entry.get('decision')} -> {entry.get('chosen')}",
                 "confidence": None,
                 "classification": entry.get("status", "Accepted"),
@@ -359,8 +372,7 @@ def build_briefing(target_dir=".", journal_days=7, now=None):
     high_confidence.sort(key=lambda r: r["confidence"], reverse=True)
     stale.sort(key=lambda r: r["age_days"] or 0, reverse=True)
 
-    decisions, decisions_error = _read_json(mem.MEMORY_LAYERS["decisions"], [])
-    recent_decisions = list(reversed(decisions or []))[:3] if not decisions_error else []
+    recent_decisions = list(reversed(read_decisions(target_dir)))[:3]
 
     return {
         "coresentinel_api": "1.0",

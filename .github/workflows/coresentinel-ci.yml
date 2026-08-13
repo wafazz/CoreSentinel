@@ -150,8 +150,15 @@ jobs:
           python coresentinel.py review --json | python -c "import sys,json; json.load(sys.stdin)"
           python coresentinel.py adapter export --json | python -c "import sys,json; json.load(sys.stdin)"
 
+      # Verification is about a change. On a push to main the tree is clean, so
+      # there is nothing to evidence and the suite correctly returns
+      # INDETERMINATE (exit 2). Scoped to pull requests, matching the review step.
       - name: Evidence-Based Verification Suite
+        if: github.event_name == 'pull_request'
         run: python coresentinel.py verify --claim "CoreSentinel CI integration stage"
+
+      - name: Health scorecard must cite a basis for every number
+        run: python coresentinel.py score --explain
 
       - if: always()
         uses: actions/upload-artifact@v4

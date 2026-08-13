@@ -23,6 +23,11 @@ CORE_DIR = Path(__file__).resolve().parent.parent
 # VERSION has no extension, so it is listed explicitly rather than matched by a glob.
 SANDBOX_GLOBS = ["*.py", "*.json", "*.md", "VERSION"]
 
+# Package directories the sandboxed CLI imports. Only top-level files are matched
+# by the globs above, so a package left out here fails every sandboxed command
+# with an ImportError rather than the behaviour under test.
+SANDBOX_PACKAGES = ["coresentinel_core"]
+
 
 def load_hyphenated_module(filename, module_name):
     """Import a module whose filename is not a valid identifier (sentinel-validator.py)."""
@@ -54,6 +59,12 @@ def sandbox(tmp_path):
     for pattern in SANDBOX_GLOBS:
         for src in CORE_DIR.glob(pattern):
             shutil.copy2(src, root / src.name)
+
+    for package in SANDBOX_PACKAGES:
+        source = CORE_DIR / package
+        if source.is_dir():
+            shutil.copytree(source, root / package,
+                            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
 
     memory = root / "memory"
     memory.mkdir()

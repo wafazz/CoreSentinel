@@ -86,6 +86,62 @@ agent, IDE plugin, or CI job consumes without knowing anything about CoreSentine
 
 ---
 
+## 🔁 Two Directions on One Registry
+
+| Direction | Command | What it does |
+| :--- | :--- | :--- |
+| **Project** | `adapter sync` | Renders the Core into the host's native rules file |
+| **Invoke** | `adapter invoke` | Runs the host as an agent and normalises the response |
+
+A host that only reads rules files declares no `invoke` block and stays projection-only.
+That is a fact about the host, not a gap in the adapter.
+
+### Declaring invocation
+
+```json
+"invoke": {
+  "transport": "cli",
+  "command": ["claude", "-p", "{prompt}"],
+  "response": { "format": "text" },
+  "timeout": 600
+}
+```
+
+Three transports: **`cli`** (argv template, `{prompt}` substituted as one argument, never
+shell-interpolated), **`http`** (JSON POST via stdlib `urllib`; credentials named by
+environment variable, never stored in the registry), and **`mcp`** (JSON-RPC 2.0 over stdio —
+`initialize`, then `tools/call`).
+
+`coresentinel adapter conformance` holds every adapter to the same contract. One that cannot
+answer the same questions is not an adapter.
+
+### The line invocation must not cross
+
+> **An adapter proves that an agent ran and what it said. It does not prove that what the
+> agent said is true.**
+
+The only evidence an invocation produces is the invocation itself — the command, its exit
+code, its duration, a digest of its output. Everything inside the response is recorded under
+`claims`, and `coresentinel verify` is what checks those claims against the repository.
+
+An adapter that turned *"I added tests"* into evidence of tests would reintroduce, at the
+vendor boundary, exactly the fabrication that once let an empty directory score 80/100.
+
+### Permission gating
+
+Invocation runs under a named agent contract and is enforced by the same sandbox as any
+other agent action:
+
+| Transport | Permission consumed |
+| :--- | :--- |
+| `cli`, `mcp` | `shell.execute` — scoped to the host binary |
+| `http` | `network.access` — which **no contract grants by default** |
+
+Only contracts that explicitly list a host binary in their `shell.execute` scope may delegate
+at all. `coresentinel agent permissions <name>` shows which.
+
+---
+
 ## ⚡ CLI Commands
 
 ```bash
@@ -113,6 +169,13 @@ coresentinel adapter sync gemini-cli --apply --force
 # Emit the host-agnostic context bundle
 coresentinel adapter export
 coresentinel adapter export --json
+
+# Hold every adapter to the same contract
+coresentinel adapter conformance
+
+# Run a host as an agent, under a named contract's permissions
+coresentinel adapter invoke claude-code --as Builder --objective "Add a cache layer"
+coresentinel adapter invoke claude-code --as Builder --objective "..." --with-context --json
 ```
 
 ---

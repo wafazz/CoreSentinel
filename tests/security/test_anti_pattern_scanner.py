@@ -106,8 +106,18 @@ class TestFixtureExemption:
                             f'"""{validator.FIXTURE_MARKER}"""\n'
                             'api_key = "sk_live_a1b2c3d4e5f6g7h8"\n')
         validator.check_secrets_and_security([str(marked)])
-        assert "skipped" in capsys.readouterr().out.lower(), \
+        captured = capsys.readouterr()
+        assert "skipped" in (captured.out + captured.err).lower(), \
             "a skipped file must be reported, never silently ignored"
+
+    def test_exemption_notice_never_lands_on_stdout(self, validator, tmp_path, write_file, capsys):
+        """Regression: engines exec this module in-process, so a notice on stdout
+        landed inside their --json payload and broke every downstream consumer."""
+        marked = write_file(tmp_path / "fixtures.py",
+                            f'"""{validator.FIXTURE_MARKER}"""\n'
+                            'api_key = "sk_live_a1b2c3d4e5f6g7h8"\n')
+        validator.check_secrets_and_security([str(marked)])
+        assert capsys.readouterr().out == "", "a diagnostic leaked onto stdout"
 
 
 class TestScannerRobustness:

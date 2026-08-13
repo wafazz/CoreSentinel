@@ -118,7 +118,14 @@ class TestArgumentParsing:
 
     def test_positional_arguments_survive_alongside_flags(self):
         assert cli.positional(["some/dir", "--json"]) == "some/dir"
-        assert cli.positional(["--scope", "global", "target"], 0) == "global"
+        assert cli.positional(["--scope", "global", "target"], 0) == "target"
+
+    def test_a_flag_value_is_never_read_as_a_positional(self):
+        """Regression: `verify --claim "fixed the login bug"` used the claim text as
+        the target directory and verified a path that did not exist."""
+        assert cli.positional(["--claim", "fixed the login bug"]) == "."
+        assert cli.positional(["--task", "add caching", "src"]) == "src"
+        assert cli.positional(["--budget", "8000"]) == "."
 
     def test_doctor_verbose_shorthand_does_not_become_a_directory(self, run_cli):
         code, out, err = run_cli("doctor", "-v")
@@ -153,13 +160,19 @@ class TestHelpSurface:
 
 class TestUnknownCommands:
     def test_unknown_command_fails_loudly(self, run_cli):
-        code, out, _ = run_cli("nonsense")
+        code, out, err = run_cli("nonsense")
         assert code == 1, "an unknown command must not silently succeed"
-        assert "Unknown command" in out
+        assert "Unknown command" in (out + err)
 
     def test_typo_gets_a_suggestion(self, run_cli):
-        _, out, _ = run_cli("docter")
-        assert "doctor" in out
+        _, out, err = run_cli("docter")
+        assert "doctor" in (out + err)
+
+    def test_the_error_goes_to_stderr_not_stdout(self, run_cli):
+        """Regression: prose on stdout lands in front of any --json consumer."""
+        _, out, err = run_cli("nonsense")
+        assert out.strip() == "", "an unknown-command diagnostic leaked onto stdout"
+        assert "Unknown command" in err
 
     def test_unknown_command_does_not_run_verification(self, run_cli):
         """Regression: unknown commands used to fall through to the verification suite."""
@@ -173,11 +186,12 @@ class TestDoctorCommand:
         assert code == 0
         assert "CoreSentinel:" in out
 
-    def test_reports_all_seven_subsystems(self, run_cli_json):
+    def test_reports_every_subsystem(self, run_cli_json):
         _, payload = run_cli_json("doctor", "--json")
         checks = {c["check"] for c in payload["checks"]}
-        assert checks == {"Configuration", "Memory", "Governance", "Agent Registry",
-                          "Verification Engine", "Security Rules", "Project Context"}
+        assert checks == {"Configuration", "Runtime", "Storage", "Memory", "Governance",
+                          "Agent Registry", "Verification Engine", "Security Rules",
+                          "Project Context"}
 
     def test_overall_state_is_recognized(self, run_cli_json):
         _, payload = run_cli_json("doctor", "--json")

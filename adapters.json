@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "version": "1.0.0",
-  "description": "CoreSentinel Host Adapter Registry — maps the vendor-neutral CoreSentinel Core (Memory, Governance, Context, Verification, Telemetry) onto each AI coding assistant's native rules transport",
+  "version": "1.2.0",
+  "description": "CoreSentinel Host Adapter Registry \u2014 maps the vendor-neutral CoreSentinel Core (Memory, Governance, Context, Verification, Telemetry) onto each AI coding assistant's native rules transport",
   "capability_legend": {
     "native": "Host consumes this service through a first-class built-in mechanism",
     "file": "Service is injected by rendering a host-native rules/instructions file",
@@ -18,8 +18,14 @@
       "format": "markdown",
       "global_path": "~/.claude/CLAUDE.md",
       "project_path": "./CLAUDE.md",
-      "detect": ["~/.claude", "~/.claude/CLAUDE.md"],
-      "detect_env": ["CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT"],
+      "detect": [
+        "~/.claude",
+        "~/.claude/CLAUDE.md"
+      ],
+      "detect_env": [
+        "CLAUDECODE",
+        "CLAUDE_CODE_ENTRYPOINT"
+      ],
       "capabilities": {
         "memory": "file",
         "governance": "file",
@@ -27,8 +33,26 @@
         "verification": "cli",
         "telemetry": "native"
       },
-      "extensions": ["Hooks", "Sub-agents", "Slash Commands", "MCP Servers"],
-      "notes": "Richest host. Verification gates can be bound to pre-commit hooks; squad contracts map onto sub-agents."
+      "extensions": [
+        "Hooks",
+        "Sub-agents",
+        "Slash Commands",
+        "MCP Servers"
+      ],
+      "notes": "Richest host. Verification gates can be bound to pre-commit hooks; squad contracts map onto sub-agents.",
+      "invoke": {
+        "transport": "cli",
+        "command": [
+          "claude",
+          "-p",
+          "{prompt}"
+        ],
+        "response": {
+          "format": "text"
+        },
+        "timeout": 600,
+        "notes": "Headless print mode. Add --output-format json to get structured claims."
+      }
     },
     {
       "id": "cursor",
@@ -39,8 +63,13 @@
       "format": "mdc",
       "global_path": "~/.cursor/rules/coresentinel.mdc",
       "project_path": "./.cursor/rules/coresentinel.mdc",
-      "detect": ["~/.cursor", "~/.cursor/rules"],
-      "detect_env": ["CURSOR_TRACE_ID"],
+      "detect": [
+        "~/.cursor",
+        "~/.cursor/rules"
+      ],
+      "detect_env": [
+        "CURSOR_TRACE_ID"
+      ],
       "capabilities": {
         "memory": "file",
         "governance": "file",
@@ -48,7 +77,11 @@
         "verification": "cli",
         "telemetry": "cli"
       },
-      "extensions": ["MDC Frontmatter Scoping", "Glob-Targeted Rules", "MCP Servers"],
+      "extensions": [
+        "MDC Frontmatter Scoping",
+        "Glob-Targeted Rules",
+        "MCP Servers"
+      ],
       "notes": "Rules require MDC frontmatter with alwaysApply to load globally rather than on-demand."
     },
     {
@@ -60,8 +93,14 @@
       "format": "markdown",
       "global_path": "~/.gemini/GEMINI.md",
       "project_path": "./GEMINI.md",
-      "detect": ["~/.gemini", "~/.gemini/GEMINI.md"],
-      "detect_env": ["GEMINI_API_KEY", "GEMINI_CLI"],
+      "detect": [
+        "~/.gemini",
+        "~/.gemini/GEMINI.md"
+      ],
+      "detect_env": [
+        "GEMINI_API_KEY",
+        "GEMINI_CLI"
+      ],
       "capabilities": {
         "memory": "file",
         "governance": "file",
@@ -69,8 +108,24 @@
         "verification": "cli",
         "telemetry": "cli"
       },
-      "extensions": ["MCP Servers", "Hierarchical GEMINI.md Resolution"],
-      "notes": "Resolves GEMINI.md hierarchically; project file overlays the global core rather than replacing it."
+      "extensions": [
+        "MCP Servers",
+        "Hierarchical GEMINI.md Resolution"
+      ],
+      "notes": "Resolves GEMINI.md hierarchically; project file overlays the global core rather than replacing it.",
+      "invoke": {
+        "transport": "cli",
+        "command": [
+          "gemini",
+          "-p",
+          "{prompt}"
+        ],
+        "response": {
+          "format": "text"
+        },
+        "timeout": 600,
+        "notes": "Headless prompt mode."
+      }
     },
     {
       "id": "codex",
@@ -81,8 +136,14 @@
       "format": "markdown",
       "global_path": "~/.codex/AGENTS.md",
       "project_path": "./AGENTS.md",
-      "detect": ["~/.codex", "~/.codex/AGENTS.md"],
-      "detect_env": ["CODEX_SANDBOX", "OPENAI_API_KEY"],
+      "detect": [
+        "~/.codex",
+        "~/.codex/AGENTS.md"
+      ],
+      "detect_env": [
+        "CODEX_SANDBOX",
+        "OPENAI_API_KEY"
+      ],
       "capabilities": {
         "memory": "file",
         "governance": "file",
@@ -90,8 +151,24 @@
         "verification": "cli",
         "telemetry": "none"
       },
-      "extensions": ["Sandbox Execution Policy", "MCP Servers"],
-      "notes": "Sandboxed execution may block CLI verification shell-outs; declare coresentinel as an approved command."
+      "extensions": [
+        "Sandbox Execution Policy",
+        "MCP Servers"
+      ],
+      "notes": "Sandboxed execution may block CLI verification shell-outs; declare coresentinel as an approved command.",
+      "invoke": {
+        "transport": "cli",
+        "command": [
+          "codex",
+          "exec",
+          "{prompt}"
+        ],
+        "response": {
+          "format": "text"
+        },
+        "timeout": 600,
+        "notes": "Non-interactive exec mode."
+      }
     },
     {
       "id": "antigravity",
@@ -102,7 +179,9 @@
       "format": "markdown",
       "global_path": "~/.antigravity/AGENTS.md",
       "project_path": "./AGENTS.md",
-      "detect": ["~/.antigravity"],
+      "detect": [
+        "~/.antigravity"
+      ],
       "detect_env": [],
       "capabilities": {
         "memory": "file",
@@ -111,7 +190,10 @@
         "verification": "cli",
         "telemetry": "none"
       },
-      "extensions": ["Agent Manager", "Browser Automation"],
+      "extensions": [
+        "Agent Manager",
+        "Browser Automation"
+      ],
       "notes": "Shares the AGENTS.md convention with Codex; a single project file serves both hosts."
     },
     {
@@ -123,8 +205,13 @@
       "format": "markdown",
       "global_path": null,
       "project_path": "./.github/copilot-instructions.md",
-      "detect": ["./.github/copilot-instructions.md", "~/.vscode"],
-      "detect_env": ["GITHUB_COPILOT_TOKEN"],
+      "detect": [
+        "./.github/copilot-instructions.md",
+        "~/.vscode"
+      ],
+      "detect_env": [
+        "GITHUB_COPILOT_TOKEN"
+      ],
       "capabilities": {
         "memory": "file",
         "governance": "file",
@@ -132,8 +219,10 @@
         "verification": "none",
         "telemetry": "none"
       },
-      "extensions": ["Repository Custom Instructions"],
-      "notes": "Project-scoped only — no global instruction path exists, so the core must be synced per repository."
+      "extensions": [
+        "Repository Custom Instructions"
+      ],
+      "notes": "Project-scoped only \u2014 no global instruction path exists, so the core must be synced per repository."
     },
     {
       "id": "windsurf",
@@ -144,8 +233,13 @@
       "format": "markdown",
       "global_path": "~/.codeium/windsurf/memories/global_rules.md",
       "project_path": "./.windsurfrules",
-      "detect": ["~/.codeium/windsurf", "~/.codeium"],
-      "detect_env": ["WINDSURF_SESSION"],
+      "detect": [
+        "~/.codeium/windsurf",
+        "~/.codeium"
+      ],
+      "detect_env": [
+        "WINDSURF_SESSION"
+      ],
       "capabilities": {
         "memory": "file",
         "governance": "file",
@@ -153,7 +247,10 @@
         "verification": "cli",
         "telemetry": "none"
       },
-      "extensions": ["Cascade Memories", "MCP Servers"],
+      "extensions": [
+        "Cascade Memories",
+        "MCP Servers"
+      ],
       "notes": "Global rules file is capped in size; the sync renderer emits the compact core profile for this host."
     },
     {
@@ -165,7 +262,9 @@
       "format": "markdown",
       "global_path": null,
       "project_path": "./AGENTS.md",
-      "detect": ["./AGENTS.md"],
+      "detect": [
+        "./AGENTS.md"
+      ],
       "detect_env": [],
       "capabilities": {
         "memory": "file",
@@ -174,8 +273,21 @@
         "verification": "cli",
         "telemetry": "none"
       },
-      "extensions": ["AGENTS.md Convention"],
-      "notes": "Fallback adapter for any assistant that reads the AGENTS.md convention or accepts a JSON context bundle."
+      "extensions": [
+        "AGENTS.md Convention"
+      ],
+      "notes": "Fallback adapter for any assistant that reads the AGENTS.md convention or accepts a JSON context bundle.",
+      "invoke": {
+        "transport": "cli",
+        "command": [
+          "{prompt}"
+        ],
+        "response": {
+          "format": "json"
+        },
+        "timeout": 300,
+        "notes": "Placeholder: override 'command' to point at any CLI agent that accepts a prompt argument and emits JSON."
+      }
     }
   ]
 }

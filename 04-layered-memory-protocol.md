@@ -91,3 +91,8 @@ coresentinel recall "<topic>"            # search every layer, decision and jour
 coresentinel memory decay --apply        # confidence erodes until re-verified
 coresentinel memory promote --apply      # facts that survive scrutiny move up a tier
 ```
+
+**Retrieving memory for a task** is governed separately again. `coresentinel context --task
+"..."` returns only what that task needs, ranked and inside a token budget, rather than every
+fact in the store — see [14-cli-protocol.md](./14-cli-protocol.md). Loading the whole store into
+a prompt is the context bloat CoreSentinel exists to remove.

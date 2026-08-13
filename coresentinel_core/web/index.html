@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CoreSentinel</title>
+<link rel="stylesheet" href="/app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#128737;</text></svg>">
+</head>
+<body>
+
+<header class="bar">
+  <div class="brand">
+    <span class="mark" aria-hidden="true">&#128737;</span>
+    <span class="name">CoreSentinel</span>
+    <span class="version" id="version"></span>
+  </div>
+  <div class="bar-right">
+    <span class="target" id="target" title="working directory"></span>
+    <button id="refresh" class="ghost" type="button">Refresh</button>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs" aria-label="Views">
+  <button class="tab" data-view="overview" aria-current="page">Overview</button>
+  <button class="tab" data-view="project">Project</button>
+  <button class="tab" data-view="agents">Agents</button>
+  <button class="tab" data-view="memory">Memory</button>
+  <button class="tab" data-view="decisions">Decisions</button>
+  <button class="tab" data-view="audit">Audit</button>
+  <button class="tab" data-view="health">Health</button>
+</nav>
+
+<div id="offline" class="offline" hidden role="alert">
+  <strong>The API is not answering.</strong>
+  <span id="offline-detail"></span>
+  <p>Nothing below is live. CoreSentinel shows no numbers rather than stale ones —
+     a dashboard that keeps rendering after its source is gone is a dashboard that lies.</p>
+  <code>coresentinel serve</code>
+</div>
+
+<main id="main">
+  <section class="view" id="view-overview" data-endpoints="health.get gate.status audit.verify audit.list decision.search incident.list"></section>
+  <section class="view" id="view-project" hidden data-endpoints="project.inspect knowledge.query"></section>
+  <section class="view" id="view-agents" hidden data-endpoints="agent.list agent.permissions task.list"></section>
+  <section class="view" id="view-memory" hidden data-endpoints="memory.brief memory.search"></section>
+  <section class="view" id="view-decisions" hidden data-endpoints="decision.search decision.verify"></section>
+  <section class="view" id="view-audit" hidden data-endpoints="audit.list audit.verify"></section>
+  <section class="view" id="view-health" hidden data-endpoints="health.get verification.run"></section>
+</main>
+
+<footer class="foot">
+  <span>Every panel reads <code>/api/v1</code>. No sample data ships in this page.</span>
+  <span id="fetched"></span>
+</footer>
+
+<script src="/app.js"></script>
+</body>
+</html>

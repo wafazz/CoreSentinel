@@ -13,7 +13,6 @@ import re
 import sys
 import json
 import importlib.util
-import subprocess
 from pathlib import Path
 from datetime import datetime
 
@@ -22,6 +21,10 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 SCRIPT_DIR = Path(__file__).parent.resolve()
+sys.path.insert(0, str(SCRIPT_DIR))
+
+from coresentinel_exec import run_cmd
+
 VALIDATOR_FILE = SCRIPT_DIR / "sentinel-validator.py"
 
 SOURCE_SUFFIXES = {".py", ".js", ".jsx", ".ts", ".tsx", ".php", ".rb", ".go", ".rs", ".java"}
@@ -42,15 +45,6 @@ MARKER_PATTERN = re.compile(r'\b(TODO|FIXME|HACK|XXX)\b')
 SEVERITY_ICON = {"BLOCK": "✗", "WARN": "!", "INFO": "·"}
 
 
-def run_cmd(cmd, cwd=None):
-    try:
-        res = subprocess.run(cmd, cwd=cwd, shell=True, capture_output=True,
-                             text=True, encoding="utf-8", errors="replace", timeout=60)
-        return res.returncode, res.stdout.strip(), res.stderr.strip()
-    except subprocess.SubprocessError as e:
-        return -1, "", str(e)
-
-
 def load_validator():
     """Reuse the anti-pattern regexes rather than duplicating them."""
     if not VALIDATOR_FILE.exists():
@@ -69,9 +63,9 @@ def load_validator():
 def get_changed_files(target_dir="."):
     """Union of staged, unstaged and untracked files — a new file is still a reviewable change."""
     files = []
-    for cmd in ("git diff --cached --name-only",
-                "git diff --name-only",
-                "git ls-files --others --exclude-standard"):
+    for cmd in (["git", "diff", "--cached", "--name-only"],
+                ["git", "diff", "--name-only"],
+                ["git", "ls-files", "--others", "--exclude-standard"]):
         code, out, _ = run_cmd(cmd, cwd=target_dir)
         if code != 0:
             continue
@@ -84,9 +78,9 @@ def get_changed_files(target_dir="."):
 
 def get_added_lines(target_dir="."):
     """Map file -> [(line_number, text)] for ADDED lines only, so pre-existing code is not flagged."""
-    code, diff, _ = run_cmd("git diff --cached -U0", cwd=target_dir)
+    code, diff, _ = run_cmd(["git", "diff", "--cached", "-U0"], cwd=target_dir)
     if code != 0 or not diff:
-        code, diff, _ = run_cmd("git diff -U0", cwd=target_dir)
+        code, diff, _ = run_cmd(["git", "diff", "-U0"], cwd=target_dir)
     if code != 0 or not diff:
         return {}
 
@@ -109,7 +103,7 @@ def get_added_lines(target_dir="."):
 
 def get_untracked_lines(target_dir="."):
     """An untracked file has no diff — every one of its lines is an added line."""
-    code, out, _ = run_cmd("git ls-files --others --exclude-standard", cwd=target_dir)
+    code, out, _ = run_cmd(["git", "ls-files", "--others", "--exclude-standard"], cwd=target_dir)
     if code != 0 or not out:
         return {}
 

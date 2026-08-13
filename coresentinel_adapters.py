@@ -314,13 +314,22 @@ def build_core_payload(compact=False):
     lines.append("## Verification & Telemetry Commands")
     lines.append("```bash")
     lines.append(f'cd "{core_dir}"')
-    lines.append("python coresentinel.py verify          # Evidence-Based Verification Suite")
-    lines.append("python coresentinel.py gate status     # Quality Gates pipeline state")
-    lines.append("python coresentinel.py score           # 7-dimension health scorecard")
-    lines.append("python coresentinel.py memory show     # Layered memory & confidence matrix")
-    lines.append("python coresentinel.py audit list      # AI accountability audit trail")
-    lines.append("python coresentinel.py adapter export  # Host-agnostic context bundle (JSON)")
+    # Rendered with the interpreter that is actually running on this machine.
+    # These lines are instructions an agent follows verbatim, and bare `python`
+    # does not exist on macOS or on Linux installs that ship only python3 — the
+    # agent was being handed a command that could not run.
+    for command, description in [
+            ("verify", "Evidence-Based Verification Suite"),
+            ("gate status", "Quality Gates pipeline state"),
+            ("score --explain", "Health scorecard with the basis for every number"),
+            ("memory show", "Layered memory & confidence matrix"),
+            ("audit list", "AI accountability audit trail"),
+            ("adapter export", "Host-agnostic context bundle (JSON)")]:
+        lines.append(f'"{sys.executable}" coresentinel.py {command:<16} # {description}')
     lines.append("```")
+    lines.append("")
+    lines.append("A verification check that reports UNKNOWN did not run and is not a pass. "
+                 "Never describe an UNKNOWN or INDETERMINATE result as verified.")
     lines.append("")
 
     if not compact:

@@ -17,8 +17,20 @@ def gates(tmp_path, monkeypatch):
 
 
 class TestPipelineDefinition:
-    def test_declares_eight_ordered_gates(self, gates):
-        assert len(gates.GATE_PIPELINE) == 8
+    def test_declares_ten_ordered_gates(self, gates):
+        assert len(gates.GATE_PIPELINE) == 10
+
+    def test_the_original_eight_keep_their_names_and_order(self, gates):
+        """Requirement and Documentation were added; nothing was renamed or reordered."""
+        original = ["Plan", "Architecture", "Security", "Implementation",
+                    "Test", "Review", "Verification", "Deployment"]
+        kept = [name for name in gates.GATE_PIPELINE if name in original]
+        assert kept == original
+
+    def test_requirement_comes_first_and_documentation_precedes_deployment(self, gates):
+        pipeline = gates.GATE_PIPELINE
+        assert pipeline[0] == "Requirement"
+        assert pipeline.index("Documentation") < pipeline.index("Deployment")
 
     def test_security_precedes_implementation(self, gates):
         """Security review must gate implementation, not trail it."""
@@ -40,7 +52,7 @@ class TestGateLedger:
     def test_initializes_every_gate(self, gates):
         gates.ensure_gates_file()
         state = gates.load_gates()
-        assert len(state["gates"]) == 8
+        assert len(state["gates"]) == 10
 
     def test_save_and_load_roundtrip(self, gates):
         gates.ensure_gates_file()

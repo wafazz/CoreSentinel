@@ -22,6 +22,45 @@ Activate when an unexpected production failure, security breach, data corruption
 2. **Regression Check**: Run the test suite (`vendor/bin/phpunit` or custom test bootstrap).
 3. **Verification**: Execute empirical runtime probe to verify the issue is completely eliminated.
 
+## Recording an Incident
+
+The four phases below have been documented since v1. Nothing recorded their output, so
+Phase 4 — the one that turns a bad afternoon into a rule nobody has to relearn — had nowhere
+to write.
+
+```bash
+coresentinel incident create --title "Database connection exhaustion" \
+  --problem "The connection pool was exhausted under peak load" \
+  --root-cause "An agent introduced an N+1 query in the listing endpoint" \
+  --severity High --class "A: application logic" \
+  --file src/ProductController.php
+
+coresentinel incident link INC-0001 --decision ADR-042 --pattern PAT-0032
+coresentinel incident resolve INC-0001 \
+  --resolution "Added eager loading to the listing query" \
+  --learning "Flag repeated relationship queries inside a loop during review"
+```
+
+An incident holds four things, and the last two are the point:
+
+| Field | Question it answers |
+| :--- | :--- |
+| `problem` | What was observed |
+| `root_cause` | What actually caused it |
+| `resolution` | What was done about it |
+| `learning` | What should be different next time |
+
+**The fix is what stops it now; the learning is what stops it recurring.** Resolving without
+one is allowed and reported — `coresentinel incident list` names every resolved incident that
+recorded no learning.
+
+Incidents are scoped like decisions and project memory: an incident belongs to the repository
+it happened in. Links to decisions, files, commits, tests and patterns appear in the knowledge
+graph, so a query can walk from the incident to the decision that governs the code that
+caused it.
+
+---
+
 ## Phase 4: RCA & Prevention (Post-Mortem)
 1. **Root Cause Analysis**: Document exact timeline, triggering condition, root cause, and resolution.
 2. **Self-Evolution Feed**:

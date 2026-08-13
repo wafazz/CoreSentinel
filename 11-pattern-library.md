@@ -1,6 +1,19 @@
 # Pattern Library
 > Proven, reusable solutions indexed by problem type. Pull from here before re-inventing.
 
+> **The patterns below are also data.** `coresentinel pattern` keeps the same fields this
+> file documents — stack, problem, solution, gotchas, first used in — plus identity
+> (`PAT-NNNN`), provenance (which incident taught it) and an occurrence count. A record
+> renders back into the format below without loss.
+>
+> ```bash
+> coresentinel pattern add --name "..." --problem "..." --solution "..." --incident INC-0001
+> coresentinel pattern list
+> ```
+>
+> Recording the same pattern again counts an occurrence; it does not raise confidence.
+> Three sightings of a guess make one guess seen three times.
+
 As you build projects, add your patterns here. Each pattern should include:
 - **Stack**: What tech it applies to
 - **Problem**: What you're solving

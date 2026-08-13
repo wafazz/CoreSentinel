@@ -16,6 +16,8 @@ tests/
 ├── security/          Secret & anti-pattern scanner, rule database integrity
 ├── agents/            17-specialist contract registry & authority boundaries
 ├── recovery/          Corrupt, missing and BOM-encoded state handling
+├── runtime/           Configuration precedence, path containment, events, storage ports
+├── surfaces/          Governance bypass, HTTP API contract, MCP conformance, dashboard
 ├── telemetry/         Session log parsing, token accounting, aggregation
 └── integration/       End-to-end CLI behaviour in a sandboxed Core
 ```
@@ -55,6 +57,8 @@ A test suite for a memory system must never write to that memory system.
 | **security** | Real credential formats are caught and safe patterns are not; every anti-pattern rule is complete; Verification-category rules are `STRICT_BLOCK` |
 | **agents** | All 17 contracts declare inputs, outputs, authority and a verification gate; read-only agents declare a read-only constraint |
 | **recovery** | Corrupt JSON fails loudly with the layer named; missing assets suggest a remedy; BOM-encoded files parse; unmanaged host files are never overwritten |
+| **surfaces** | No surface can write unaudited; `api/` and `mcp/` never import storage or an engine; a non-loopback bind without a token is refused; the same operation audits identically through the CLI, the API and MCP; the dashboard serves only its three allowlisted files, calls only real read operations, and ships no sample data |
+| **runtime** | Configuration resolves in precedence order and reports each value's origin; path traversal is refused; a failing event handler cannot fail the emitter; both storage backends satisfy one contract suite; an applied migration cannot be edited |
 | **telemetry** | The shallowest usage block wins (no double counting); malformed log lines are skipped, not fatal; repeat edits count once |
 | **integration** | Every command answers `--help`; unknown commands exit 1 with a suggestion; every `--json` contract parses and carries no BOM; read-only commands do not mutate the ledger |
 

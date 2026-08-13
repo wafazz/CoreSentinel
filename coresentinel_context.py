@@ -8,7 +8,6 @@ stack, frameworks, test runner, git state, entry points and recorded memory fact
 import os
 import sys
 import json
-import subprocess
 from pathlib import Path
 from datetime import datetime
 
@@ -17,6 +16,10 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 SCRIPT_DIR = Path(__file__).parent.resolve()
+sys.path.insert(0, str(SCRIPT_DIR))
+
+from coresentinel_exec import run_cmd
+
 MEMORY_DIR = SCRIPT_DIR / "memory"
 
 FRAMEWORK_MARKERS = {
@@ -29,15 +32,6 @@ FRAMEWORK_MARKERS = {
 
 KEY_FILES = ["README.md", "LICENSE", "CLAUDE.md", "AGENTS.md", "Dockerfile",
              "docker-compose.yml", ".env.example", ".github/workflows"]
-
-
-def run_cmd(cmd, cwd=None):
-    try:
-        res = subprocess.run(cmd, cwd=cwd, shell=True, capture_output=True,
-                             text=True, encoding="utf-8", errors="replace", timeout=30)
-        return res.returncode, res.stdout.strip(), res.stderr.strip()
-    except (subprocess.SubprocessError, OSError) as e:
-        return -1, "", str(e)
 
 
 def read_json(path):
@@ -127,10 +121,10 @@ def build_project_context(target_dir="."):
 
     target = Path(target_dir).resolve()
 
-    _, branch, _ = run_cmd("git rev-parse --abbrev-ref HEAD", cwd=target_dir)
-    _, commit, _ = run_cmd("git rev-parse --short HEAD", cwd=target_dir)
-    _, dirty, _ = run_cmd("git status --short", cwd=target_dir)
-    _, recent, _ = run_cmd("git log --oneline -5", cwd=target_dir)
+    _, branch, _ = run_cmd(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=target_dir)
+    _, commit, _ = run_cmd(["git", "rev-parse", "--short", "HEAD"], cwd=target_dir)
+    _, dirty, _ = run_cmd(["git", "status", "--short"], cwd=target_dir)
+    _, recent, _ = run_cmd(["git", "log", "--oneline", "-5"], cwd=target_dir)
 
     key_files = [f for f in KEY_FILES if (target / f).exists()]
 
