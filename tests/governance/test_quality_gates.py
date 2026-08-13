@@ -90,3 +90,40 @@ class TestWaivers:
         gates.ensure_gates_file()
         gates.waive_gate("NotAGate", "should not apply")
         assert "NotAGate" not in gates.load_gates()["gates"]
+
+
+class TestGateStateIsolation:
+    """The suite once rewrote the repository's own memory/gates.json through
+    gate.run on the service layer. The rule was stated in conftest and enforced
+    only where a test author had remembered it."""
+
+    def test_the_engine_never_points_at_the_real_core_state(self):
+        import coresentinel_gates as engine
+        from tests.conftest import CORE_DIR
+
+        assert engine.GATES_FILE != CORE_DIR / "memory" / "gates.json"
+
+    def test_a_write_through_the_service_layer_leaves_the_real_file_alone(self, tmp_path):
+        import coresentinel_memory as mem
+        import coresentinel_core.runtime.config as config_module
+        from coresentinel_core.runtime.container import Runtime
+        from coresentinel_core.services import Services
+        from tests.conftest import CORE_DIR
+        import json as json_module
+
+        real = CORE_DIR / "memory" / "gates.json"
+        before = real.read_bytes() if real.is_file() else None
+
+        root = tmp_path / "repo"
+        (root / ".coresentinel" / "memory").mkdir(parents=True)
+        (root / ".coresentinel" / "config.json").write_text(
+            json_module.dumps({"project_name": "repo"}), encoding="utf-8")
+
+        runtime = Runtime.bootstrap(str(root))
+        try:
+            Services(runtime).call("gate.run", {})
+        finally:
+            runtime.shutdown()
+
+        after = real.read_bytes() if real.is_file() else None
+        assert after == before, "gate.run rewrote the repository's own gate state"

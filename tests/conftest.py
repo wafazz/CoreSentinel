@@ -51,6 +51,28 @@ def _core_on_path():
     yield
 
 
+@pytest.fixture(autouse=True)
+def _quarantine_gate_state(tmp_path, monkeypatch):
+    """Gate state is written to the Core's own memory/, so redirect it for every test.
+
+    Individual gate tests already patch GATES_FILE. This exists because the service
+    layer reaches the same writer through gate.run, and a surfaces test rewrote the
+    repository's real gates.json — the isolation rule held only where somebody had
+    remembered to apply it. A test that patches it itself still wins; this is the floor.
+    """
+    if str(CORE_DIR) not in sys.path:
+        sys.path.insert(0, str(CORE_DIR))
+    import coresentinel_gates as gates
+
+    quarantined = tmp_path / "gate-state" / "gates.json"
+    quarantined.parent.mkdir(parents=True, exist_ok=True)
+    real = CORE_DIR / "memory" / "gates.json"
+    if real.is_file():
+        shutil.copy2(real, quarantined)
+    monkeypatch.setattr(gates, "GATES_FILE", quarantined)
+    yield
+
+
 @pytest.fixture
 def sandbox(tmp_path):
     """An isolated copy of the CoreSentinel Core. Mutations here never touch the repo."""
