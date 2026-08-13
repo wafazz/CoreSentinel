@@ -4,7 +4,7 @@
 ## Session Context
 - **Project**: CoreSentinel — AI Engineering Control Plane
 - **Profile**: `~/Desktop/MemoryCore Project/Projects/50-coresentinel.md`
-- **Branch**: main (v10.11.0; Phases 1–10 in the working tree, uncommitted)
+- **Branch**: main (v10.11.0; Phases 1–10 committed and pushed — `153d8eb`, `f8aff36`)
 - **Status**: active
 - **Focus**: v1 → v2 transformation. Phases 0–10 complete; Phase 11 (Observability & Hardening) is next.
 
@@ -25,7 +25,7 @@
 ## Working Memory
 ### Active Context
 - `Planning.md` at the Core root is the source of truth. Findings status is §11, phase reports §12.
-- **1032 tests, ~46s.** `pytest` was missing again at the start of Phase 10 (a `--user` install does not survive); reinstall with `python3 -m pip install --user pytest` before believing a "No module named pytest" error means a broken suite.
+- **1034 tests, ~47s.** `pytest` was missing again at the start of Phase 10 (a `--user` install does not survive); reinstall with `python3 -m pip install --user pytest` before believing a "No module named pytest" error means a broken suite.
 - Phase 1 added `coresentinel_exec.py` (safe execution) and `coresentinel_evidence.py` (verification engine). Everything that shells out goes through `coresentinel_exec.run()` — argv lists, no shell, `sys.executable` for Python.
 
 ### Decisions Made
@@ -129,13 +129,13 @@ None blocking. Two standing choices from `Planning.md` §10 still hold: commit t
 ### Where We Left Off
 - Phase 10 complete and verified: 1032/1032 tests, validator exit 0, seven views rendered by hand in Chrome.
 - `doctor` reports DEGRADED for one pending evolution proposal awaiting human review — pre-existing state, not a regression.
-- Working tree is uncommitted. **Nothing has been committed this session** — commit only when asked.
+- **Committed and pushed** on 2026-08-14: `153d8eb` (phases 1-10, release 10.11.0) and `f8aff36` (gate-state isolation fix). Tree clean, `origin/main` up to date.
 - Next action: **Phase 11 — Observability, Performance & Production Hardening** per `Planning.md` §7.
 
 ### Key Context for Next Session
 - The headline defect is fixed: an empty directory now returns INDETERMINATE (exit 2) instead of 80/100 VERIFIED, and 0/100 CRITICAL instead of 89/100 health. CoreSentinel itself scores 86/100, every number traceable via `score --explain`.
 - **UNKNOWN is a first-class result** across verify/score/gate — excluded from denominators, never a pass. Exit code 2 = INDETERMINATE, distinct from 1 = failed.
-- Do NOT weaken or delete any test. Standing criterion: test count strictly increasing (436 → 477 → 583 → 643 → 707 → 776 → 828 → 896 → 940 → 999 → 1032 so far). Three tests were *corrected* in Phase 1 because they asserted the fabricated behaviour — that is allowed; weakening is not.
+- Do NOT weaken or delete any test. Standing criterion: test count strictly increasing (436 → 477 → 583 → 643 → 707 → 776 → 828 → 896 → 940 → 999 → 1032 → 1034 so far). Three tests were *corrected* in Phase 1 because they asserted the fabricated behaviour — that is allowed; weakening is not.
 - Preserve verbatim: the memory lifecycle engine, project/core scoping, `load_layer()`'s `(data, error)` contract, adapter sync safety, `doctor`'s check structure, conftest isolation.
 - Still open: F-09 (random audit ids — Phase 7), F-11 (leaked paths in `project-labels.json`), F-12 (README count), F-15 partially (`read_json`/`print_header` still duplicated), and the dead `memorycore.conf` still ships.
 - **The memory engines were deliberately NOT moved into the package.** A minimal repro proved a re-export shim breaks test isolation: patching `MEMORY_DIR` on the shim has no effect on what the function reads, so the suite would write to the real `memory/`. Moving them needs `sys.modules` aliasing or a fixture rewrite — its own change, not a side effect of one.
@@ -143,6 +143,8 @@ None blocking. Two standing choices from `Planning.md` §10 still hold: commit t
 - **Auth is a single shared token**: no identity, no scopes, no rotation. Fine for a local control plane; the API should not be exposed as a multi-user service.
 - **The dashboard is read-only and stays that way.** Every operation it calls is a read, asserted against the catalogue's mode flags. Gate runs, decisions and evolution approvals are consequential acts, and a mouse is a poor audit trail.
 - **Its assets are served before authorisation**, so anyone who can reach the port can read the HTML/CSS/JS. They carry no project data; the data still needs the API, and off-loopback reads still need the token.
+- **The suite used to rewrite the repo's own `memory/gates.json`** via `gate.run` on the service layer. conftest now redirects `coresentinel_gates.GATES_FILE` in an autouse fixture — if a test ever leaves the tree dirty, look for engine state written to the Core root rather than to `tmp_path`.
+- **GitHub push protection rejects credential-shaped test fixtures.** `tests/security/test_audit_chain.py` assembles them from parts so no literal token sits in a blob; the value handed to the redactor is identical. Do not "simplify" them back to literals.
 - **The offline banner only covers the API dying while the page is open** — the server is also what serves the page, so a cold start with no server shows a browser error, not the banner.
 - **MCP has never been mounted in a live host.** Conformance is asserted against the protocol, not an implementation of it.
 - **`apply` supports three targets only** (`anti-patterns.json`, `11-pattern-library.md`, `55-self-evolution.md`). Anything else is refused rather than patched — safe, but most protocol changes remain manual.
