@@ -110,14 +110,28 @@ def check_superficial_patches(files):
             log(f"Skipping unreadable file {file_path}: {e}", "WARNING")
     return violations
 
-def get_staged_or_changed_files():
+def get_staged_or_changed_files(base=None):
     """Staged, unstaged and untracked paths.
 
     Untracked files used to be invisible here: `git diff` cannot see a file git
     has never heard of. A brand-new file carrying a hardcoded secret therefore
     produced "No changed files detected" and a clean exit — a passing scan of
     nothing, which is the strongest form of the fabricated-evidence problem.
+
+    With `base`, reads the committed range `base...HEAD`. A CI checkout has a
+    clean tree, so without this the scanner reads an empty change set and
+    reports a clean exit over a branch it never looked at — the same fabricated
+    pass in a different disguise.
     """
+    if base:
+        try:
+            res = subprocess.run(["git", "diff", "--name-only", f"{base}...HEAD"],
+                                 capture_output=True, text=True, check=True)
+        except (subprocess.SubprocessError, OSError) as e:
+            log(f"Git query failed for base '{base}': {e}", "ERROR")
+            return None
+        return [line.strip() for line in res.stdout.splitlines() if line.strip()]
+
     files = []
     for command in (["git", "diff", "--cached", "--name-only"],
                     ["git", "diff", "--name-only"],
@@ -138,7 +152,18 @@ def main():
     anti_patterns = load_anti_patterns()
     log(f"Loaded {len(anti_patterns)} anti-pattern rules from index.", "INFO")
 
-    changed_files = get_staged_or_changed_files()
+    base = None
+    if "--base" in sys.argv:
+        index = sys.argv.index("--base")
+        if index + 1 >= len(sys.argv):
+            log("--base requires a git ref", "ERROR")
+            return 1
+        base = sys.argv[index + 1]
+
+    changed_files = get_staged_or_changed_files(base)
+    if changed_files is None:
+        log(f"Base ref '{base}' could not be read — scanning nothing is not a pass.", "ERROR")
+        return 1
     if not changed_files:
         log("No changed/staged git files detected to validate.", "SUCCESS")
         return 0

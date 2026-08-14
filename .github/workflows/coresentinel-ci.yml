@@ -68,12 +68,13 @@ jobs:
       - name: Anti-pattern & secret scan of the working tree
         run: python sentinel-validator.py
 
+      # This printed the range and then reviewed the working tree, which is clean
+      # on a checkout — a green review of nothing. --base makes the two agree.
       - name: Static review of the pull request diff
         if: github.event_name == 'pull_request'
         run: |
           git fetch origin ${{ github.base_ref }} --depth=1
-          git diff --name-only origin/${{ github.base_ref }}...HEAD
-          python coresentinel.py review
+          python coresentinel.py review --base origin/${{ github.base_ref }}
 
   performance:
     name: Performance Budgets
@@ -206,12 +207,16 @@ jobs:
           python coresentinel.py review --json | python -c "import sys,json; json.load(sys.stdin)"
           python coresentinel.py adapter export --json | python -c "import sys,json; json.load(sys.stdin)"
 
-      # Verification is about a change. On a push to main the tree is clean, so
-      # there is nothing to evidence and the suite correctly returns
-      # INDETERMINATE (exit 2). Scoped to pull requests, matching the review step.
+      # Verification is about a change, and on any checkout the change is a
+      # commit range rather than a dirty tree. Reading the tree here evidenced
+      # nothing and returned INDETERMINATE on every pull request; --base points
+      # the evidence at the range this branch actually contributed.
       - name: Evidence-Based Verification Suite
         if: github.event_name == 'pull_request'
-        run: python coresentinel.py verify --claim "CoreSentinel CI integration stage"
+        run: |
+          git fetch origin ${{ github.base_ref }} --depth=1
+          python coresentinel.py verify --claim "CoreSentinel CI integration stage" \
+            --base origin/${{ github.base_ref }}
 
       - name: Health scorecard must cite a basis for every number
         run: python coresentinel.py score --explain

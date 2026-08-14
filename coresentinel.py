@@ -61,7 +61,7 @@ def detect_project_type(target_dir):
     return types if types else ["General"]
 
 def run_evidence_verification(target_dir=".", claim="Code changes and protocol execution verified",
-                              emit_json=False):
+                              emit_json=False, base=None):
     """Delegates to the evidence engine.
 
     The implementation that lived here awarded 45 of its 100 points from three
@@ -71,7 +71,7 @@ def run_evidence_verification(target_dir=".", claim="Code changes and protocol e
     code, and a check that could not run reports UNKNOWN instead of a pass.
     """
     import coresentinel_evidence as evidence
-    return evidence.print_verification(target_dir, claim, emit_json)
+    return evidence.print_verification(target_dir, claim, emit_json, base)
 
 def handle_memory_cmd(args):
     sub = args[0].lower() if args else "show"
@@ -171,7 +171,7 @@ VALUE_FLAGS = {"--project", "--layer", "--min-confidence", "--limit", "--label",
                "--test", "--pattern", "--subject",
                "--candidate", "--name", "--solution", "--stack", "--gotchas",
                "--category", "--first-used-in", "--incident",
-               "--host", "--port", "--offset"}
+               "--host", "--port", "--offset", "--base"}
 
 # Every flag read with flag_value() must appear above, or free_args() treats its
 # value as a positional argument — which is how `verify --claim "fixed the login
@@ -526,15 +526,18 @@ def cmd_context(args):
 
 def cmd_review(args):
     import coresentinel_review as review
-    return review.print_review(positional(args), "--strict" in args, "--json" in args)
+    return review.print_review(positional(args), "--strict" in args, "--json" in args,
+                               flag_value(args, "--base"))
 
 
 def cmd_verify(args):
     claim = flag_value(args, "--claim", "Code changes and protocol execution verified")
     target = positional(args)
-    code = run_evidence_verification(target, claim, "--json" in args)
+    base = flag_value(args, "--base")
+    code = run_evidence_verification(target, claim, "--json" in args, base)
     emit_audited("VerificationCompleted", target,
                  {"claim": claim,
+                  "change_source": f"{base}...HEAD" if base else "working tree",
                   "result": {0: "VERIFIED", 1: "UNVERIFIED", 2: "INDETERMINATE"}.get(code)})
     return code
 
@@ -2063,7 +2066,7 @@ COMMANDS = [
 
     {"name": "verify", "aliases": ["evidence"], "group": "Verification & Review", "handler": cmd_verify,
      "summary": "Run the Evidence-Based Verification Suite",
-     "usage": ["coresentinel verify [target-dir] [--claim \"...\"] [--json]"],
+     "usage": ["coresentinel verify [target-dir] [--claim \"...\"] [--base <ref>] [--json]"],
      "detail": "Runs 6 checks and scores only the ones that executed. Each check reports\n"
                "PASS, FAIL or UNKNOWN, and every PASS carries the command, exit code,\n"
                "duration and output digest that produced it.\n"

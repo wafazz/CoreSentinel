@@ -77,17 +77,40 @@ def _finding(check_id, label, weight, status, detail, run=None, basis=None):
     return record
 
 
-def _changed_files(target_dir):
-    """Staged, unstaged and untracked paths. Empty when the tree is clean or not a repo."""
-    result = execution.git("status", "--porcelain", cwd=target_dir)
+def _base_resolves(target_dir, base):
+    """Whether `base` names a commit this clone has.
+
+    A missing base must report UNKNOWN, never fall back to the working tree: on
+    CI that tree is clean, so the fallback would evidence 'nothing changed'
+    about a branch that changed plenty.
+    """
+    return execution.git("rev-parse", "--verify", f"{base}^{{commit}}", cwd=target_dir).ok
+
+
+def _change_source(base):
+    return f"git diff --name-only {base}...HEAD" if base else "git status --porcelain"
+
+
+def _changed_files(target_dir, base=None):
+    """Staged, unstaged and untracked paths. Empty when the tree is clean or not a repo.
+
+    With `base`, reads the committed range `base...HEAD` instead of the working
+    tree. Without it, a CI checkout evidences nothing: the tree is clean there
+    because the change is already a commit, not because nothing changed.
+    """
+    if base:
+        result = execution.git("diff", "--name-only", f"{base}...HEAD", cwd=target_dir)
+    else:
+        result = execution.git("status", "--porcelain", cwd=target_dir)
     if not result.ok or not result.stdout:
         return []
-    return [line[3:].strip() for line in result.stdout.splitlines() if line.strip()]
+    strip = (lambda line: line.strip()) if base else (lambda line: line[3:].strip())
+    return [strip(line) for line in result.stdout.splitlines() if line.strip()]
 
 
 # ---------------------------------------------------------------- checks
 
-def check_code_change(target_dir="."):
+def check_code_change(target_dir=".", base=None):
     """Evidence that anything was changed at all. A clean tree evidences nothing."""
     label, weight = "Code Change", 20
 
@@ -96,22 +119,32 @@ def check_code_change(target_dir="."):
                         "not a git repository — no change evidence is obtainable",
                         basis="git rev-parse --git-dir")
 
-    result = execution.git("status", "--porcelain", cwd=target_dir)
+    if base and not _base_resolves(target_dir, base):
+        return _finding("code_change", label, weight, UNKNOWN,
+                        f"base ref '{base}' cannot be resolved in this clone — "
+                        f"fetch it before verifying against it",
+                        basis=f"git rev-parse --verify {base}")
+
+    if base:
+        result = execution.git("diff", "--name-only", f"{base}...HEAD", cwd=target_dir)
+    else:
+        result = execution.git("status", "--porcelain", cwd=target_dir)
     if not result.ran:
         return _finding("code_change", label, weight, UNKNOWN,
                         result.error or "git could not be queried", result)
 
-    files = [line[3:].strip() for line in result.stdout.splitlines() if line.strip()]
+    files = _changed_files(target_dir, base)
     if not files:
-        return _finding("code_change", label, weight, UNKNOWN,
-                        "working tree is clean — there is no change to evidence", result)
+        empty = (f"nothing changed between {base} and HEAD — there is no change to evidence"
+                 if base else "working tree is clean — there is no change to evidence")
+        return _finding("code_change", label, weight, UNKNOWN, empty, result)
 
     sample = ", ".join(files[:5]) + (" …" if len(files) > 5 else "")
     return _finding("code_change", label, weight, PASS,
                     f"{len(files)} file(s) changed: {sample}", result)
 
 
-def check_tests(target_dir="."):
+def check_tests(target_dir=".", base=None):
     """Run whatever test runner this project actually has installed."""
     label, weight = "Security / Unit Test", 25
     target = Path(target_dir)
@@ -173,7 +206,7 @@ def _test_verdict(check_id, label, weight, result):
                     f"test suite exited {result.exit_code}", result)
 
 
-def check_lint(target_dir="."):
+def check_lint(target_dir=".", base=None):
     """Whatever linter the project actually has. No linter is UNKNOWN, not clean."""
     label, weight = "Linter & Formatting", 15
     target = Path(target_dir)
@@ -218,7 +251,7 @@ def check_lint(target_dir="."):
                     "no linter is configured for this project or installed on this machine")
 
 
-def check_security(target_dir="."):
+def check_security(target_dir=".", base=None):
     """The anti-pattern and secret scanner, over the files this change actually touches."""
     label, weight = "Security & Anti-Pattern Audit", 20
     validator = SCRIPT_DIR / "sentinel-validator.py"
@@ -232,18 +265,24 @@ def check_security(target_dir="."):
                         "not a git repository — the scanner has no change set to read",
                         basis="git rev-parse --git-dir")
 
-    if not _changed_files(target_dir):
+    if base and not _base_resolves(target_dir, base):
+        return _finding("security", label, weight, UNKNOWN,
+                        f"base ref '{base}' cannot be resolved in this clone",
+                        basis=f"git rev-parse --verify {base}")
+
+    if not _changed_files(target_dir, base):
         return _finding("security", label, weight, UNKNOWN,
                         "no changed files — a scan of nothing evidences nothing",
-                        basis="git status --porcelain")
+                        basis=_change_source(base))
 
-    result = execution.python(str(validator), cwd=target_dir, timeout=AUDIT_TIMEOUT)
+    argv = [str(validator)] + (["--base", base] if base else [])
+    result = execution.python(*argv, cwd=target_dir, timeout=AUDIT_TIMEOUT)
     return _exit_verdict("security", label, weight, result,
                          "scanner reported zero violations",
                          "scanner reported violations")
 
 
-def check_dependencies(target_dir="."):
+def check_dependencies(target_dir=".", base=None):
     """A real advisory audit, or nothing. Lockfile presence is not a vulnerability check."""
     label, weight = "Dependency Vulnerability Audit", 10
     target = Path(target_dir)
@@ -275,7 +314,7 @@ def check_dependencies(target_dir="."):
                     "no dependency audit tool is available for this stack on this machine")
 
 
-def check_diff(target_dir="."):
+def check_diff(target_dir=".", base=None):
     """Static review of added lines — debug residue, unresolved markers, missing tests.
 
     Validator-sourced rules are filtered out: check_security already scores those,
@@ -294,10 +333,15 @@ def check_diff(target_dir="."):
         return _finding("diff", label, weight, UNKNOWN,
                         f"static review engine unavailable ({e})", basis=basis)
 
-    findings, changed, stats = review.review_diff(target_dir)
-    if not changed:
+    if base and not _base_resolves(target_dir, base):
         return _finding("diff", label, weight, UNKNOWN,
-                        "no staged, unstaged or untracked changes to inspect", basis=basis)
+                        f"base ref '{base}' cannot be resolved in this clone", basis=basis)
+
+    findings, changed, stats = review.review_diff(target_dir, base=base)
+    if not changed:
+        empty = (f"nothing changed between {base} and HEAD to inspect" if base
+                 else "no staged, unstaged or untracked changes to inspect")
+        return _finding("diff", label, weight, UNKNOWN, empty, basis=basis)
 
     owned = [f for f in findings if f["rule"] not in ("AP-001", "AP-004")]
     blocking = [f for f in owned if f["severity"] == "BLOCK"]
@@ -329,11 +373,11 @@ CHECKS = [check_code_change, check_tests, check_lint,
 
 # ---------------------------------------------------------------- engine
 
-def collect(target_dir="."):
-    return [check(target_dir) for check in CHECKS]
+def collect(target_dir=".", base=None):
+    return [check(target_dir, base) for check in CHECKS]
 
 
-def summarise(findings, claim="", target_dir="."):
+def summarise(findings, claim="", target_dir=".", base=None):
     scored = [f for f in findings if f["status"] in (PASS, FAIL)]
     unknown = [f for f in findings if f["status"] == UNKNOWN]
 
@@ -354,6 +398,7 @@ def summarise(findings, claim="", target_dir="."):
         "coresentinel_api": "1.1",
         "claim": claim,
         "target": str(Path(target_dir).resolve()),
+        "change_source": f"{base}...HEAD" if base else "working tree",
         "verified_at": datetime.now().strftime(execution.TIMESTAMP_FORMAT),
         "verdict": verdict,
         "score": score,
@@ -369,12 +414,12 @@ def summarise(findings, claim="", target_dir="."):
     }
 
 
-def verify(target_dir=".", claim=""):
-    return summarise(collect(target_dir), claim, target_dir)
+def verify(target_dir=".", claim="", base=None):
+    return summarise(collect(target_dir, base), claim, target_dir, base)
 
 
-def print_verification(target_dir=".", claim="", emit_json=False):
-    report = verify(target_dir, claim)
+def print_verification(target_dir=".", claim="", emit_json=False, base=None):
+    report = verify(target_dir, claim, base)
 
     if emit_json:
         print(json.dumps(report, indent=2))
