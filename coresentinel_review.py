@@ -60,8 +60,30 @@ def load_validator():
         return None
 
 
-def get_changed_files(target_dir="."):
-    """Union of staged, unstaged and untracked files — a new file is still a reviewable change."""
+def base_is_resolvable(base, target_dir="."):
+    """Whether `base` names a commit this clone actually has.
+
+    An unresolvable base must not degrade to the working tree. On CI the tree is
+    clean, so that fallback would report 'nothing changed' about a branch that
+    changed plenty — evidence fabricated by omission.
+    """
+    code, _, _ = run_cmd(["git", "rev-parse", "--verify", f"{base}^{{commit}}"], cwd=target_dir)
+    return code == 0
+
+
+def get_changed_files(target_dir=".", base=None):
+    """Union of staged, unstaged and untracked files — a new file is still a reviewable change.
+
+    With `base`, the change set is the committed range `base...HEAD` instead: the
+    files this branch touched since it diverged. That is the only change set that
+    exists on a CI checkout, where every change is already a commit.
+    """
+    if base:
+        code, out, _ = run_cmd(["git", "diff", "--name-only", f"{base}...HEAD"], cwd=target_dir)
+        if code != 0:
+            return []
+        return [line.strip() for line in out.splitlines() if line.strip()]
+
     files = []
     for cmd in (["git", "diff", "--cached", "--name-only"],
                 ["git", "diff", "--name-only"],
@@ -76,11 +98,14 @@ def get_changed_files(target_dir="."):
     return files
 
 
-def get_added_lines(target_dir="."):
+def get_added_lines(target_dir=".", base=None):
     """Map file -> [(line_number, text)] for ADDED lines only, so pre-existing code is not flagged."""
-    code, diff, _ = run_cmd(["git", "diff", "--cached", "-U0"], cwd=target_dir)
-    if code != 0 or not diff:
-        code, diff, _ = run_cmd(["git", "diff", "-U0"], cwd=target_dir)
+    if base:
+        code, diff, _ = run_cmd(["git", "diff", "-U0", f"{base}...HEAD"], cwd=target_dir)
+    else:
+        code, diff, _ = run_cmd(["git", "diff", "--cached", "-U0"], cwd=target_dir)
+        if code != 0 or not diff:
+            code, diff, _ = run_cmd(["git", "diff", "-U0"], cwd=target_dir)
     if code != 0 or not diff:
         return {}
 
@@ -101,8 +126,14 @@ def get_added_lines(target_dir="."):
     return added
 
 
-def get_untracked_lines(target_dir="."):
-    """An untracked file has no diff — every one of its lines is an added line."""
+def get_untracked_lines(target_dir=".", base=None):
+    """An untracked file has no diff — every one of its lines is an added line.
+
+    Empty for a committed range: a file added on the branch is already in the
+    diff, and an untracked file on a CI checkout is build residue, not the change.
+    """
+    if base:
+        return {}
     code, out, _ = run_cmd(["git", "ls-files", "--others", "--exclude-standard"], cwd=target_dir)
     if code != 0 or not out:
         return {}
@@ -127,15 +158,15 @@ def is_test_path(path):
     return any(hint in lowered for hint in TEST_HINTS)
 
 
-def review_diff(target_dir=".", strict=False):
+def review_diff(target_dir=".", strict=False, base=None):
     findings = []
-    changed = get_changed_files(target_dir)
+    changed = get_changed_files(target_dir, base)
 
     if not changed:
         return [], [], {"changed": 0, "source": 0, "tests": 0}
 
-    added = get_added_lines(target_dir)
-    for name, lines in get_untracked_lines(target_dir).items():
+    added = get_added_lines(target_dir, base)
+    for name, lines in get_untracked_lines(target_dir, base).items():
         added.setdefault(name, lines)
 
     validator = load_validator()
@@ -172,8 +203,13 @@ def review_diff(target_dir=".", strict=False):
     return findings, changed, stats
 
 
-def print_review(target_dir=".", strict=False, emit_json=False):
-    findings, changed, stats = review_diff(target_dir, strict)
+def print_review(target_dir=".", strict=False, emit_json=False, base=None):
+    if base and not base_is_resolvable(base, target_dir):
+        print(f"[!] Base ref '{base}' cannot be resolved in this clone — "
+              f"fetch it before reviewing against it", file=sys.stderr)
+        return 2
+
+    findings, changed, stats = review_diff(target_dir, strict, base)
 
     blocking = [f for f in findings if f["severity"] == "BLOCK"]
     warnings = [f for f in findings if f["severity"] == "WARN"]
@@ -192,6 +228,7 @@ def print_review(target_dir=".", strict=False, emit_json=False):
             "verdict": verdict,
             "reviewed_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "scope": "static pass over added lines",
+            "change_source": f"{base}...HEAD" if base else "working tree",
             "stats": stats,
             "changed_files": changed,
             "findings": findings,
@@ -199,7 +236,7 @@ def print_review(target_dir=".", strict=False, emit_json=False):
         return 1 if blocking else 0
 
     print("\n" + "=" * 64)
-    print("  🛡️  CoreSentinel Static Review — Working Diff")
+    print(f"  🛡️  CoreSentinel Static Review — {f'{base}...HEAD' if base else 'Working Diff'}")
     print("=" * 64)
     print(f"  Target Directory : {Path(target_dir).resolve()}")
     print(f"  Changed Files    : {stats['changed']} ({stats['source']} source, {stats['tests']} test)")

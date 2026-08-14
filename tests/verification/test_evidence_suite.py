@@ -265,3 +265,69 @@ class TestQualityGateIntegrity:
         monkeypatch.setattr(gates, "GATES_FILE", tmp_path / "gates.json")
         assert gates.waive_gate("Security", "") is False
         assert gates.load_gates()["gates"]["Security"]["status"] != gates.WAIVED
+
+
+@pytest.fixture
+def merged_branch(git_repo, write_file):
+    """A branch whose change is committed and whose working tree is clean.
+
+    This is the shape of every CI checkout: the change exists as a commit range,
+    not as a working-tree modification. Verification that only reads the tree
+    sees nothing here and says so, which is honest but useless — CI is precisely
+    where a change most needs evidencing.
+    """
+    git_repo.git("checkout", "-q", "-b", "feature")
+    write_file(git_repo.path / "charge.py", "def charge():\n    return 1\n")
+    git_repo.git("add", "-A")
+    git_repo.git("commit", "-q", "-m", "add charge")
+    assert not git_repo.git("status", "--porcelain").stdout.strip(), \
+        "the fixture must leave a clean tree or it proves nothing"
+    return git_repo
+
+
+class TestCommittedRangeEvidence:
+    """A committed change must be evidenceable. Regression for the CI stage that
+    returned INDETERMINATE on every pull request because it read the tree."""
+
+    def test_a_clean_tree_still_evidences_nothing_without_a_base(self, merged_branch):
+        finding = evidence.check_code_change(str(merged_branch.path))
+        assert finding["status"] == evidence.UNKNOWN
+        assert "clean" in finding["detail"]
+
+    def test_the_same_commit_is_evidence_against_its_base(self, merged_branch):
+        finding = evidence.check_code_change(str(merged_branch.path), base="master")
+        if finding["status"] == evidence.UNKNOWN and "cannot be resolved" in finding["detail"]:
+            finding = evidence.check_code_change(str(merged_branch.path), base="main")
+        assert finding["status"] == evidence.PASS, finding["detail"]
+        assert "charge.py" in finding["detail"]
+
+    def test_an_unresolvable_base_is_unknown_and_never_a_pass(self, merged_branch):
+        """The dangerous failure: falling back to the clean tree would report
+        'nothing changed' about a branch that changed plenty, and score it."""
+        finding = evidence.check_code_change(str(merged_branch.path), base="origin/does-not-exist")
+        assert finding["status"] == evidence.UNKNOWN
+        assert "cannot be resolved" in finding["detail"]
+        assert finding["earned"] == 0
+
+    def test_the_report_declares_which_change_source_it_read(self, merged_branch):
+        assert evidence.verify(str(merged_branch.path))["change_source"] == "working tree"
+        report = evidence.verify(str(merged_branch.path), base="HEAD~1")
+        assert report["change_source"] == "HEAD~1...HEAD"
+
+    def test_a_secret_committed_on_the_branch_is_caught(self, git_repo, write_file):
+        """Without a base this scan reads a clean tree, reports zero violations
+        and scores 20 points for looking at nothing."""
+        git_repo.git("checkout", "-q", "-b", "leaky")
+        write_file(git_repo.path / "charge.py", SECRET_LINE)
+        git_repo.git("add", "-A")
+        git_repo.git("commit", "-q", "-m", "leak")
+
+        finding = evidence.check_security(str(git_repo.path), base="HEAD~1")
+        assert finding["status"] == evidence.FAIL, finding["detail"]
+        assert finding["earned"] == 0
+
+    def test_review_reads_the_committed_range_too(self, merged_branch):
+        import coresentinel_review as review
+        assert review.get_changed_files(str(merged_branch.path)) == []
+        changed = review.get_changed_files(str(merged_branch.path), base="HEAD~1")
+        assert "charge.py" in changed
