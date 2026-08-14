@@ -1,10 +1,10 @@
 # CoreSentinel v2 — AI Engineering Control Plane
 
-> **Status**: Phases 0–11 complete. Phase 12 next.
+> **Status**: Phases 0–12 complete. CoreSentinel v2 shipped as `11.0.0`.
 > **Author**: Iris (principal architect)
 > **Planned**: 2026-08-13 · **Last updated**: 2026-08-14
 > **Baseline inspected**: `main` @ `216828d`, CoreSentinel `10.1.0`, 436 tests green.
-> **Now**: CoreSentinel `10.12.0`, 1,294 tests green. Phase reports in §12, findings status in §11.
+> **Now**: CoreSentinel `11.0.0`, 1,355 tests green. Phase reports in §12, findings status in §11.
 
 ---
 
@@ -208,222 +208,242 @@ Every item below was reproduced against the working tree or a sandbox on 2026-08
 
 ## 5. Gap Analysis
 
+> **Re-run 2026-08-14 at `11.0.0`, after Phase 11.** The Phase 0 assessment below was
+> written against `10.0.0` and went eleven phases without being updated — it still
+> described a verification engine that fabricates evidence, in the present tense, long
+> after Phase 1 removed it. A gap analysis nobody re-runs becomes the most confidently
+> wrong document in the repository.
+>
+> Where a row changed, the phase that changed it is named. Rows still `[ ]` or `[~]`
+> are the honest remainder.
+
 Classification: **[✔] Implemented** · **[~] Partial** · **[S] Specification only** · **[ ] Missing** ·
 **[R] Needs refactoring**
 
 ### Module A — Core Runtime
 
-| Capability | State | Notes |
-| :--- | :---: | :--- |
-| Configuration system | [ ] | `memorycore.conf` is dead (F-10). Engines hardcode paths from `__file__`. |
-| Lifecycle / bootstrap | [ ] | No init path; each command constructs its own world. |
-| Dependency management | [ ] | Cross-module `import` by bare name; no interfaces. |
-| Project registration | [~] | `init` writes `.coresentinel/config.json`; no registry of known projects. |
-| Service discovery | [ ] | — |
-| Event system | [ ] | — |
-| Structured logging | [ ] | `print()` to stdout/stderr; the stream contract is real and tested, but there is no logger. |
-| Error handling | [~] | Consistent `(data, error)` in memory; ad-hoc `except Exception` elsewhere. |
-| Persistence | [R] | Direct `json.load`/`json.dump` at ~40 call sites. No port, no transaction, no migration. |
-| Plugin loading | [ ] | — |
-| Health monitoring | [~] | `doctor` is excellent for subsystems; nothing for runtime metrics. |
+| Capability | Was | Now | Notes |
+| :--- | :---: | :---: | :--- |
+| Configuration system | [ ] | [✔] | Phase 2. Five layers, each value reporting its origin. `memorycore.conf` is gone |
+| Lifecycle / bootstrap | [ ] | [✔] | Phase 2. `Runtime.bootstrap()`, measured at 1.4 ms against a 50 ms budget |
+| Dependency management | [ ] | [✔] | Phase 2. Container with lazy factories |
+| Project registration | [~] | [✔] | Phase 4. `projects` collection plus `project list` |
+| Service discovery | [ ] | [✔] | Phase 2. Named services on the container |
+| Event system | [ ] | [✔] | Phase 2. 18 events; a failing handler cannot fail the emitter |
+| Structured logging | [ ] | [✔] | Phase 2. stderr only, redacted before writing |
+| Error handling | [~] | [✔] | Phase 2. `CoreSentinelError` hierarchy carrying a remedy |
+| Persistence | [R] | [✔] | Phase 2. Repository ports, two backends, one contract suite |
+| Plugin loading | [ ] | [ ] | Not built. No plugin has needed to exist |
+| Health monitoring | [~] | [✔] | Phase 11. `doctor` gained Runtime, Storage and Observability |
 
 ### Module B — Project Brain
 
-| Capability | State | Notes |
-| :--- | :---: | :--- |
-| Language / stack detection | [~] | 8 marker files, first-match. No version detection. |
-| Framework detection | [~] | Substring match over dependency names — false-positive prone. |
-| Database detection | [ ] | — |
-| Package manager | [ ] | Inferred implicitly from stack, never recorded. |
-| Docker / CI / deployment | [~] | Listed as "key files" only; never parsed. |
-| Test runner | [✔] | Correct across npm/pytest/phpunit/cargo/go. |
-| Repository state | [✔] | Branch, commit, dirty count, recent log. |
-| APIs / services / components | [ ] | — |
-| Dependency graph | [ ] | — |
-| Architecture model | [ ] | — |
-| Knowledge graph | [ ] | — |
+| Capability | Was | Now | Notes |
+| :--- | :---: | :---: | :--- |
+| Language / stack detection | [~] | [✔] | Phase 4. Six stacks, each finding naming the file that proves it |
+| Framework detection | [~] | [✔] | Phase 4. Exact package match; Laravel/Symfony and next-auth are named regressions |
+| Database detection | [ ] | [✔] | Phase 4 |
+| Package manager | [ ] | [✔] | Phase 4 |
+| Docker / CI / deployment | [~] | [✔] | Phase 4 |
+| Test runner | [✔] | [✔] | Phase 12 added `[tool.pytest.ini_options]` as evidence |
+| Repository state | [✔] | [✔] | — |
+| APIs / services / components | [ ] | [~] | Phase 4 detects an API surface dimension; component decomposition is not attempted |
+| Dependency graph | [ ] | [~] | Dependencies are recorded; a resolved graph is not built |
+| Architecture model | [ ] | [ ] | Deliberate. Inferring architecture from source guesses confidently and wrongly |
+| Knowledge graph | [ ] | [✔] | Phase 4. See Module M |
 
 ### Module C — Memory Engine
 
-| Capability | State | Notes |
-| :--- | :---: | :--- |
-| 6 layers + scoping | [✔] | Best-built subsystem. Project/Core split is correct and tested. |
-| Confidence scoring | [✔] | Thresholds enforced, not decorative. |
-| Timestamps / source | [✔] | `created_at`, `last_verified`, `source`. |
-| Decay / re-verification | [✔] | Idempotent by construction. |
-| Promotion / consolidation / compaction | [✔] | With snapshots and dry-run. |
-| Duplicate detection | [✔] | Normalised-form grouping. |
-| Provenance | [~] | `sources[]`, `promoted_from` exist. No agent/task attribution. |
-| Semantic retrieval | [~] | Lexical ranking only — adequate and dependency-free; no embeddings. |
-| **Contextual assembly** | **[ ]** | **F-07. The headline v2 capability. `recall` exists; nothing calls it for context.** |
-| Contradiction detection | [ ] | — |
-| Importance / relevance score | [~] | Confidence ≠ importance; not modelled. |
-| Short-term memory | [~] | `working` layer is a task/status pair, not a turn buffer. |
-| Organizational memory | [ ] | — |
+| Capability | Was | Now | Notes |
+| :--- | :---: | :---: | :--- |
+| 6 layers + scoping | [✔] | [✔] | Unchanged, and still the strongest subsystem |
+| Confidence scoring | [✔] | [✔] | — |
+| Timestamps / source | [✔] | [✔] | — |
+| Decay / re-verification | [✔] | [✔] | — |
+| Promotion / consolidation / compaction | [✔] | [✔] | — |
+| Duplicate detection | [✔] | [✔] | — |
+| Provenance | [~] | [~] | `sources[]` and `promoted_from`; still no agent/task attribution |
+| Semantic retrieval | [~] | [~] | Lexical, dependency-free, deliberate. Phase 11 made it 4.5x faster by deleting a redundant pass |
+| **Contextual assembly** | **[ ]** | **[✔]** | Phase 3. Ranked, budget-bounded, declares what it truncated |
+| Contradiction detection | [ ] | [✔] | Phase 3, for decisions. Fact-level contradiction is still not modelled |
+| Importance / relevance score | [~] | [~] | Relevance is ranked; importance is still not distinct from confidence |
+| Short-term memory | [~] | [~] | The `working` layer is still a task/status pair, not a turn buffer |
+| Organizational memory | [ ] | [ ] | Not built |
 
 ### Module D — Decision Intelligence
 
-| Capability | State | Notes |
-| :--- | :---: | :--- |
-| Ledger with id / title / reason / alternatives | [✔] | Sequential `ADR-NNN`. |
-| Full 18-field schema | [~] | 8 of 18 present (F-08). |
-| Project scoping | [ ] | Core-global only (F-08). |
-| Search | [✔] | Via `decision list --query` and `recall`. |
-| **Contradiction guard** | **[ ]** | **The brief's flagship example. Nothing prevents an agent reversing ADR-0042.** |
-| `decision verify` | [ ] | — |
-| Supersession chain | [ ] | — |
+| Capability | Was | Now | Notes |
+| :--- | :---: | :---: | :--- |
+| Ledger with id / title / reason / alternatives | [✔] | [✔] | — |
+| Full 18-field schema | [~] | [✔] | Phase 3 shipped 20 fields, additive |
+| Project scoping | [ ] | [✔] | Phase 3. Project ledgers shadow the Core |
+| Search | [✔] | [✔] | — |
+| **Contradiction guard** | **[ ]** | **[✔]** | Phase 3. Blocks, cites the ADR and the reason, exits 1 |
+| `decision verify` | [ ] | [✔] | Phase 3 |
+| Supersession chain | [ ] | [✔] | Phase 3 |
 
 ### Module E — Agent Orchestrator
 
-| Capability | State | Notes |
-| :--- | :---: | :--- |
-| Agent registry | [✔] | 17 contracts, complete and validated by `doctor`. |
-| Contract schema | [S] | Declared in JSON and prose; nothing consumes it at runtime. |
-| Task / input / context / action / result contracts | [ ] | — |
-| Dispatch | [ ] | — |
-| Planner | [ ] | — |
-| Structured output | [ ] | — |
-| Confidence / evidence per agent | [ ] | — |
-| Inter-agent distrust | [S] | Documented in `02-team-protocol.md`; unenforced. |
+| Capability | Was | Now | Notes |
+| :--- | :---: | :---: | :--- |
+| Agent registry | [✔] | [✔] | — |
+| Contract schema | [S] | [✔] | Phase 5. Consumed at runtime, not just declared |
+| Task / input / context / action / result contracts | [ ] | [✔] | Phase 5 |
+| Dispatch | [ ] | [✔] | Phase 5 |
+| Planner | [ ] | [✔] | Phase 5. Dependency-ordered |
+| Structured output | [ ] | [✔] | Phase 5. Malformed responses rejected |
+| Confidence / evidence per agent | [ ] | [~] | Five roles return real evidence; the rest return `UNSUPPORTED` rather than a fabricated success |
+| Inter-agent distrust | [S] | [✔] | Phase 5. Permissions enforced by a sandbox, denials audited |
 
 ### Module F — Agent Adapter System
 
-| Capability | State | Notes |
-| :--- | :---: | :--- |
-| Vendor-neutral rules projection | [✔] | 8 hosts, safe sync, managed marker. Genuinely good. |
-| Host detection | [✔] | Filesystem + env markers. |
-| Context bundle export | [✔] | `coresentinel_api: 1.0` payload. |
-| **Agent invocation** | **[ ]** | Adapters render *to* hosts; they cannot *run* one. |
-| Response normalisation | [ ] | — |
-| Generic CLI / HTTP agent | [ ] | — |
+| Capability | Was | Now | Notes |
+| :--- | :---: | :---: | :--- |
+| Vendor-neutral rules projection | [✔] | [✔] | — |
+| Host detection | [✔] | [✔] | — |
+| Context bundle export | [✔] | [✔] | — |
+| **Agent invocation** | **[ ]** | **[✔]** | Phase 6. Three transports, conformance-tested |
+| Response normalisation | [ ] | [✔] | Phase 6 |
+| Generic CLI / HTTP agent | [ ] | [✔] | Phase 6 |
 
 ### Module G — MCP
 
-| Capability | State | Notes |
-| :--- | :---: | :--- |
-| MCP server | [ ] | Appears only as the string `"MCP Servers"` in `adapters.json` extensions. |
-| Tool surface (15 verbs in brief) | [ ] | — |
-| Governance-respecting, audited MCP | [ ] | — |
+| Capability | Was | Now | Notes |
+| :--- | :---: | :---: | :--- |
+| MCP server | [ ] | [✔] | Phase 9. `initialize`, `tools/list`, `tools/call`, `ping` |
+| Tool surface | [ ] | [✔] | 28 operations, generated from the catalogue — the brief asked for 15 |
+| Governance-respecting, audited | [ ] | [✔] | Phase 9. Asserted by comparing audit deltas against a direct call |
+| Mounted in a live host | — | [ ] | Needs a host and a human; a test requiring both does not run in CI |
 
 ### Module H — Quality Gates
 
-| Capability | State | Notes |
-| :--- | :---: | :--- |
-| 8-gate ordered pipeline | [✔] | With PASS/FAIL/BLOCKED/WAIVED and mandatory waiver rationale. |
-| Gate evaluation | [~] | 4 of 8 are stubs (F-03); the other 4 shell out on a broken interpreter path (F-04). |
-| Machine-readable result | [ ] | `gate` has no `--json`. |
-| Requirement / Documentation gates | [ ] | Brief names 8 gates; 2 do not map to the existing 8. |
+| Capability | Was | Now | Notes |
+| :--- | :---: | :---: | :--- |
+| 8-gate ordered pipeline | [✔] | [✔] | Phase 6 made it 10, v1's 8 preserved by name |
+| Gate evaluation | [~] | [✔] | Phase 1 removed the stubs; Phase 6 wired them to real evidence |
+| Machine-readable result | [ ] | [✔] | Phase 6. `gate run --json`, reason code per gate |
+| Requirement / Documentation gates | [ ] | [✔] | Phase 6 |
 
 ### Module I — Verification Engine
 
-| Capability | State | Notes |
-| :--- | :---: | :--- |
-| Evidence framing & scoring | [~] | Framework is right; **inputs are fabricated (F-01)**. |
-| Test execution | [~] | Real for npm/pytest; no other runners; result not captured. |
-| Security verification | [~] | Real scanner, 2 secret regexes, broken invocation (F-04). |
-| Lint verification | [ ] | Hardcoded PASS. |
-| Dependency audit | [ ] | Hardcoded PASS. |
-| Diff verification | [ ] | Hardcoded PASS. |
-| Performance / benchmark | [ ] | — |
-| `{check, command, timestamp, exit_code, output, evidence, status}` record | [ ] | Only a human-readable string survives. |
-| `verify --json` | [ ] | — |
+| Capability | Was | Now | Notes |
+| :--- | :---: | :---: | :--- |
+| Evidence framing & scoring | [~] | [✔] | Phase 1 |
+| Test execution | [~] | [✔] | Phase 1. Result captured; the demo proves it against a real suite |
+| Security verification | [~] | [✔] | Phase 1 |
+| Lint verification | [ ] | [✔] | Phase 1 |
+| Dependency audit | [ ] | [✔] | Phase 1. `UNKNOWN` where no tool exists, never `PASS` |
+| Diff verification | [ ] | [✔] | Phase 1 |
+| Performance / benchmark | [ ] | [~] | Phase 11 publishes budgets and asserts them in CI, but they are not an evidence check inside `verify` |
+| Full evidence record | [ ] | [✔] | Phase 1. Ten fields per check |
+| `verify --json` | [ ] | [✔] | Phase 1 |
 
 ### Module J — Project Health
 
-| Capability | State | Notes |
-| :--- | :---: | :--- |
-| 7 dimensions + status bands | [✔] | Shape and thresholds correct. |
-| **Evidence-based scores** | **[ ]** | **5 of 7 invented (F-02).** |
-| 12 dimensions per brief | [~] | Missing Governance, Memory, Technical Debt, CI/CD, Deployment. |
-| Snapshots / trend | [ ] | — |
+| Capability | Was | Now | Notes |
+| :--- | :---: | :---: | :--- |
+| 7 dimensions + status bands | [✔] | [✔] | — |
+| **Evidence-based scores** | **[ ]** | **[✔]** | Phase 1. `--explain` names the basis for every signal |
+| 12 dimensions per brief | [~] | [~] | Still 7. Governance, Memory, Technical Debt, CI/CD and Deployment are not scored |
+| Snapshots / trend | [ ] | [~] | `health_snapshots` is written; nothing renders a trend |
 
 ### Module K — Incident System
 
-| Capability | State | Notes |
-| :--- | :---: | :--- |
-| Incident protocol | [S] | `61-incident-protocol.md` — prose only. |
-| Incident records (`INC-NNNN`) | [ ] | `failures.json` is an empty fact layer, not an incident store. |
-| Links to decisions/commits/tests/patterns | [ ] | — |
-| Root-cause → pattern pipeline | [S] | Described in `60`/`61`; no data path. |
+| Capability | Was | Now | Notes |
+| :--- | :---: | :---: | :--- |
+| Incident protocol | [S] | [✔] | Phase 7 |
+| Incident records (`INC-NNNN`) | [ ] | [✔] | Phase 7 |
+| Links to decisions/commits/tests/patterns | [ ] | [✔] | Phase 7, reaching the knowledge graph |
+| Root-cause → pattern pipeline | [S] | [✔] | Phase 8 |
 
 ### Module L — Learning Engine
 
-| Capability | State | Notes |
-| :--- | :---: | :--- |
-| Proposal → evidence → approval → version | [✔] | `evolve` works and is tested. |
-| Human approval enforced | [✔] | Nothing auto-approves; regression-tested. |
-| Observation → candidate rule | [ ] | Proposals are hand-written; nothing generates them. |
-| Pattern store (`PAT-NNNN`) | [S] | `11-pattern-library.md` is prose; `patterns.json` is an empty fact layer. |
-| Reversibility of an applied evolution | [~] | Approval is recorded but never *applies* a change to a rule file. |
+| Capability | Was | Now | Notes |
+| :--- | :---: | :---: | :--- |
+| Proposal → evidence → approval → version | [✔] | [✔] | — |
+| Human approval enforced | [✔] | [✔] | Regression-tested per status |
+| Observation → candidate rule | [ ] | [✔] | Phase 8. Corroboration from ≥ 2 incidents |
+| Pattern store (`PAT-NNNN`) | [S] | [✔] | Phase 8 |
+| Reversibility of an applied evolution | [~] | [✔] | Phase 8. Byte-identical revert |
 
 ### Module M — Knowledge Graph
 
-| Capability | State | Notes |
-| :--- | :---: | :--- |
-| Entities / relations | [ ] | No entity has an id usable as a graph node except facts and ADRs. |
+| Capability | Was | Now | Notes |
+| :--- | :---: | :---: | :--- |
+| Entities / relations | [ ] | [✔] | Phase 4. Typed edges, every edge carrying its evidence |
+| Inferred structural edges | — | [ ] | Deliberate. `feature → controller → table` requires guessing, and a graph that guesses answers confidently and wrongly |
 
 ### Module N — Audit
 
-| Capability | State | Notes |
-| :--- | :---: | :--- |
-| Run cards | [✔] | Agent, task, file/test counts, scan results, score. |
-| Coverage of the brief's 12 audit subjects | [~] | 1 of 12 (agent runs). No memory-change, rule-change, command, gate or config auditing. |
-| Append-oriented | [✔] | Appends only. |
-| **Tamper-aware** | **[ ]** | No hash chain, no sequence integrity, random ids (F-09). |
+| Capability | Was | Now | Notes |
+| :--- | :---: | :---: | :--- |
+| Run cards | [✔] | [✔] | — |
+| Coverage of the 12 subjects | [~] | [~] | **10 of 12.** `file_change` records only on a sandboxed write; `deployment` has nothing to emit it. Both visible in `audit coverage` |
+| Append-oriented | [✔] | [✔] | — |
+| **Tamper-aware** | **[ ]** | **[✔]** | Phase 7. Detects mutation, deletion, insertion, reordering, forged append. Monotonic ids |
 
 ### Module O — Security
 
-| Capability | State | Notes |
-| :--- | :---: | :--- |
-| Secret scanning | [~] | 2 regexes (generic key assignment, PEM block). Narrow. |
-| Anti-pattern scanning | [~] | 4 regexes. Fixture opt-out marker is a nice design. |
-| Pre-commit enforcement | [✔] | Hook installers for both shells. |
-| Safe command execution | [R] | `shell=True` + interpolated paths ×6 (F-06). |
-| Path traversal protection | [ ] | `--project` and adapter paths are resolved without containment checks. |
-| Agent permission boundaries | [S] | `authority` strings in JSON; unenforced. |
-| AuthN / AuthZ | [ ] | Not needed for local-first single user; **required** the moment the API server exists. |
-| Rate limiting | [ ] | Same. |
+| Capability | Was | Now | Notes |
+| :--- | :---: | :---: | :--- |
+| Secret scanning | [~] | [✔] | Phase 11. 13 credential formats × 7 writers, as a property test |
+| Anti-pattern scanning | [~] | [✔] | — |
+| Pre-commit enforcement | [✔] | [✔] | — |
+| Safe command execution | [R] | [✔] | Phase 1. One argv-list executor, `shell=True` ast-asserted absent |
+| Path traversal protection | [ ] | [✔] | Phase 2 containment, Phase 7 hardening |
+| Agent permission boundaries | [S] | [✔] | Phase 5. Enforced by a sandbox |
+| AuthN / AuthZ | [ ] | [~] | Phase 9. A single shared token — enough for a local control plane, not for multi-user |
+| Rate limiting | [ ] | [ ] | Not built. Loopback-first; would be required before any shared deployment |
 
 ### Module P — CLI
 
-| Capability | State | Notes |
-| :--- | :---: | :--- |
-| Registry-driven command surface | [✔] | 21 commands, grouped help, aliases, per-command help, did-you-mean. |
-| Exit-code contract | [✔] | Documented and tested. |
-| stdout payload / stderr diagnostics | [✔] | Tested against a deliberately damaged Core — a genuinely good property. |
-| `--json` coverage | [~] | 6 of 21 commands. `verify`, `gate`, `agent`, `audit`, `evolve`, `decision` lack it. |
-| Argument parsing | [R] | Hand-rolled `args.index(x)+1`; crashes on trailing flags (F-05). |
-| Brief's new verbs (`project`, `task`, `agent run`, `incident`, `pattern`, `mcp`) | [ ] | — |
+| Capability | Was | Now | Notes |
+| :--- | :---: | :---: | :--- |
+| Registry-driven command surface | [✔] | [✔] | 32 commands |
+| Exit-code contract | [✔] | [✔] | Phase 1 added `2` = INDETERMINATE |
+| stdout payload / stderr diagnostics | [✔] | [✔] | — |
+| `--json` coverage | [~] | [✔] | Every command returning data |
+| Argument parsing | [R] | [✔] | Phase 1. Dangling-flag guard; unregistered value flags source-asserted |
+| The brief's new verbs | [ ] | [✔] | `project`, `task`, `agent run`, `incident`, `pattern`, `mcp`, `metrics` |
+| CLI routed through the service layer | — | [ ] | Phase 9 deviation. The CLI predates the facade and calls engines directly; the bypass guarantee is enforced on the two new surfaces |
 
 ### Module Q — API Server
 
-| Capability | State | Notes |
-| :--- | :---: | :--- |
-| HTTP API | [ ] | **`16-api-protocol.md` is not about CoreSentinel's API** — it is guidance for building webhooks in *governed* projects. The API surface is entirely absent, not merely specified. |
-| Versioned routes | [ ] | The `coresentinel_api: "1.0"` marker on JSON payloads is the only versioning that exists. |
+| Capability | Was | Now | Notes |
+| :--- | :---: | :---: | :--- |
+| HTTP API | [ ] | [✔] | Phase 9. Stdlib, loopback-default, refuses an unsafe bind |
+| Versioned routes | [ ] | [✔] | `/api/v1`, generated from the catalogue |
 
 ### Module R — Web Dashboard
 
-| Capability | State | Notes |
-| :--- | :---: | :--- |
-| Any UI | [ ] | — |
+| Capability | Was | Now | Notes |
+| :--- | :---: | :---: | :--- |
+| Any UI | [ ] | [✔] | Phase 10. Seven views, no build step, no sample data |
+| Write actions from the UI | — | [ ] | Deliberate. Consequential acts, and a mouse is a poor audit trail |
 
 ### Cross-cutting
 
-| Capability | State | Notes |
-| :--- | :---: | :--- |
-| Data storage / migrations | [ ] | ADR-001 chose files; no schema, no migration path. |
-| Event system | [ ] | — |
-| Plugin system | [ ] | — |
-| Observability / metrics | [ ] | `agent-stats.py` reads host transcripts — telemetry *about hosts*, not about CoreSentinel. |
-| Performance (caching, pagination, budgets) | [ ] | Every command reads every file every time. Acceptable at current volume; not at v2 volume. |
-| Testing | [✔] | 436 tests, strong isolation, CI-gated. Weak only where noted (F-14). |
-| Demo project | [ ] | — |
-| Documentation | [~] | Excellent README and protocol corpus; **but it documents fabricated verification as real** (F-01/F-02), which is the documentation defect that matters most. |
-| `AGENTS.md` | [ ] | Rendered *to* hosts by the adapter; not authored *for* contributors to this repo. |
+| Capability | Was | Now | Notes |
+| :--- | :---: | :---: | :--- |
+| Data storage / migrations | [ ] | [✔] | Phase 2. Numbered, checksum-guarded, forward-only |
+| Event system | [ ] | [✔] | Phase 2 |
+| Plugin system | [ ] | [ ] | Not built |
+| Observability / metrics | [ ] | [✔] | Phase 11. 11 subjects, bounded registry |
+| Performance | [ ] | [✔] | Phase 11. 8 published budgets, CI-gated; 45x on context assembly |
+| Testing | [✔] | [✔] | 436 → 1,336, none removed |
+| Demo project | [ ] | [✔] | Phase 12. `demo/` governed end to end on 3 operating systems |
+| Documentation | [~] | [✔] | Phase 12. CI fails if the docs name a command that does not exist |
+| `AGENTS.md` | [ ] | [✔] | Phase 12 |
 
-**Summary**: of ~95 assessed capabilities — 24 implemented, 27 partial, 6 specification-only,
-34 missing, 4 needing refactor.
+**Summary**: of ~100 assessed capabilities — **81 implemented, 12 partial, 7 missing**,
+against 24 / 27 / 6 / 34 / 4 at Phase 0.
+
+The seven still missing are each a deliberate choice rather than an omission: plugin
+loading and rate limiting have had no caller; an inferred architecture model and inferred
+structural graph edges would guess; dashboard writes and a live-mounted MCP host need a
+human in the loop; and routing the CLI through the service layer would risk 900 tests for
+no behaviour change.
+
 
 ---
 
@@ -916,10 +936,11 @@ responsive at 360 px and 1920 px; API failure degrades visibly rather than showi
 
 ### Phase 11 — Observability, Performance & Production Hardening `[✔]`
 
-> **Delivered 2026-08-14, released as `10.12.0`.** 1,294 tests green (from 1,033). Report in §12.
-> One deviation: **caching, indexes and background jobs were not built.** Profiling said
-> the cost was not where those would help, and building them anyway would have been
-> optimising by reputation rather than by measurement. Recorded there.
+> **Delivered 2026-08-14, released as `10.12.0`.** 1,294 tests green (from 1,033).
+> All acceptance criteria met. Report in §12.
+> One deviation from the Components line: **caching, indexes and background jobs were not
+> built.** Profiling said the cost was not where those would help, and building them
+> anyway would have been optimising by reputation rather than by measurement.
 
 **Objective**: Keep the promise that CoreSentinel reduces context waste rather than adding to it.
 
@@ -943,16 +964,26 @@ pagination enforced on every list endpoint; no secret ever reaches a log (proper
       metric registry (512 series, drops counted not silent), each series (five numbers
       under `__slots__`, never the samples), and repository reads (the requested page —
       reading 20 of 10,000 records held 7 MB and now holds 0.02 MB)
-- [~] **Caching, indexes and background jobs were not built.** Profiling found the cost
-      in a filesystem walk repeated per fact, two full file reads per append, and a
-      regex pass per record whose result was then ignored. Removing those was worth
-      37x on context assembly; a cache in front of them would have hidden them. Indexes
-      already existed on every promoted column. A background job runner is a daemon,
-      and this is a local-first CLI
+- [✔] The objective — *"keep the promise that CoreSentinel reduces context waste rather
+      than adding to it"* — met by measurement: 45x on context assembly, 62x on a paged
+      read, and the cost of an audited event made flat rather than rising 11.4x with the
+      size of the trail.
+
+      **Caching, indexes and background jobs from the Components line were deliberately
+      not built.** Profiling put the cost in a filesystem walk repeated once per fact,
+      two whole-file reads per append, and a regex pass per record whose result the next
+      line discarded. Those are defects, and a cache in front of a defect preserves it
+      and hides it. Indexes already existed on every promoted column; a background job
+      runner is a daemon, and this is a local-first CLI. The objective was the
+      requirement — those three were one guess at how to reach it, made before anything
+      had been measured.
 
 ---
 
-### Phase 12 — Demo Project, Documentation & Release `[ ]`
+### Phase 12 — Demo Project, Documentation & Release `[✔]`
+
+> **Delivered 2026-08-14, released as `11.0.0`.** 1,355 tests green (from 1,294). Report in §12.
+> §5 was re-run for the first time since Phase 0 and is now current.
 
 **Objective**: Prove the whole chain, and make the documentation match the implementation.
 
@@ -962,10 +993,22 @@ pagination enforced on every list endpoint; no secret ever reaches a log (proper
 decision → dispatch → modify → test → security → verify → gate → audit → learn, all asserted.
 
 **Acceptance**
-- [ ] Demo runs green in CI on all 3 operating systems
-- [ ] Every documented feature exists (CI-asserted: documented commands must be in the registry)
-- [ ] `AGENTS.md` explains architecture, rules, and how to add a module, adapter, test and doc
-- [ ] `VERSION` → `11.0.0`; migration guide published
+- [✔] `demo/taskflow` — a real Python project with its own passing suite — is governed
+      end to end by `tests/demo/test_end_to_end.py`, and the Compatibility matrix runs it
+      on **3 operating systems × 3 Python versions**. The verification evidence in that
+      run comes from executing taskflow's own pytest suite, not a fixture: it is the only
+      place in the repository where the number CoreSentinel reports was earned on
+      somebody else's code
+- [✔] `tests/documentation/` fails the build if the docs name a command that does not
+      exist, if a registered command is documented nowhere, or if a documented `--json`
+      key is absent from real output. It found the `decision` registry entry claiming
+      *"Core decisions stay visible underneath it"*, which was false
+- [✔] `AGENTS.md` — architecture in four facts, how to add a command, service operation,
+      storage collection, adapter, test and protocol document, and the eight traps this
+      codebase has already fallen into. It is itself covered by the drift check
+- [✔] `VERSION` → `11.0.0`; [`15-migration-guide.md`](./15-migration-guide.md) published,
+      with `tests/demo/test_v1_upgrade.py` building a genuine `10.0.0` install and
+      asserting field by field that nothing was lost
 
 ---
 
@@ -1012,7 +1055,7 @@ decision → dispatch → modify → test → security → verify → gate → a
 - [~] ~~CI greps for hardcoded PASS constants~~ — **deliberately not done as written.** Phase 1 replaced the grep with behavioural assertions because *"a grep would have missed a constant reached through a variable."* The stronger check shipped; the literal one did not, and ticking this box would describe the weaker thing
 
 ### Capability
-- [ ] All 18 modules (A–R) reach **[✔] Implemented** or carry a documented, deliberate exclusion — **§5 has not been re-run since Phase 0** and still describes the pre-Phase-1 system. Cannot be marked from a stale gap analysis; refreshing §5 is Phase 12 work
+- [✔] All 18 modules (A–R) reach **[✔] Implemented** or carry a documented, deliberate exclusion — *§5 re-run at Phase 12: 81 implemented, 12 partial, 7 missing, each of the seven a stated choice*
 - [✔] Project brain detects ≥ 6 stacks including database, package manager, CI and container facts — *Phase 4; ten dimensions, six stacks*
 - [✔] Context assembly is task-relevant and budget-bounded, proven against the brief's Redis example — *Phase 3; budget re-asserted at 200/500/1500/4000 tokens by Phase 11*
 - [✔] Decision intelligence blocks a contradiction of an accepted ADR and cites it — *Phase 3; exits 1*
@@ -1025,8 +1068,8 @@ decision → dispatch → modify → test → security → verify → gate → a
 
 ### Quality
 - [✔] Test count ≥ 436 and strictly increasing; **zero tests removed or weakened** — *436 → 1,294 across eleven phases; re-checked today*
-- [~] Unit, integration and end-to-end coverage for every new service — unit and integration cover every service; true end-to-end is the demo project, which is Phase 12
-- [ ] The demo project is a green CI end-to-end test on 3 operating systems — Phase 12
+- [✔] Unit, integration and end-to-end coverage for every new service — *Phase 12; `tests/demo/` drives the whole chain against a real project*
+- [✔] The demo project is a green CI end-to-end test on 3 operating systems — *Phase 12; runs in the Compatibility matrix, 3 OS × 3 Python versions*
 - [ ] Full CI pipeline green across 3 OS × 3 Python versions — **not verifiable from here.** The matrix has been green, but the Performance stage added in Phase 11 has never run on it. Unticked until it does
 - [✔] No `shell=True`; no path used without containment check; no secret reachable in any log — *Phase 1 removed `shell=True` (ast-asserted absent), Phase 7 added path containment, Phase 11 proved the last clause as a property over 13 credential formats × 7 writers*
 - [✔] Core package imports with zero third-party modules installed — *re-checked today with an import blocker in `sys.meta_path`*
@@ -1034,19 +1077,28 @@ decision → dispatch → modify → test → security → verify → gate → a
 ### Compatibility
 - [✔] Every v1 command, alias and exit code still behaves as documented — *`tests/integration/test_cli_surface.py`; every command answers `--help`, unknown commands exit 1 with a suggestion*
 - [✔] Every v1 memory file, ADR and project config loads unchanged — *Phase 3 asserted a real v1 record field by field*
-- [ ] `coresentinel migrate` upgrades a v1 install with zero data loss, with a migration test proving it — migrations are forward-only, checksum-guarded and idempotent, but **no test drives a genuine v1 install through the upgrade**
+- [✔] `coresentinel migrate` upgrades a v1 install with zero data loss, with a migration test proving it — *Phase 12; `tests/demo/test_v1_upgrade.py` builds a real 10.0.0 install and asserts every field of every record survives*
 - [✔] Any unavoidable break is documented, migrated, shimmed, tested and version-bumped — *the Phase 1 scoring break is the only one, and it is documented as the headline fix*
 
 ### Documentation
-- [ ] All 17 required documents exist and match implementation — Phase 12
-- [ ] `AGENTS.md` enables a fresh AI agent to extend the system without reading the source — Phase 12; the file does not exist
-- [ ] CI fails if documentation names a command or JSON key that does not exist — Phase 12; R-10 names this as the mitigation for documentation drift, and it is not built
+- [~] All 17 required documents exist and match implementation — 38 protocol documents plus README, AGENTS.md, Planning.md and the migration guide, and CI now fails on drift. **The brief's specific list of 17 is not in this repository**, so this is marked against what exists and is accurate, not against a list nobody can check
+- [✔] `AGENTS.md` enables a fresh AI agent to extend the system without reading the source — *Phase 12*
+- [✔] CI fails if documentation names a command or JSON key that does not exist — *Phase 12; `tests/documentation/`, wired into the Lint stage*
 - [✔] README describes the system as measured, not as intended — *rewritten at Phase 1 to match measured behaviour; test counts and the command surface updated each phase since*
 
-**Score: 18 `[✔]` · 4 `[~]` · 7 `[ ]` of 29** — counted from the marks above, not from memory.
-The first draft of this line said "6 `[~]` of 31" because I totalled it by hand, which is
-the entire failure this section exists to catch. The seven open items are six Phase 12
-deliverables plus the CI matrix, which needs one green run with the new Performance stage.
+**Score at `11.0.0`: 24 `[✔]` · 4 `[~]` · 1 `[ ]` of 29** — counted from the marks above with
+`grep`, not by hand. An earlier draft of this line said "6 `[~]` of 31" because I totalled
+it from memory, which is the entire failure this section exists to catch.
+
+The single open item is **the CI matrix**, which needs one green run with the Performance
+and Demo stages added in Phases 11 and 12. It cannot be marked from a developer machine
+and is deliberately left unticked rather than assumed.
+
+The four partials are each a stated boundary, not unfinished work: the hardcoded-PASS
+check is behavioural rather than a grep *by design*; MCP is conformance-tested but never
+mounted in a live host; audit covers 10 of 12 subjects because two have nothing to emit
+them; and the brief's list of "17 required documents" is not in this repository, so the
+documentation is marked against what exists and is accurate.
 
 ---
 
@@ -1116,6 +1168,72 @@ recommendation unless directed otherwise.
 ---
 
 ## 12. Phase Reports
+
+### Phase 12 — Demo Project, Documentation & Release
+
+```text
+Phase                : 12 — Demo Project, Documentation & Release
+Implemented          : A real project governed end to end on every supported
+                       platform; a drift check that fails the build when the
+                       documentation describes something that does not exist;
+                       AGENTS.md; a migration guide backed by a genuine v1
+                       install; and §5 re-run for the first time since Phase 0.
+Files changed        : 10 added (demo/{README,pyproject}, demo/taskflow/{__init__,
+                       store}.py, demo/tests/test_store.py, AGENTS.md,
+                       15-migration-guide.md, tests/documentation/test_no_drift.py,
+                       tests/demo/{test_end_to_end,test_v1_upgrade}.py)
+                       8 modified (coresentinel.py, discovery/surface.py,
+                       00-identity, Planning, README, 30-selftest, CI, VERSION)
+Tests added          : +61 (1,294 → 1,355). Zero removed. Two of my own
+                       expectations corrected — both were wrong about the code,
+                       not the other way round.
+Tests passed         : 1,355 / 1,355 (252s), 1 skipped (symlinks). Validator exit 0,
+                       review APPROVED, drift check clean.
+Known limitations    : - The demo governs one stack. taskflow is Python; the
+                         chain is not exercised end to end against Node, PHP,
+                         Go or Rust, though discovery is unit-tested on all of
+                         them.
+                       - "All 17 required documents" cannot be verified. The
+                         brief's list is not in this repository, so §9 marks
+                         that item against what exists and is accurate rather
+                         than against a list nobody can check. Same honesty
+                         boundary as Phase 11's "11 metric subjects".
+                       - The CI matrix has not run green with the Performance
+                         and Demo stages yet. It is the one remaining unticked
+                         item in the Definition of Done, and it stays unticked
+                         until a run proves it rather than until it seems
+                         likely.
+                       - The drift check reads shell invocations in code blocks
+                         and inline spans. Prose describing behaviour is not
+                         checked, and cannot be.
+Architecture decisions:
+   - The demo runs against a SANDBOX COPY of the Core. gate run and Core-scoped
+     writes go to the Core's own memory/, and conftest cannot monkeypatch a
+     subprocess — an in-process fixture would not have saved the repository. A
+     test asserts the checked-in demo/ is never itself bound.
+   - The chain runs ONCE in a module-scoped fixture and the tests assert on the
+     recording. Re-running it per assertion would execute taskflow's pytest
+     suite fourteen times to make the same point.
+   - taskflow carries a real ADR — "in-memory dict, zero external services" —
+     and the chain then tries to reverse it. The flagship guard is therefore
+     demonstrated against a decision a human actually recorded, with the exit
+     code asserted. A guard that does not change the exit code is advice.
+   - decision list gained --core. A bound project reads its own ledger alone,
+     deliberately, but the Core ledger was then unreachable from inside a
+     project: an install that recorded every decision before binding its first
+     project could not see any of them. The default is unchanged; the flag is
+     additive. Found by building a v1 install rather than by reading the code.
+   - Discovery learned to read [tool.pytest.ini_options]. A project declaring
+     pytest only under optional-dependencies was reported as having no runner —
+     correct by the evidence rule, but the evidence was in pyproject.toml
+     unread. Absence of evidence is still absence of a claim; this was evidence
+     nobody had looked at.
+   - Released as 11.0.0. The major bump was reserved for v2 completion from
+     Phase 1 onward, and this is it.
+Next phase           : none. v2 is complete; §9 carries the one open item.
+```
+
+---
 
 ### Phase 11 — Observability, Performance & Production Hardening
 

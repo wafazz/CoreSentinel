@@ -8,7 +8,7 @@
 [![Version](https://img.shields.io/badge/CoreSentinel-10.10.0-8A2BE2)](./VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Hosts](https://img.shields.io/badge/Hosts-Claude_%7C_Cursor_%7C_Gemini_%7C_Codex_%7C_Copilot_%7C_Windsurf-blue)](#-how-does-it-work)
-[![Tests](https://img.shields.io/badge/Self--tests-1294_passing-brightgreen)](#-coresentinel-tests-itself)
+[![Tests](https://img.shields.io/badge/Self--tests-1355_passing-brightgreen)](#-coresentinel-tests-itself)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](#-install)
 
 </div>
@@ -202,7 +202,7 @@ Requires Python 3.9+. The installer asks for your agent name, role, and squad pr
 
 ## 🧪 CoreSentinel tests itself
 
-A governance system that is not itself tested is an unverified claim. **1,294 tests across the 11 subsystems**, plus a gated CI pipeline:
+A governance system that is not itself tested is an unverified claim. **1,355 tests across the 14 subsystems**, plus a gated CI pipeline:
 
 ```text
 Pull Request ➔ Tests ➔ Security ➔ Performance ➔ Lint ➔ Integration ➔ Compatibility ➔ PASS / FAIL

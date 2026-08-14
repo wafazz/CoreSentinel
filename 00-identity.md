@@ -52,6 +52,7 @@
 13. [Adapter Protocol](./13-adapter-protocol.md) - Vendor-neutral host adapter layer (`coresentinel adapter`)
 14. [CLI Protocol](./14-cli-protocol.md) - Command surface, doctor diagnostics & exit codes (`coresentinel help`)
 15. [Migration Protocol](./15-migration-protocol.md) - Idempotent SQL, lock avoidance & data safety (`Iris migrate`)
+15. [Migration Guide](./15-migration-guide.md) - Upgrading a v1 install to CoreSentinel v2 (`11.0.0`)
 16. [API & Integration Protocol](./16-api-protocol.md) - Webhook idempotency, signatures & backoff (`Iris api`)
 17. [AI Protocol](./17-ai-protocol.md) - Multi-provider failover, token metering & prompt defense (`Iris ai`)
 25. [Test Protocol](./25-test-protocol.md) - Test strategy & authoring

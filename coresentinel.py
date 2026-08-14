@@ -402,7 +402,13 @@ def handle_decision_cmd(args):
         return 0
 
     query = flag_value(args, "--query") or (free_arg(args, 1) if sub == "list" else None)
-    records = ledger.load(target)
+    # A bound project reads its own ledger alone, deliberately: unioning the
+    # scopes surfaced one repository's decisions as governance for another, and
+    # the noise trained people to skip the check. But the Core ledger was then
+    # unreachable from inside a project — an install that recorded every
+    # decision at Core scope before binding its first project could not see any
+    # of them. --core asks for them explicitly without changing the default.
+    records = ledger.load(target, include_core="--core" in args)
     if query:
         needle = query.lower()
         records = [r for r in records
@@ -2028,7 +2034,7 @@ COMMANDS = [
                "stay searchable through recall."},
     {"name": "decision", "aliases": ["decisions", "adr"], "group": "Context & Memory", "handler": cmd_decision,
      "summary": "Architecture Decision Record ledger",
-     "usage": ["coresentinel decision list [--query \"...\"] [--json]",
+     "usage": ["coresentinel decision list [--query \"...\"] [--core] [--json]",
                "coresentinel decision show ADR-042",
                "coresentinel decision add --title \"...\" --reason \"...\" --chosen \"...\"\n"
                "        [--alts \"...\"] [--problem \"...\"] [--context \"...\"] [--evidence \"...\"]\n"
@@ -2036,8 +2042,16 @@ COMMANDS = [
                "coresentinel decision verify --change \"switch from Redis to database sessions\"",
                "coresentinel decision supersede ADR-042 --by ADR-050 --reason \"...\""],
      "detail": "Decisions are scoped like memory: the bound project's ledger lives in\n"
-               "<project>/.coresentinel/memory/decisions.json, and Core decisions stay visible\n"
-               "underneath it. Ids are allocated across both, so ADR-004 never means two things.\n"
+               "<project>/.coresentinel/memory/decisions.json.\n"
+               "\n"
+               "Inside a bound project the project ledger reads ALONE — Core decisions do not\n"
+               "appear, because unioning the scopes surfaced one repository's decisions as\n"
+               "governance for another and the noise taught people to skip the check. Ask for\n"
+               "them with --core. Ids are allocated across both, so ADR-004 never means two\n"
+               "things.\n"
+               "\n"
+               "If you recorded decisions before binding your first project, they are at Core\n"
+               "scope: 'decision list --core' shows them, and they are unchanged on disk.\n"
                "\n"
                "'verify' checks a proposed change against every accepted decision and exits 1 if\n"
                "it reverses one, citing the ADR and the reason recorded at the time. Reversing a\n"
