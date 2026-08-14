@@ -5,7 +5,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/CoreSentinel-10.10.0-8A2BE2)](./VERSION)
+[![Version](https://img.shields.io/badge/CoreSentinel-11.0.0-8A2BE2)](./VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Hosts](https://img.shields.io/badge/Hosts-Claude_%7C_Cursor_%7C_Gemini_%7C_Codex_%7C_Copilot_%7C_Windsurf-blue)](#-how-does-it-work)
 [![Tests](https://img.shields.io/badge/Self--tests-1355_passing-brightgreen)](#-coresentinel-tests-itself)
@@ -30,7 +30,7 @@ AI coding agents are capable but structurally unreliable in three specific ways.
 | The failure | What it looks like | What CoreSentinel does |
 | :--- | :--- | :--- |
 | **They forget** | Every session restarts from zero. The agent re-derives your stack, re-asks answered questions, and contradicts last week's architecture decision. | A 6-layer memory with confidence scores, plus a permanent decision ledger recording *why* each choice was made. |
-| **They drift** | Different answers to the same question. Rules followed on Monday, ignored on Friday. No consistent standard across projects or tools. | 37 protocols, 8 ordered quality gates, and 17 agent contracts with explicit authority boundaries — identical on every host. |
+| **They drift** | Different answers to the same question. Rules followed on Monday, ignored on Friday. No consistent standard across projects or tools. | 38 protocols, 8 ordered quality gates, and 17 agent contracts with explicit authority boundaries — identical on every host. |
 | **They can't verify themselves** | *"Fixed the vulnerability."* *"All tests pass."* Claims stated with total confidence and zero evidence. | Checks that actually run — test suite, security scan, linter, dependency audit — each recording its command, exit code and output digest. A check that could not run reports `UNKNOWN` and is never counted as a pass. |
 
 The third one is the reason this project exists. An agent that cannot prove its work is an agent you have to re-check by hand, which erases the leverage it was supposed to give you.
@@ -45,7 +45,7 @@ Seven services. Every host consumes the same ones.
 | :--- | :--- | :--- |
 | 🧠 **Memory** | 6 layers — working, session, project, long-term, failures, patterns — each fact carrying a confidence score. `≥0.90` is Known, below `0.50` is Unknown, and the agent may not present the second as the first. Facts are searchable, decay until re-verified, and are promoted, merged or compacted as they age. | `coresentinel memory` `recall` `brief` |
 | 🗺️ **Context** | Not the whole store — what *this task* needs. Facts, decisions, failures and patterns ranked by relevance, the governance rules that apply, and any decision the task would contradict, all inside a token budget. | `coresentinel context --task "..."` |
-| ⚖️ **Governance** | 37 protocols, 10 ordered quality gates (`Requirement → … → Deployment`) each carrying a machine-readable reason code, an architecture decision ledger, and a controlled self-evolution pipeline. | `coresentinel gate` |
+| ⚖️ **Governance** | 38 protocols, 10 ordered quality gates (`Requirement → … → Deployment`) each carrying a machine-readable reason code, an architecture decision ledger, and a controlled self-evolution pipeline. | `coresentinel gate` |
 | 👥 **Agents** | 17 specialist contracts declaring inputs, outputs, authority — and an **enforced** permission set. An agent is handed a sandbox, never the filesystem: an ungranted write fails at the point of use and the denial is audited. | `coresentinel agent` `task` |
 | 🧾 **Verification** | Six checks that execute. Each records its command, exit code, duration and output digest, and resolves to `PASS`, `FAIL` or `UNKNOWN`. `UNKNOWN` leaves the denominator instead of inflating the score, and at least half the evidence budget must run before any verdict. | `coresentinel verify` |
 | 🔒 **Security** | Anti-pattern and secret scanner wired into git pre-commit, so unverified or leaking work cannot be committed. | `coresentinel check` |
@@ -80,7 +80,7 @@ flowchart TB
         direction LR
         M["🧠 Memory<br/>6 layers<br/>+ confidence"]
         C["🗺️ Context<br/>stack · git<br/>· frameworks"]
-        G["⚖️ Governance<br/>37 protocols<br/>8 gates"]
+        G["⚖️ Governance<br/>38 protocols<br/>8 gates"]
         A["👥 Agents<br/>17 contracts"]
         V["🧾 Verification<br/>evidence gates"]
         S["🔒 Security<br/>anti-pattern<br/>scanner"]
@@ -153,7 +153,7 @@ $ coresentinel doctor
   ✓ Runtime                bootstrap 1 ms, 4 services
   ✓ Storage                json backend, 12 record(s)
   ✓ Memory                 7 layers valid, 4 recorded entries
-  ✓ Governance             37 protocols, ledgers consistent
+  ✓ Governance             38 protocols, ledgers consistent
   ✓ Agent Registry         17 contracts complete
   ✓ Verification Engine    validator + 11 engines operational
   ✓ Security Rules         5 rules armed, 4 blocking
@@ -891,14 +891,14 @@ flowchart TD
 </details>
 
 <details>
-<summary><b>📚 Protocol directory (37 documents)</b></summary>
+<summary><b>📚 Protocol directory (38 documents)</b></summary>
 
 
 **Core memory & strategy (00–08)**
-[`00-identity`](./00-identity.md) · [`01-sentinel-identity`](./01-sentinel-identity.md) · [`02-team`](./02-team-protocol.md) · [`02-quality-gates`](./02-quality-gates-protocol.md) · [`02-squad-contracts`](./02-squad-contracts-protocol.md) · [`03-workflow-guide`](./03-workflow-guide.md) · [`04-layered-memory`](./04-layered-memory-protocol.md) · [`04-session-memory-format`](./04-session-memory-format.md) · [`05-init`](./05-init-protocol.md) · [`06-mimic`](./06-mimic-protocol.md) · [`07-git-workflow`](./07-git-workflow.md) · [`08-decision-ledger`](./08-decision-ledger-protocol.md)
+[`00-identity`](./00-identity.md) · [`01-sentinel-identity`](./01-sentinel-identity.md) · [`02-team`](./02-team-protocol.md) · [`02-quality-gates`](./02-quality-gates-protocol.md) · [`02-squad-contracts`](./02-squad-contracts-protocol.md) · [`03-workflow-guide`](./03-workflow-guide.md) · [`04-layered-memory`](./04-layered-memory-protocol.md) · [`04-memory-ecosystem`](./04-memory-ecosystem-protocol.md) · [`04-session-memory-format`](./04-session-memory-format.md) · [`05-init`](./05-init-protocol.md) · [`06-mimic`](./06-mimic-protocol.md) · [`07-git-workflow`](./07-git-workflow.md) · [`08-decision-ledger`](./08-decision-ledger-protocol.md)
 
 **Build, integration & platform (09–17)**
-[`09-audit-trail`](./09-audit-trail-protocol.md) · [`10-learn`](./10-learn-protocol.md) · [`11-pattern-library`](./11-pattern-library.md) · [`12-health-score`](./12-health-score-protocol.md) · [`13-adapter`](./13-adapter-protocol.md) · [`14-cli`](./14-cli-protocol.md) · [`15-migration`](./15-migration-protocol.md) · [`16-api`](./16-api-protocol.md) · [`17-ai`](./17-ai-protocol.md)
+[`09-audit-trail`](./09-audit-trail-protocol.md) · [`10-learn`](./10-learn-protocol.md) · [`11-pattern-library`](./11-pattern-library.md) · [`12-health-score`](./12-health-score-protocol.md) · [`13-adapter`](./13-adapter-protocol.md) · [`14-cli`](./14-cli-protocol.md) · [`15-migration`](./15-migration-protocol.md) · [`15-migration-guide`](./15-migration-guide.md) · [`16-api`](./16-api-protocol.md) · [`17-ai`](./17-ai-protocol.md)
 
 **Testing & QA (25–30)**
 [`25-test`](./25-test-protocol.md) · [`26-test-data`](./26-test-data-protocol.md) · [`27-test-pattern-library`](./27-test-pattern-library.md) · [`28-flaky`](./28-flaky-protocol.md) · [`29-test-review`](./29-test-review-protocol.md) · [`30-selftest`](./30-selftest-protocol.md)

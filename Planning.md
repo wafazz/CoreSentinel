@@ -1163,7 +1163,8 @@ recommendation unless directed otherwise.
 | **P-08 redaction blanked `author`, `authority` and `tests_passed`** *(new)* | **[✔] fixed** | `pass(word|wd)?` made the suffix optional so a bare `pass` matched; `auth` matched `author` and `authority` — a decision-ledger field and a squad-contract field. The audit trail was **destroying real records to protect nothing**, and over-redaction is silent. Split into substring / whole-word / exact-key tiers, both directions pinned by 158 property tests |
 | **No pagination on any list surface** *(Cross-cutting gap)* | **[✔] closed** | default 50, maximum 200, `clamped` reported rather than silently returning fewer; a test derives the requirement from the catalogue so a new list endpoint that forgets to page fails the day it is added |
 | **No observability** *(Cross-cutting gap)* | **[✔] closed** | 11 subjects, bounded registry, budgets, `metrics` command, doctor check |
-| F-11, F-12 | [ ] open | housekeeping: leaked paths in `project-labels.json`, README count |
+| **F-11 leaked paths in `project-labels.json`** | **[✔] fixed** | 12 of 13 keys were absolute paths from a different machine, carrying a username and an employer name (`C--Users-fakrul-hakim-OneDrive---Daythree-Digital-Berhad-...`). Removed; only the `CoreSentinel` seed remains. Safe because `get_project_label()` regenerates any absent key through `auto_label()` and re-saves — the leaked values were byte-identical to what that function produces, so they carried no information and pure exposure |
+| **F-12 README document count** | **[✔] fixed** | the directory heading claimed 37 documents while linking 36 and `ls [0-9][0-9]-*.md` counted 38. `04-memory-ecosystem-protocol.md` and `15-migration-guide.md` were on disk but listed nowhere. Both linked, and the five count claims (three prose, one mermaid node, one `doctor` sample) reconciled to 38, now asserted by a README-versus-disk comparison rather than by hand |
 
 ---
 
