@@ -25,25 +25,56 @@ COLLECTIONS = ["events", "audit_events", "verification_runs",
                "health_snapshots", "projects", "tasks",
                "knowledge_entities", "knowledge_relations",
                "agent_sessions", "task_results", "permission_grants",
-               "incidents", "incident_links", "learning_candidates"]
+               "incidents", "incident_links", "learning_candidates",
+               "metrics"]
 
 
 def now():
     return datetime.now().strftime(TIMESTAMP_FORMAT)
 
 
+# The largest page any surface will return, however large a limit it is asked
+# for. A list endpoint with no ceiling is a way to ask a governance tool to read
+# its whole audit trail into memory and hand it over in one response.
+MAX_PAGE_SIZE = 200
+DEFAULT_PAGE_SIZE = 50
+
+
+def clamp_page(limit=DEFAULT_PAGE_SIZE, offset=0):
+    """Normalise a caller's paging request. Returns (limit, offset, clamped)."""
+    try:
+        limit = DEFAULT_PAGE_SIZE if limit is None else int(limit)
+    except (TypeError, ValueError):
+        limit = DEFAULT_PAGE_SIZE
+    try:
+        offset = 0 if offset is None else int(offset)
+    except (TypeError, ValueError):
+        offset = 0
+
+    offset = max(0, offset)
+    if limit <= 0:
+        # Nothing means "everything" here. A caller asking for zero or a
+        # negative page gets the default, not the whole collection.
+        return DEFAULT_PAGE_SIZE, offset, False
+    return min(limit, MAX_PAGE_SIZE), offset, limit > MAX_PAGE_SIZE
+
+
 class Repository:
     """Append-oriented collection of records.
 
-    Deliberately narrow: append, read back newest-first, count, and look up by
-    id. Anything richer belongs in a service, not in the persistence port, or
-    the two backends stop being interchangeable.
+    Deliberately narrow: append, read back newest-first in bounded pages, count,
+    and look up by id. Anything richer belongs in a service, not in the
+    persistence port, or the two backends stop being interchangeable.
     """
 
     def append(self, record):
         raise NotImplementedError
 
     def recent(self, limit=50):
+        raise NotImplementedError
+
+    def page(self, limit=DEFAULT_PAGE_SIZE, offset=0):
+        """A window of records, newest first. Both backends read only the window."""
         raise NotImplementedError
 
     def all(self):

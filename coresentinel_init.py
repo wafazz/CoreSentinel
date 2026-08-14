@@ -72,6 +72,12 @@ def run_init(target_dir=".", host=None, apply_host=False, force=False):
         json.dump(config, f, indent=2)
     print(f"  [✓] Wrote {CONFIG_DIRNAME}/config.json")
 
+    # This directory was unbound a moment ago and anything that asked has that
+    # answer cached. Seeding the stack facts below is the first caller, and it
+    # would write them to the Core store instead of the project's.
+    import coresentinel_memory as memory_engine
+    memory_engine.reset_project_root_cache()
+
     context_file = config_dir / "context.json"
     with open(context_file, "w", encoding="utf-8") as f:
         json.dump(ctx, f, indent=2)

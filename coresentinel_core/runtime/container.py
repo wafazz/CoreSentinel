@@ -17,6 +17,7 @@ from coresentinel_core.runtime.config import Config
 from coresentinel_core.runtime.events import EventBus
 from coresentinel_core.runtime.logging import Logger
 from coresentinel_core.runtime.errors import ServiceNotRegistered
+from coresentinel_core.observability.metrics import Metrics
 
 
 class Container:
@@ -77,12 +78,13 @@ class Container:
 class Runtime:
     """CoreSentinel, configured, for one working directory."""
 
-    def __init__(self, config, logger, events, container, target_dir="."):
+    def __init__(self, config, logger, events, container, target_dir=".", metrics=None):
         self.config = config
         self.logger = logger
         self.events = events
         self.container = container
         self.target_dir = target_dir
+        self.metrics = metrics
         self.bootstrap_ms = 0
 
     @classmethod
@@ -94,15 +96,22 @@ class Runtime:
         for problem in config.problems:
             logger.warn(problem)
 
-        events = EventBus(logger, enabled=bool(config.get("events.enabled")))
+        events = EventBus(logger, enabled=bool(config.get("events.enabled")),
+                          buffer=int(config.get("events.buffer")))
+        metrics = Metrics(enabled=bool(config.get("metrics.enabled")),
+                          max_series=int(config.get("metrics.max_series")))
         container = Container()
-        runtime = cls(config, logger, events, container, target_dir)
+        runtime = cls(config, logger, events, container, target_dir, metrics)
 
         container.register_instance("config", config)
         container.register_instance("logger", logger)
         container.register_instance("events", events)
+        container.register_instance("metrics", metrics)
         # Lazy: opening a store touches the filesystem, and most commands never need one.
         container.register("store", lambda: runtime._build_store())
+
+        if metrics.enabled:
+            events.subscribe("*", runtime._count_event)
 
         if config.get("events.persist"):
             events.subscribe("*", runtime._persist_event)
@@ -113,18 +122,33 @@ class Runtime:
             subjects.install(runtime)
 
         runtime.bootstrap_ms = (time.perf_counter() - started) * 1000
+        # Phase 2 asserted a 50 ms bootstrap budget in a test. Recording it here
+        # means the number is also observable in the field, not only in CI.
+        from coresentinel_core.observability import metrics as metering
+        metrics.observe(metering.COMMAND, "bootstrap", runtime.bootstrap_ms,
+                        kind=metering.TIMER, unit="ms")
         return runtime
 
     def _build_store(self):
         from coresentinel_core.storage import open_store
         return open_store(self.config, self.target_dir)
 
+    def _count_event(self, event):
+        # Subscribed like the audit sink, for the same reason: a subsystem that
+        # emits is a subsystem that is measured, and one that does not shows up
+        # as never-observed in `metrics coverage` rather than as a zero.
+        from coresentinel_core.observability import metrics as metering
+        self.metrics.count(metering.SERVICE, f"event.{event.name}")
+
     def _persist_event(self, event):
         # Persistence must never be the reason an operation fails, so a storage
         # problem degrades to a warning rather than propagating to the emitter.
+        from coresentinel_core.observability import metrics as metering
         try:
-            self.store.events.append(event.record())
+            with self.metrics.time(metering.STORAGE, "append.events"):
+                self.store.events.append(event.record())
         except Exception as e:
+            self.metrics.count(metering.STORAGE, "append.failed")
             self.logger.warn("event not persisted", event=event.name, error=str(e))
 
     @property
@@ -139,5 +163,14 @@ class Runtime:
         return paths.store_root(self.target_dir)
 
     def shutdown(self):
+        # Metrics are flushed before the store closes, and a failure to write
+        # them is a warning: losing a measurement must not be able to fail the
+        # command that produced it.
+        if self.metrics is not None and self.metrics.enabled:
+            try:
+                self.metrics.flush(self.store)
+            except Exception as e:
+                self.logger.warn("metrics not persisted", error=str(e))
+
         for failure in self.container.shutdown():
             self.logger.warn("service did not close cleanly", **failure)

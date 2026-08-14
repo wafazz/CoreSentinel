@@ -56,6 +56,17 @@ DEFAULTS = {
 
     "events.enabled": True,
     "events.persist": True,
+    # The in-memory tail of emitted events. Bounded so a long-running server
+    # does not retain every event it has ever seen.
+    "events.buffer": 256,
+
+    "metrics.enabled": True,
+    "metrics.max_series": 512,
+
+    # Every list surface pages. A caller asking for more than the maximum gets
+    # the maximum and is told the result was clamped.
+    "api.page_size": 50,
+    "api.max_page_size": 200,
 
     # Loopback by default. Binding wider without a token is refused at startup,
     # not at the first request.

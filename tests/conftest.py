@@ -73,6 +73,23 @@ def _quarantine_gate_state(tmp_path, monkeypatch):
     yield
 
 
+@pytest.fixture(autouse=True)
+def _clear_project_root_cache():
+    """Resolved project bindings are cached; no test may inherit another's.
+
+    The cache exists because context assembly resolved the binding once per
+    fact. It is keyed by directory, and a test that binds a directory a previous
+    test saw as unbound would otherwise read the stale answer.
+    """
+    if str(CORE_DIR) not in sys.path:
+        sys.path.insert(0, str(CORE_DIR))
+    import coresentinel_memory as mem
+
+    mem.reset_project_root_cache()
+    yield
+    mem.reset_project_root_cache()
+
+
 @pytest.fixture
 def sandbox(tmp_path):
     """An isolated copy of the CoreSentinel Core. Mutations here never touch the repo."""

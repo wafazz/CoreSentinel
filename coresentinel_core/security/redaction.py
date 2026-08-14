@@ -17,9 +17,45 @@ import re
 REDACTED = "[redacted]"
 
 # Field names whose values never reach a log line or an audit record.
-SENSITIVE_KEYS = re.compile(
-    r"(?i)(pass(word|wd)?|secret|token|api[_-]?key|apikey|auth|credential|"
-    r"private[_-]?key|session|bearer|access[_-]?key|client[_-]?secret)")
+#
+# Split in two, because one alternation could not be both safe and precise.
+# `pass(word|wd)?` made the suffix optional, so a bare `pass` matched — and
+# `tests_passed`, `passenger_count` and `bypass_reason` were all blanked. `auth`
+# matched `author` and `authority`, which are a decision-ledger field and a
+# squad-contract field: the audit trail was destroying real data to protect
+# nothing. Over-redaction is quiet, which is what made it survive this long.
+
+# Tier 1 — unambiguous. These mean a credential wherever they appear in a name,
+# including glued into a longer one (`clientSecret`, `userPassword`).
+SENSITIVE_KEY_SUBSTRINGS = re.compile(
+    r"(?i)(password|passwd|api[_-]?key|apikey|credential|secret[_-]?key|"
+    r"private[_-]?key|bearer|access[_-]?key|client[_-]?secret|auth[_-]?token|"
+    r"authorization|authorisation|session[_-]?id)")
+
+# Tier 2 — sensitive as a whole word inside a compound name. `access_token` and
+# `public_key` are credentials; `tokenizer` and `keyboard` are not.
+SENSITIVE_KEY_WORDS = re.compile(
+    r"(?i)(?:^|[^a-z0-9])(token|secret|key)(?:[^a-z0-9]|$)")
+
+# Tier 3 — sensitive only as the entire key. These are the short words that are
+# a credential alone and a perfectly ordinary prefix otherwise: `session` is a
+# session identifier, `session_count` is a number; `pass` is a password,
+# `pass_rate` is a statistic.
+SENSITIVE_KEY_EXACT = {"auth", "pass", "session"}
+
+
+def is_sensitive_key(name):
+    """Whether a field with this name must never have its value written.
+
+    Three tiers rather than one alternation, because a single pattern could not
+    be both safe and precise: it had to match `client_secret` glued together and
+    `access_token` as a word and bare `auth`, without also matching `author`.
+    """
+    text = str(name)
+    return bool(
+        SENSITIVE_KEY_SUBSTRINGS.search(text)
+        or SENSITIVE_KEY_WORDS.search(text)
+        or text.strip().lower() in SENSITIVE_KEY_EXACT)
 
 # Credential shapes that appear inside free text, where nothing names them.
 SENSITIVE_VALUES = [
@@ -49,7 +85,7 @@ def redact_text(text):
 def redact(value):
     """Recursively strip credentials from anything on its way to being written."""
     if isinstance(value, dict):
-        return {k: (REDACTED if SENSITIVE_KEYS.search(str(k)) else redact(v))
+        return {k: (REDACTED if is_sensitive_key(k) else redact(v))
                 for k, v in value.items()}
     if isinstance(value, (list, tuple)):
         return [redact(v) for v in value]

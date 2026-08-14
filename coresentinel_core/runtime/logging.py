@@ -18,8 +18,8 @@ LEVELS = {"debug": 10, "info": 20, "warn": 30, "error": 40, "silent": 100}
 
 # Redaction lives in coresentinel_core.security.redaction so the logger and the
 # audit ledger cannot drift apart about what counts as a secret.
-from coresentinel_core.security.redaction import (REDACTED, SENSITIVE_KEYS,
-                                                  SENSITIVE_VALUES, redact,
+from coresentinel_core.security.redaction import (REDACTED, SENSITIVE_VALUES,
+                                                  is_sensitive_key, redact,
                                                   redact_text)
 
 TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"

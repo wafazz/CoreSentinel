@@ -206,8 +206,12 @@ def score_record(query_terms, phrase, haystack, weight):
         return weight, []
 
     hay = str(haystack or "").lower()
-    hay_terms = set(tokenize(hay))
-    matched = [t for t in query_terms if t in hay_terms or t in hay]
+    # `t in hay` subsumes a token-set membership test: anything tokenize() finds
+    # in hay is by definition a substring of hay. The set was built for every
+    # record and then made irrelevant by the check beside it, which cost a regex
+    # pass per record — 11,000 of them to answer one query over a 10,000-fact
+    # store. Removing it changes no result; a test pins that.
+    matched = [t for t in query_terms if t in hay]
     if not matched:
         return 0.0, []
 
@@ -274,6 +278,7 @@ def recall(query, target_dir=".", layers=None, min_confidence=0.0,
             })
 
     if include_journal:
+        journal_scope = "project" if mem.find_project_root(target_dir) else "core"
         for entry in read_journal(target_dir):
             haystack = f"{entry.get('entry', '')} {' '.join(entry.get('tags', []) or [])}"
             score, matched = score_record(terms, phrase, haystack, JOURNAL_WEIGHT)
@@ -282,7 +287,7 @@ def recall(query, target_dir=".", layers=None, min_confidence=0.0,
             results.append({
                 "kind": "journal",
                 "layer": "journal",
-                "scope": "project" if mem.find_project_root(target_dir) else "core",
+                "scope": journal_scope,
                 "text": entry.get("entry"),
                 "confidence": None,
                 "classification": ", ".join(entry.get("tags", []) or []) or "note",

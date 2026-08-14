@@ -10,9 +10,16 @@ that raises is logged and skipped, never allowed to fail the operation that
 emitted the event. Governance must not break because a listener did.
 """
 
+from collections import deque
 from datetime import datetime
 
 TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+# The in-memory tail of what was emitted, for tests and for `drain`. It is a
+# convenience, not the record — persistence writes every event to the store.
+# Unbounded, it grew for the life of the process, so a long-running server held
+# every event it had ever seen.
+EMITTED_BUFFER = 256
 
 PROJECT_INITIALIZED = "ProjectInitialized"
 MEMORY_CREATED = "MemoryCreated"
@@ -60,11 +67,13 @@ class Event:
 
 
 class EventBus:
-    def __init__(self, logger=None, enabled=True):
+    def __init__(self, logger=None, enabled=True, buffer=EMITTED_BUFFER):
         self._handlers = {}
         self._logger = logger
         self.enabled = enabled
-        self.emitted = []
+        self.buffer = buffer
+        self.emitted = deque(maxlen=buffer)
+        self.total_emitted = 0
 
     def subscribe(self, name, handler):
         """Subscribe to one event name, or to WILDCARD for all of them."""
@@ -86,6 +95,7 @@ class EventBus:
             return event
 
         self.emitted.append(event)
+        self.total_emitted += 1
 
         for handler in self.subscribers(name):
             try:
@@ -99,5 +109,9 @@ class EventBus:
         return event
 
     def drain(self):
-        collected, self.emitted = self.emitted, []
+        """Everything still buffered, oldest first. The buffer holds the last
+        `buffer` events, so a drain after more than that returns the tail and
+        `total_emitted` says how many there really were."""
+        collected = list(self.emitted)
+        self.emitted.clear()
         return collected

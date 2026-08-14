@@ -1,10 +1,10 @@
 # CoreSentinel v2 — AI Engineering Control Plane
 
-> **Status**: Phases 0–10 complete. Phase 11 next.
+> **Status**: Phases 0–11 complete. Phase 12 next.
 > **Author**: Iris (principal architect)
 > **Planned**: 2026-08-13 · **Last updated**: 2026-08-14
 > **Baseline inspected**: `main` @ `216828d`, CoreSentinel `10.1.0`, 436 tests green.
-> **Now**: CoreSentinel `10.11.0`, 1032 tests green. Phase reports in §12, findings status in §11.
+> **Now**: CoreSentinel `10.12.0`, 1,294 tests green. Phase reports in §12, findings status in §11.
 
 ---
 
@@ -914,7 +914,12 @@ responsive at 360 px and 1920 px; API failure degrades visibly rather than showi
 
 ---
 
-### Phase 11 — Observability, Performance & Production Hardening `[ ]`
+### Phase 11 — Observability, Performance & Production Hardening `[✔]`
+
+> **Delivered 2026-08-14, released as `10.12.0`.** 1,294 tests green (from 1,033). Report in §12.
+> One deviation: **caching, indexes and background jobs were not built.** Profiling said
+> the cost was not where those would help, and building them anyway would have been
+> optimising by reputation rather than by measurement. Recorded there.
 
 **Objective**: Keep the promise that CoreSentinel reduces context waste rather than adding to it.
 
@@ -924,9 +929,26 @@ responsive at 360 px and 1920 px; API failure degrades visibly rather than showi
 pagination enforced on every list endpoint; no secret ever reaches a log (property test).
 
 **Acceptance**
-- [ ] Published performance budgets met and CI-enforced
-- [ ] Metrics for all 11 subjects in the brief
-- [ ] Memory footprint bounded regardless of store size
+- [✔] Eight budgets published, each naming the measurement behind it, all asserted by
+      `tests/performance/` and gated in CI as their own stage. Seven are durations with
+      at least 4x headroom; the eighth is a **ratio** — the cost of an audited event into
+      a 4,000-record trail over the same event into an empty one — because every
+      millisecond limit describes the machine as much as the code. That ratio was
+      **11.4x and climbing** before this phase and is **1.0x** after
+- [✔] All 11 metric subjects declared and instrumented, with `metrics coverage` naming
+      any that nothing has exercised. There are no zero-initialised counters: a subject
+      nobody measured reports as never observed, on the same rule that makes an
+      unmeasurable health dimension `UNKNOWN` rather than 90
+- [✔] Memory bounded at four places that were unbounded: the event buffer (256), the
+      metric registry (512 series, drops counted not silent), each series (five numbers
+      under `__slots__`, never the samples), and repository reads (the requested page —
+      reading 20 of 10,000 records held 7 MB and now holds 0.02 MB)
+- [~] **Caching, indexes and background jobs were not built.** Profiling found the cost
+      in a filesystem walk repeated per fact, two full file reads per append, and a
+      regex pass per record whose result was then ignored. Removing those was worth
+      37x on context assembly; a cache in front of them would have hidden them. Indexes
+      already existed on every promoted column. A background job runner is a daemon,
+      and this is a local-first CLI
 
 ---
 
@@ -970,44 +992,61 @@ decision → dispatch → modify → test → security → verify → gate → a
 
 **CoreSentinel v2 is complete when all of the following hold.**
 
+> **Marked 2026-08-14 at `10.12.0`, after Phase 11.** This section went eleven phases
+> without being touched, so the project's own scorecard read as though nothing had been
+> built. That is the failure mode this product exists to name, committed by its plan.
+>
+> `[✔]` means a phase delivered it *and* the claim was re-checked against the working
+> tree today. `[~]` means partly, with the gap stated. `[ ]` means not yet — including
+> where I could not verify it from here, which is not the same as it being false.
+>
+> Marking is against the criterion **as written**. Where the implementation deliberately
+> did something different and better, that is a `[~]` with the reason, not a `[✔]` —
+> otherwise this list stops describing what was built.
+
 ### Truthfulness (non-negotiable)
-- [ ] No score, status or gate result anywhere in the system is produced without an executed command
-- [ ] Every evidence record carries check, command, timestamp, exit code, output digest and status
-- [ ] An empty or unbuildable project cannot reach `VERIFIED`
-- [ ] Unmeasurable dimensions report `UNKNOWN` and are excluded from aggregates
-- [ ] CI greps for hardcoded PASS constants and fails the build on any
+- [✔] No score, status or gate result anywhere in the system is produced without an executed command — *Phase 1; asserted behaviourally by `test_empty_directory_produces_no_passing_check`*
+- [✔] Every evidence record carries check, command, timestamp, exit code, output digest and status — *re-checked today: `verify --json` emits all six, plus `cwd`, `duration_ms`, `output_excerpt`, `weight`*
+- [✔] An empty or unbuildable project cannot reach `VERIFIED` — *re-checked today: an empty directory claiming "I fixed the authentication vulnerability" returns `0/100 of the evidence budget could be executed`, no verdict*
+- [✔] Unmeasurable dimensions report `UNKNOWN` and are excluded from aggregates — *Phase 1; `score --explain` names the basis for each*
+- [~] ~~CI greps for hardcoded PASS constants~~ — **deliberately not done as written.** Phase 1 replaced the grep with behavioural assertions because *"a grep would have missed a constant reached through a variable."* The stronger check shipped; the literal one did not, and ticking this box would describe the weaker thing
 
 ### Capability
-- [ ] All 18 modules (A–R) reach **[✔] Implemented** or carry a documented, deliberate exclusion
-- [ ] Project brain detects ≥ 6 stacks including database, package manager, CI and container facts
-- [ ] Context assembly is task-relevant and budget-bounded, proven against the brief's Redis example
-- [ ] Decision intelligence blocks a contradiction of an accepted ADR and cites it
-- [ ] Orchestrator runs the 12-role pipeline end to end with enforced permissions
-- [ ] ≥ 3 real agent adapters invoke and normalise; adding a fourth needs no core change
-- [ ] MCP exposes the 15 verbs, all governed and audited
-- [ ] Audit chain is tamper-evident and covers all 12 subjects
-- [ ] Learning pipeline closes incident → pattern → candidate → approval → applied rule, reversibly
-- [ ] Dashboard serves seven views entirely from live services
+- [ ] All 18 modules (A–R) reach **[✔] Implemented** or carry a documented, deliberate exclusion — **§5 has not been re-run since Phase 0** and still describes the pre-Phase-1 system. Cannot be marked from a stale gap analysis; refreshing §5 is Phase 12 work
+- [✔] Project brain detects ≥ 6 stacks including database, package manager, CI and container facts — *Phase 4; ten dimensions, six stacks*
+- [✔] Context assembly is task-relevant and budget-bounded, proven against the brief's Redis example — *Phase 3; budget re-asserted at 200/500/1500/4000 tokens by Phase 11*
+- [✔] Decision intelligence blocks a contradiction of an accepted ADR and cites it — *Phase 3; exits 1*
+- [✔] Orchestrator runs the 12-role pipeline end to end with enforced permissions — *Phase 5*
+- [✔] ≥ 3 real agent adapters invoke and normalise; adding a fourth needs no core change — *Phase 6; `cli`, `http`, `mcp`, conformance-tested against mocks so no test needs a vendor installed*
+- [~] MCP exposes the 15 verbs, all governed and audited — 28 service operations are generated onto every surface, so the verb count is exceeded and the governance is enforced by an import-graph test. **Still never mounted in a live MCP host** (Phase 9)
+- [~] Audit chain is tamper-evident and covers all 12 subjects — tamper-evidence is complete and detects mutation, deletion, insertion, reordering and a forged append. **Coverage is 10 of 12**: `file_change` records only when an agent writes through the sandbox, and `deployment` has nothing to emit it because CoreSentinel does not deploy. Both are visible in `audit coverage` rather than quietly absent
+- [✔] Learning pipeline closes incident → pattern → candidate → approval → applied rule, reversibly — *Phase 8; byte-identical revert*
+- [✔] Dashboard serves seven views entirely from live services — *Phase 10; zero sample data, test-enforced*
 
 ### Quality
-- [ ] Test count ≥ 436 and strictly increasing; **zero tests removed or weakened**
-- [ ] Unit, integration and end-to-end coverage for every new service
-- [ ] The demo project is a green CI end-to-end test on 3 operating systems
-- [ ] Full CI pipeline green across 3 OS × 3 Python versions
-- [ ] No `shell=True`; no path used without containment check; no secret reachable in any log
-- [ ] Core package imports with zero third-party modules installed
+- [✔] Test count ≥ 436 and strictly increasing; **zero tests removed or weakened** — *436 → 1,294 across eleven phases; re-checked today*
+- [~] Unit, integration and end-to-end coverage for every new service — unit and integration cover every service; true end-to-end is the demo project, which is Phase 12
+- [ ] The demo project is a green CI end-to-end test on 3 operating systems — Phase 12
+- [ ] Full CI pipeline green across 3 OS × 3 Python versions — **not verifiable from here.** The matrix has been green, but the Performance stage added in Phase 11 has never run on it. Unticked until it does
+- [✔] No `shell=True`; no path used without containment check; no secret reachable in any log — *Phase 1 removed `shell=True` (ast-asserted absent), Phase 7 added path containment, Phase 11 proved the last clause as a property over 13 credential formats × 7 writers*
+- [✔] Core package imports with zero third-party modules installed — *re-checked today with an import blocker in `sys.meta_path`*
 
 ### Compatibility
-- [ ] Every v1 command, alias and exit code still behaves as documented
-- [ ] Every v1 memory file, ADR and project config loads unchanged
-- [ ] `coresentinel migrate` upgrades a v1 install with zero data loss, with a migration test proving it
-- [ ] Any unavoidable break is documented, migrated, shimmed, tested and version-bumped
+- [✔] Every v1 command, alias and exit code still behaves as documented — *`tests/integration/test_cli_surface.py`; every command answers `--help`, unknown commands exit 1 with a suggestion*
+- [✔] Every v1 memory file, ADR and project config loads unchanged — *Phase 3 asserted a real v1 record field by field*
+- [ ] `coresentinel migrate` upgrades a v1 install with zero data loss, with a migration test proving it — migrations are forward-only, checksum-guarded and idempotent, but **no test drives a genuine v1 install through the upgrade**
+- [✔] Any unavoidable break is documented, migrated, shimmed, tested and version-bumped — *the Phase 1 scoring break is the only one, and it is documented as the headline fix*
 
 ### Documentation
-- [ ] All 17 required documents exist and match implementation
-- [ ] `AGENTS.md` enables a fresh AI agent to extend the system without reading the source
-- [ ] CI fails if documentation names a command or JSON key that does not exist
-- [ ] README describes the system as measured, not as intended
+- [ ] All 17 required documents exist and match implementation — Phase 12
+- [ ] `AGENTS.md` enables a fresh AI agent to extend the system without reading the source — Phase 12; the file does not exist
+- [ ] CI fails if documentation names a command or JSON key that does not exist — Phase 12; R-10 names this as the mitigation for documentation drift, and it is not built
+- [✔] README describes the system as measured, not as intended — *rewritten at Phase 1 to match measured behaviour; test counts and the command surface updated each phase since*
+
+**Score: 18 `[✔]` · 4 `[~]` · 7 `[ ]` of 29** — counted from the marks above, not from memory.
+The first draft of this line said "6 `[~]` of 31" because I totalled it by hand, which is
+the entire failure this section exists to catch. The seven open items are six Phase 12
+deliverables plus the CI matrix, which needs one green run with the new Performance stage.
 
 ---
 
@@ -1062,11 +1101,124 @@ recommendation unless directed otherwise.
 | **Approval applied nothing** *(Module L gap)* | **[✔] closed** | `apply` writes the rule, snapshots, versions and audits; `revert` restores byte-identically |
 | **F-25 auto-token defeated the unsafe-bind refusal** *(new)* | **[✔] fixed** | `serve --host 0.0.0.0` generated a token and served anyway; found by testing the refusal and watching it not fire |
 | **No API, no MCP** *(Modules G and Q)* | **[✔] closed** | 27 operations on three surfaces, generated from one catalogue |
+| **P-01 context assembly resolved the project binding once per fact** *(new)* | **[✔] fixed** | 10,009 filesystem walks and 80,123 `nt.stat` calls to build one pack. Memoised, and the loop-invariant lookup hoisted out of the loop that never needed to repeat it. Context assembly over 10,000 facts: **9,525 ms → 213 ms** |
+| **P-02 every append re-read the whole collection** *(new)* | **[✔] fixed** | `_next_id` called `count()` which called `all()`. Appending record N parsed records 1..N-1 |
+| **P-03 the audit ledger re-read the whole trail per record** *(new)* | **[✔] fixed** | `append` → `last()` → `all()`, a second full read on top of P-02. Cost per audited event rose **11.4x** between an empty trail and one holding 4,000, still climbing. Now flat at 1.0x, CI-enforced as a ratio |
+| **P-04 SQLite committed with an fsync per record** *(new)* | **[✔] fixed** | 8 ms/record made the sqlite backend *slower than the JSON one it exists to outrun* — 800 records in 5,082 ms. WAL + `synchronous=NORMAL`: **329 ms**. Still a commit per record; a crash loses nothing a process crash would not |
+| **P-05 reading 20 records loaded all 10,000** *(new)* | **[✔] fixed** | `recent()` read the file and reversed it: 31 ms and 7 MB to answer a 20-record question. Bounded tail read: **0.5 ms, 0.02 MB** |
+| **P-06 the event buffer grew for the life of the process** *(new)* | **[✔] fixed** | bounded ring buffer; `total_emitted` keeps the true count so the bound never misreports what it bounded |
+| **P-07 recall built a token set it then ignored** *(new)* | **[✔] fixed** | `t in hay_terms or t in hay` — the second test subsumes the first, so a regex pass per record decided nothing. 11,000 of them per query. Removing it is behaviour-identical and pinned by a test |
+| **P-08 redaction blanked `author`, `authority` and `tests_passed`** *(new)* | **[✔] fixed** | `pass(word|wd)?` made the suffix optional so a bare `pass` matched; `auth` matched `author` and `authority` — a decision-ledger field and a squad-contract field. The audit trail was **destroying real records to protect nothing**, and over-redaction is silent. Split into substring / whole-word / exact-key tiers, both directions pinned by 158 property tests |
+| **No pagination on any list surface** *(Cross-cutting gap)* | **[✔] closed** | default 50, maximum 200, `clamped` reported rather than silently returning fewer; a test derives the requirement from the catalogue so a new list endpoint that forgets to page fails the day it is added |
+| **No observability** *(Cross-cutting gap)* | **[✔] closed** | 11 subjects, bounded registry, budgets, `metrics` command, doctor check |
 | F-11, F-12 | [ ] open | housekeeping: leaked paths in `project-labels.json`, README count |
 
 ---
 
 ## 12. Phase Reports
+
+### Phase 11 — Observability, Performance & Production Hardening
+
+```text
+Phase                : 11 — Observability, Performance & Production Hardening
+Implemented          : Eleven measured subjects, eight published budgets gated in CI,
+                       pagination on every list surface, and eight performance defects
+                       closed — every one of them found by measurement, none by reading.
+Files changed        : 7 added (observability/{__init__,metrics,budgets}.py,
+                       migrations/0006_metrics.sql, tests/performance/{test_budgets,
+                       test_pagination,test_metrics,test_no_secret_reaches_a_log}.py)
+                       15 modified (coresentinel.py, _memory, _recall, _context, _init,
+                       _doctor, runtime/{container,config,events,logging},
+                       storage/{ports,json_store,sqlite_store}, audit/ledger,
+                       services/facade, security/redaction, conftest, CI, VERSION,
+                       README, 14-cli, 30-selftest, 45-performance)
+Tests added          : +261 (1,033 → 1,294). Zero removed. Two of my own corrected
+                       before they were trusted — see below.
+Tests passed         : 1,294 / 1,294 (187s), 1 skipped (symlink creation unavailable
+                       on this platform). Validator exit 0, doctor exit 0.
+
+Measured, before and after — median of repeated runs, isolated stores:
+
+   recall over 10,000 facts            179.4 ms  ->    39.7 ms     4.5x
+   context assembly over 10,000 facts  9,525 ms  ->     213 ms      45x
+   append 800 records (json)           1,869 ms  ->     465 ms       4x
+   append 800 records (sqlite)         5,082 ms  ->     329 ms      15x
+   newest 20 of 10,000 (json)           31.1 ms  ->     0.5 ms      62x
+   heap for that same read                7 MB   ->   0.02 MB     350x
+   audited event into a 4,000-record trail:
+                                       72.40 ms  ->    1.34 ms      54x
+   ...and the shape of that last one is the point:
+
+     records already in the trail       BEFORE      AFTER
+     0                                  6.37 ms    1.34 ms
+     1,000                             26.51 ms    1.29 ms
+     4,000                             72.40 ms    1.34 ms
+
+Known limitations    : - Budgets in milliseconds describe the machine as much as the
+                         code. They carry 4x headroom or more so a loaded CI runner
+                         does not fail the build for being busy, which means they
+                         would not catch a 2x regression. The scaling ratio would.
+                       - Filtering the audit trail by subject still walks the whole
+                         collection. The port exposes append and read-back, not
+                         query-by-column, and pushing a WHERE clause into it would
+                         stop the two backends being interchangeable. Unfiltered
+                         reads — what every surface issues by default — touch only
+                         the page.
+                       - Paging a JSON ledger (decisions, patterns, incidents) bounds
+                         the response, not the read. Those are human-scale by ADR-001
+                         and are read whole by design. Said plainly rather than left
+                         to look like the storage-backed paging beside it.
+                       - `find_project_root` now caches. A long-lived process that
+                         binds a project externally would hold the stale answer until
+                         something calls reset. `init` calls it; the test suite clears
+                         it around every test; a server does neither yet.
+                       - Metrics are flushed at shutdown. A process killed with
+                         SIGKILL loses its series. They are measurements, not records,
+                         and the audit trail — which is a record — is written as it
+                         happens.
+                       - No cross-run trend or alerting. `metrics` reports what is
+                         recorded; deciding that a number moved is still a human
+                         reading two numbers.
+Architecture decisions:
+   - Measure first, and keep the harness honest. The first version of the benchmark
+     ran under tracemalloc, which instruments every allocation and inflated its own
+     timings roughly 5x — it reported recall at 197 ms against a 200 ms budget when
+     the real figure was 40 ms. The second version wrote every run's events into the
+     repository's own record store, so each measurement was taken against a file the
+     previous ones had grown. Both were caught by numbers that did not make sense,
+     and both would have put a fabricated figure into a report about not fabricating
+     figures. Timing and memory are now separate passes against isolated stores.
+   - Caching, indexes and background jobs were planned and NOT built. Profiling put
+     the cost in a filesystem walk repeated once per fact, two whole-file reads per
+     append, and a regex pass per record whose result was then discarded by the line
+     below it. Those are defects, not slowness; a cache in front of them would have
+     preserved them and hidden them. Indexes already existed on every promoted
+     column. A background job runner is a daemon, and this is a local-first CLI.
+   - One budget is a ratio rather than a duration, and it is the one that matters.
+     Every millisecond limit moves when the hardware does. `audit.append_scaling_ratio`
+     asserts that writing record 4,000 costs no more than writing record 1, which is
+     true or false regardless of how fast the machine is, and is exactly the property
+     whose absence made the audit trail quadratic.
+   - Metrics inherit the verification engine's rule: no zero-initialised counters. A
+     subject nothing exercised reports as never observed, because a zero is a
+     measurement and nobody took one. `metrics coverage` is modelled on
+     `audit coverage` for the same reason — absence that is visible is a gap, absence
+     that is silent reads as a pass.
+   - The pagination test derives its requirement from the service catalogue rather
+     than from a list of endpoint names. Four operations are exempt because their
+     length comes from a fixed enumeration, and each exemption is recorded with its
+     reason and re-checked. A new list operation that forgets to page fails the day
+     it is added, not the day someone notices.
+   - Two of my own tests were wrong and were corrected rather than deleted: one
+     asserted `session_count` should survive redaction when the rule as written
+     redacted it, and one asserted a blanket "no unpaged list endpoints" that fired
+     correctly on four fixed enumerations. Both were fixed by making the rule more
+     precise, which is what found P-08.
+   - Released as 10.12.0. The major bump stays reserved for v2 completion.
+Next phase           : 12 — Demo Project, Documentation & Release
+```
+
+---
 
 ### Phase 1 — Evidence Integrity
 

@@ -103,10 +103,13 @@ def collect_memory_facts(target_dir="."):
         data = read_json(path)
         if not data:
             continue
+        # Resolved once per layer, not once per fact: the scope depends on the
+        # layer and the directory, neither of which changes inside the loop.
+        scope = mem.layer_scope(layer, target_dir)
         for entry in data.get("facts", []):
             facts.append({
                 "layer": layer,
-                "scope": mem.layer_scope(layer, target_dir),
+                "scope": scope,
                 "fact": entry.get("fact"),
                 "confidence": entry.get("confidence"),
                 "classification": entry.get("classification"),
