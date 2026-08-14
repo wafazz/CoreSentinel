@@ -127,23 +127,7 @@ if ($CreateSubAgents -eq "Yes" -and $SubAgentList.Count -gt 0) {
     $SubAgentMd = "`n### Sub-Agents: Disabled`n"
 }
 
-# 1. Update memorycore.conf
-$ConfFile = Join-Path $TargetDir "memorycore.conf"
-$ConfContent = @"
-# CoreSentinel Configuration
-MEMORY_PATH=$TargetDir
-STATS_LOG=$TargetDir\agent-usage-log.json
-LABELS_FILE=$TargetDir\project-labels.json
-AGENT_NAME=$AgentName
-AGENT_ROLE=$AgentRole
-CREATE_SUBAGENTS=$CreateSubAgents
-SUBAGENT_COUNT=$SubAgentCount
-SUBAGENT_NAMING=$SubAgentNaming
-"@
-Set-Content -Path $ConfFile -Value $ConfContent -Encoding UTF8
-Write-Host "[+] Updated memorycore.conf" -ForegroundColor Green
-
-# 2. Render tool targets
+# 1. Render tool targets
 $Targets = @(
     @{ Tool = "Claude Code";      Path = "$HomeDir\.claude\CLAUDE.md" },
     @{ Tool = "OpenAI Codex";     Path = "$HomeDir\.codex\AGENTS.md" },
@@ -198,7 +182,7 @@ foreach ($item in $Targets) {
     Write-Host "[+] Rendered system prompt for $($item.Tool) -> $($item.Path)" -ForegroundColor Green
 }
 
-# 3. Automatically install Git hooks
+# 2. Automatically install Git hooks
 $InstallerScript = Join-Path $TargetDir "install-hooks.ps1"
 if (Test-Path $InstallerScript) {
     powershell -ExecutionPolicy Bypass -File $InstallerScript

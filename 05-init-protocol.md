@@ -43,7 +43,7 @@ As you complete more projects, build your recommendation table here:
 ## Phase 3: Generate Project Scaffold
 
 ### 3a. Create MemoryCore Profile
-Create `C:\Users\fakrul.hakim\Desktop\CORE/Projects/NN-{project-slug}.md` using the `_template.md`.
+Create `Projects/NN-{project-slug}.md` in the Core directory using the `_template.md`.
 
 ### 3b. Register in Identity
 Add entry to `00-identity.md` Active Projects list.

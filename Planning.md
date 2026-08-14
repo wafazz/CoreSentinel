@@ -1140,7 +1140,7 @@ recommendation unless directed otherwise.
 | **F-21 `decision` discarded its exit code** *(new)* | **[✔] fixed** | pre-existing: `cmd_decision` ignored the handler's return, so a contradiction exited 0 |
 | **F-18 unknown-command error on stdout** *(new)* | **[✔] fixed** | prose in front of any `--json` consumer — same class as F-16 |
 | **F-19 silent exception swallow in shipped source** *(new)* | **[✔] fixed** | AP-001 at STRICT_BLOCK, written by me in `Container.shutdown()` and caught by CoreSentinel's own scanner |
-| F-10 `memorycore.conf` dead config | **[~] superseded** | replaced by the layered config in Phase 2; the dead file still ships and is removed in Phase 3 |
+| F-10 `memorycore.conf` dead config | **[✔] fixed** | superseded by the layered config in Phase 2, but this row claimed it "is removed in Phase 3" and it never was — it shipped for nine more phases holding a username, an employer name and a UTF-8 BOM. Deleted, and both installers no longer write it: `setup.sh` and `setup.ps1` were the only things that touched the file, and nothing has ever read it |
 | F-15 duplicated helpers | **[~] partial** | 6 `run_cmd` → 1 (Phase 1); `read_json`/`print_header` still duplicated |
 | **F-22 framework detection by substring** *(new)* | **[✔] fixed** | every Laravel project reported Symfony; `next-auth` reported Next.js |
 | **Agent authority unenforced** *(Module E gap)* | **[✔] closed** | the README's read-only claim was true of a JSON file, not of the runtime |
