@@ -19,6 +19,8 @@ tests/
 ├── runtime/           Configuration precedence, path containment, events, storage ports
 ├── surfaces/          Governance bypass, HTTP API contract, MCP conformance, dashboard
 ├── performance/       Published budgets, append scaling, pagination, secret redaction
+├── documentation/     The docs must name only commands and keys that exist
+├── demo/              The reference project, governed end to end, and a v1 upgrade
 ├── telemetry/         Session log parsing, token accounting, aggregation
 └── integration/       End-to-end CLI behaviour in a sandboxed Core
 ```
@@ -62,6 +64,8 @@ A test suite for a memory system must never write to that memory system.
 | **surfaces** | No surface can write unaudited; `api/` and `mcp/` never import storage or an engine; a non-loopback bind without a token is refused; the same operation audits identically through the CLI, the API and MCP; the dashboard serves only its three allowlisted files, calls only real read operations, and ships no sample data |
 | **runtime** | Configuration resolves in precedence order and reports each value's origin; path traversal is refused; a failing event handler cannot fail the emitter; both storage backends satisfy one contract suite; an applied migration cannot be edited |
 | **performance** | Every published budget is asserted against a real store; the cost of an audited event does not grow with the trail it joins; every list surface pages and says when it clamped; no credential format reaches a log, an audit record or a metric — and no ordinary field is blanked for merely containing the word `auth` or `pass` |
+| **documentation** | Every command the docs teach exists in the registry; every registered command is documented; every documented `--json` key appears in real output; the advertised test count is not above the real one |
+| **demo** | A real project is governed init → verify → gate → audit with every step asserted, and its verification evidence comes from executing that project's own suite; a genuine v1 install upgrades with every field of every record intact |
 | **telemetry** | The shallowest usage block wins (no double counting); malformed log lines are skipped, not fatal; repeat edits count once |
 | **integration** | Every command answers `--help`; unknown commands exit 1 with a suggestion; every `--json` contract parses and carries no BOM; read-only commands do not mutate the ledger |
 
@@ -72,7 +76,7 @@ A test suite for a memory system must never write to that memory system.
 ```text
 Pull Request
      ↓
-CoreSentinel Tests      unit suite across 9 packages
+CoreSentinel Tests      unit suite across 11 packages
      ↓
 Security                scanner suite + validator + PR diff review
      ↓

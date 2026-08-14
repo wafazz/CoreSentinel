@@ -65,6 +65,20 @@ def detect_test_tooling(root):
             found.append(finding("test_command", command, marker,
                                  locator="configuration present", confidence=0.95))
             break
+    else:
+        # A [tool.pytest.ini_options] table is pytest's own configuration and
+        # means the same thing pytest.ini does. Projects that declare pytest
+        # only under optional-dependencies were reported as having no runner —
+        # correct by the evidence rule, but the evidence was there and unread.
+        pyproject = root / "pyproject.toml"
+        if pyproject.exists():
+            try:
+                text = pyproject.read_text(encoding="utf-8-sig")
+            except OSError:
+                text = ""
+            if "[tool.pytest.ini_options]" in text:
+                found.append(finding("test_command", "pytest", "pyproject.toml",
+                                     locator="[tool.pytest.ini_options]", confidence=0.95))
 
     return found
 

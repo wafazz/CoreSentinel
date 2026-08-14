@@ -36,6 +36,8 @@ jobs:
             --ignore=tests/integration \
             --ignore=tests/security \
             --ignore=tests/performance \
+            --ignore=tests/documentation \
+            --ignore=tests/demo \
             -q --junitxml=junit-unit.xml
 
       - name: Upload test report
@@ -137,6 +139,13 @@ jobs:
 
       - name: Ruff — syntax errors and undefined names
         run: ruff check --select E9,F63,F7,F82 .
+
+      # R-10's mitigation. Documentation drift is not hypothetical here: F-01
+      # and F-02 were documented as working while the engine behind them
+      # fabricated its numbers. A failure in this step means the docs describe
+      # something that does not exist.
+      - name: Documentation must describe what exists
+        run: python -m pytest tests/documentation -q
 
       - name: Validate every JSON registry parses
         run: |
@@ -240,6 +249,13 @@ jobs:
         run: |
           python coresentinel.py doctor
           python coresentinel.py status
+
+      # The demo is the only test that answers "does the product work" rather
+      # than "does this subsystem work", so it runs on every OS in the matrix.
+      # It governs a real project end to end, and its verification evidence
+      # comes from executing that project's own pytest suite.
+      - name: Reference project — governed end to end
+        run: python -m pytest tests/demo -q
 
   gate:
     name: PASS / FAIL

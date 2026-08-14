@@ -124,6 +124,53 @@ class TestUnknownVersusEmpty:
         assert "not an empty one" in rendered
 
 
+class TestTestRunnerDetection:
+    """The runner has to be evidenced, and the evidence has to be read."""
+
+    def test_pytest_is_found_from_a_pyproject_config_table(self, tmp_path):
+        """A [tool.pytest.ini_options] table is pytest's own configuration.
+
+        The demo project declares pytest only under optional-dependencies and
+        carries no pytest.ini, so it was reported as having no runner — correct
+        by the evidence rule, but the evidence was sitting in pyproject.toml
+        unread.
+        """
+        root = tmp_path / "app"
+        root.mkdir()
+        (root / "pyproject.toml").write_text(
+            "[project]\nname='app'\n\n[tool.pytest.ini_options]\ntestpaths=['tests']\n",
+            encoding="utf-8")
+
+        testing = discovery.inspect(root)["dimensions"]["testing"]
+        commands = [f for f in testing["findings"] if f["kind"] == "test_command"]
+        assert [f["value"] for f in commands] == ["pytest"]
+        assert commands[0]["evidence"]["file"] == "pyproject.toml"
+        assert commands[0]["evidence"]["locator"] == "[tool.pytest.ini_options]"
+
+    def test_an_explicit_config_file_still_wins(self, tmp_path):
+        """pytest.ini is the stronger signal and must not be displaced."""
+        root = tmp_path / "app"
+        root.mkdir()
+        (root / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+        (root / "pyproject.toml").write_text(
+            "[project]\nname='app'\n\n[tool.pytest.ini_options]\n", encoding="utf-8")
+
+        commands = [f for f in discovery.inspect(root)["dimensions"]["testing"]["findings"]
+                    if f["kind"] == "test_command"]
+        assert len(commands) == 1
+        assert commands[0]["evidence"]["file"] == "pytest.ini"
+
+    def test_a_pyproject_without_pytest_config_claims_no_runner(self, tmp_path):
+        """Absence of evidence stays absence of a claim."""
+        root = tmp_path / "app"
+        root.mkdir()
+        (root / "pyproject.toml").write_text("[project]\nname='app'\n", encoding="utf-8")
+
+        commands = [f for f in discovery.inspect(root)["dimensions"]["testing"]["findings"]
+                    if f["kind"] == "test_command"]
+        assert commands == []
+
+
 class TestStackCoverage:
     @pytest.mark.parametrize("manifest,content,language", [
         ("package.json", "{}", "Node/TypeScript"),
