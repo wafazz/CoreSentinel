@@ -8,7 +8,7 @@
 [![Version](https://img.shields.io/badge/CoreSentinel-10.10.0-8A2BE2)](./VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Hosts](https://img.shields.io/badge/Hosts-Claude_%7C_Cursor_%7C_Gemini_%7C_Codex_%7C_Copilot_%7C_Windsurf-blue)](#-how-does-it-work)
-[![Tests](https://img.shields.io/badge/Self--tests-999_passing-brightgreen)](#-coresentinel-tests-itself)
+[![Tests](https://img.shields.io/badge/Self--tests-1294_passing-brightgreen)](#-coresentinel-tests-itself)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](#-install)
 
 </div>
@@ -50,6 +50,7 @@ Seven services. Every host consumes the same ones.
 | 🧾 **Verification** | Six checks that execute. Each records its command, exit code, duration and output digest, and resolves to `PASS`, `FAIL` or `UNKNOWN`. `UNKNOWN` leaves the denominator instead of inflating the score, and at least half the evidence budget must run before any verdict. | `coresentinel verify` |
 | 🔒 **Security** | Anti-pattern and secret scanner wired into git pre-commit, so unverified or leaking work cannot be committed. | `coresentinel check` |
 | 📊 **Telemetry** | Token spend, session analytics and hot files, aggregated across every AI tool you have installed. | `coresentinel stats` |
+| 📈 **Its own performance** | Eleven measured subjects and eight published budgets, asserted in CI. A subject nothing exercised reports as never observed, never as zero. | `coresentinel metrics` |
 
 ---
 
@@ -201,10 +202,10 @@ Requires Python 3.9+. The installer asks for your agent name, role, and squad pr
 
 ## 🧪 CoreSentinel tests itself
 
-A governance system that is not itself tested is an unverified claim. **999 tests across the 10 subsystems**, plus a gated CI pipeline:
+A governance system that is not itself tested is an unverified claim. **1,294 tests across the 11 subsystems**, plus a gated CI pipeline:
 
 ```text
-Pull Request ➔ Tests ➔ Security ➔ Lint ➔ Integration ➔ Compatibility ➔ PASS / FAIL
+Pull Request ➔ Tests ➔ Security ➔ Performance ➔ Lint ➔ Integration ➔ Compatibility ➔ PASS / FAIL
 ```
 
 ```bash
@@ -226,7 +227,7 @@ The suite never touches the real `memory/` directory, your home directory, or an
   Context & Memory         context · project · knowledge · memory · recall · brief · journal · decision
   Verification & Review    verify · review · gate · check
   Squad & Governance       agent · task · audit · incident · pattern · score · evolve
-  Integration & Telemetry  serve · mcp · adapter · stats · hooks · version
+  Integration & Telemetry  serve · mcp · adapter · metrics · stats · hooks · version
 ```
 
 Every command writes its payload to stdout and its diagnostics to stderr, so `--json` output stays parseable even when the Core is damaged. The product version lives in the single `VERSION` file at the Core root — `coresentinel version` reports it along with Python, platform and the loaded registry versions.

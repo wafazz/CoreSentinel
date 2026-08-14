@@ -171,7 +171,7 @@ VALUE_FLAGS = {"--project", "--layer", "--min-confidence", "--limit", "--label",
                "--test", "--pattern", "--subject",
                "--candidate", "--name", "--solution", "--stack", "--gotchas",
                "--category", "--first-used-in", "--incident",
-               "--host", "--port"}
+               "--host", "--port", "--offset"}
 
 # Every flag read with flag_value() must appear above, or free_args() treats its
 # value as a positional argument — which is how `verify --claim "fixed the login
@@ -1122,6 +1122,106 @@ def cmd_audit(args):
         audit.list_runs()
 
 
+def cmd_metrics(args):
+    from coresentinel_core.services.facade import open_services
+
+    sub = args[0].lower() if args and not args[0].startswith("-") else "show"
+    emit_json = "--json" in args
+    target = positional(args, 1 if sub in ("show", "coverage", "budgets") else 0)
+
+    if sub == "budgets":
+        return print_budgets(emit_json)
+
+    services = open_services(target)
+    try:
+        report = services.call("metrics.get", {
+            "subject": flag_value(args, "--subject"),
+            "limit": flag_value(args, "--limit"),
+            "offset": flag_value(args, "--offset", 0),
+        })
+    finally:
+        services.runtime.shutdown()
+
+    if emit_json:
+        print(json.dumps(report, indent=2, default=str))
+        return 0
+
+    coverage = report["coverage"]
+    if sub == "coverage":
+        print("\n" + "=" * 64)
+        print("  📈 CoreSentinel Metrics Coverage")
+        print("=" * 64)
+        print(f"  {len(coverage['observed'])}/{coverage['total']} subjects have been measured here")
+        print("  " + "-" * 60)
+        for subject in coverage["observed"]:
+            print(f"  [✓] {subject}")
+        for subject in coverage["never_observed"]:
+            print(f"  [ ] {subject}")
+        print("  " + "-" * 60)
+        print("  A subject with no series has never been exercised in this store, or")
+        print("  nothing measures it. Neither is reported as a zero.")
+        print("=" * 64 + "\n")
+        return 0
+
+    print("\n" + "=" * 64)
+    print("  📈 CoreSentinel Metrics")
+    print("=" * 64)
+    if not report["series"]:
+        print("  Nothing has been measured in this store yet.")
+        print("  Run any command, then look again — series are written at shutdown.")
+        print("=" * 64 + "\n")
+        return 0
+
+    print(f"  {'SUBJECT':<14} {'SERIES':<26} {'N':>7} {'MEAN':>10} {'MAX':>10}")
+    print("  " + "-" * 60)
+    for entry in report["series"]:
+        mean = f"{entry['mean']:.2f}" if entry["mean"] is not None else "—"
+        peak = f"{entry['max']:.2f}" if entry["max"] is not None else "—"
+        print(f"  {entry['subject']:<14} {entry['name'][:26]:<26} "
+              f"{entry['count']:>7} {mean:>10} {peak:>10}")
+
+    page = report["page"]
+    print("  " + "-" * 60)
+    print(f"  {page['returned']} of {page['total']} series"
+          + (f" — next: --offset {page['next_offset']}" if page["next_offset"] else ""))
+    print(f"  {len(coverage['observed'])}/{coverage['total']} subjects measured "
+          f"({', '.join(coverage['never_observed']) or 'none'} never observed)")
+
+    verdict = report["budgets"]["verdict"]
+    print(f"  Budgets: {verdict} — {report['budgets']['passed']} within, "
+          f"{report['budgets']['failed']} over, {report['budgets']['unknown']} unmeasured")
+    print("=" * 64 + "\n")
+    return 1 if verdict == "OVER_BUDGET" else 0
+
+
+def print_budgets(emit_json=False):
+    """The published budgets themselves, measured or not."""
+    from coresentinel_core.observability import budgets as budget_engine
+
+    if emit_json:
+        print(json.dumps({"budgets": budget_engine.BUDGETS}, indent=2, default=str))
+        return 0
+
+    print("\n" + "=" * 64)
+    print("  📐 CoreSentinel Published Performance Budgets")
+    print("=" * 64)
+    for key in sorted(budget_engine.BUDGETS):
+        budget = budget_engine.BUDGETS[key]
+        slack = budget_engine.headroom(key)
+        print(f"  {key}")
+        print(f"      {budget['what']}")
+        print(f"      limit {budget['limit']}{budget['unit']}"
+              f" · measured {budget['measured']}{budget['unit']}"
+              + (f" · {slack}x headroom" if slack else ""))
+        if budget.get("basis"):
+            print(f"      {budget['basis']}")
+    print("  " + "-" * 60)
+    print("  Every budget is asserted by the self-test suite. A change that")
+    print("  exceeds one fails the build rather than being noticed later.")
+    print("=" * 64 + "\n")
+    return 0
+
+
 def cmd_project(args):
     from coresentinel_core.project import discovery
 
@@ -1810,10 +1910,11 @@ COMMANDS = [
                "project memory, and optionally binds an AI host. Refuses to overwrite an existing\n"
                "config without --force."},
     {"name": "doctor", "aliases": ["diagnose"], "group": "Setup & Diagnostics", "handler": cmd_doctor,
-     "summary": "Diagnose the 9 CoreSentinel subsystems",
+     "summary": "Diagnose the 10 CoreSentinel subsystems",
      "usage": ["coresentinel doctor [target-dir] [--verbose] [--json]"],
      "detail": "Checks Configuration, Runtime, Storage, Memory, Governance, Agent Registry,\n"
-               "Verification Engine, Security Rules and Project Context. Exits 1 on any FAIL."},
+               "Verification Engine, Security Rules, Observability and Project Context.\n"
+               "Exits 1 on any FAIL."},
     {"name": "project", "aliases": ["brain"], "group": "Context & Memory", "handler": cmd_project,
      "summary": "Inspect what CoreSentinel understands about a project",
      "usage": ["coresentinel project inspect [target-dir] [--verbose] [--json]",
@@ -2173,6 +2274,24 @@ COMMANDS = [
                "instead of the message that caused it.\n"
                "\n"
                "--tools lists the surface without starting the server."},
+    {"name": "metrics", "aliases": ["perf"], "group": "Integration & Telemetry",
+     "handler": cmd_metrics,
+     "summary": "What CoreSentinel measures about itself",
+     "usage": ["coresentinel metrics [target-dir] [--subject recall] [--limit 50] [--json]",
+               "coresentinel metrics coverage [--json]",
+               "coresentinel metrics budgets [--json]"],
+     "detail": "Eleven subjects: command, service, agent, task, verification, gate, memory,\n"
+               "context, recall, storage, audit. Each series keeps count, total, min, max and\n"
+               "last — never the samples — so a series costs the same at one observation as at\n"
+               "a million.\n"
+               "\n"
+               "There are no zero-initialised counters. A subject nothing has exercised reports\n"
+               "as never observed, because a zero would claim it happened nought times.\n"
+               "\n"
+               "'budgets' prints the published performance limits and the measurement behind\n"
+               "each one. Exits 1 if any measured series is over its budget.\n"
+               "\n"
+               "stats reads the transcripts of AI hosts; this measures CoreSentinel."},
     {"name": "stats", "aliases": [], "group": "Integration & Telemetry", "handler": cmd_stats,
      "summary": "Token usage & session telemetry",
      "usage": ["coresentinel stats"],

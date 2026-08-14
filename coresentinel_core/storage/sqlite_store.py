@@ -36,6 +36,7 @@ PROMOTED = {
     "agent_sessions": ["agent", "objective", "status"],
     "task_results": ["task_id", "agent", "status"],
     "permission_grants": ["agent", "permission", "level", "reason"],
+    "metrics": ["subject", "name", "kind", "captured_at"],
 }
 
 # Collections whose natural key must not produce duplicates on re-append.
@@ -50,7 +51,15 @@ class SqliteRepository(Repository):
         self.columns = PROMOTED.get(name, [])
 
     def _next_id(self):
-        return f"{self.name}-{self.count() + 1:06d}"
+        # MAX over the primary key, not COUNT over the table: COUNT scans every
+        # row, and this runs on the write path of an append-only ledger. It also
+        # stops reusing an id after a delete, which COUNT+1 did.
+        try:
+            highest = self.connection.execute(
+                f"SELECT COALESCE(MAX(id), 0) FROM {self.name}").fetchone()[0]
+        except sqlite3.Error as e:
+            raise StorageError(f"could not read the sequence for {self.name} ({e})", None)
+        return f"{self.name}-{highest + 1:06d}"
 
     def append(self, record):
         if not isinstance(record, dict):
@@ -116,6 +125,15 @@ class SqliteRepository(Repository):
             return self._rows(f"SELECT payload FROM {self.name} ORDER BY id DESC")
         return self._rows(f"SELECT payload FROM {self.name} ORDER BY id DESC LIMIT ?", (limit,))
 
+    def page(self, limit=50, offset=0):
+        """A window of records, newest first."""
+        limit, offset = max(0, int(limit)), max(0, int(offset))
+        if not limit:
+            return []
+        return self._rows(
+            f"SELECT payload FROM {self.name} ORDER BY id DESC LIMIT ? OFFSET ?",
+            (limit, offset))
+
     def get(self, record_id):
         found = self._rows(f"SELECT payload FROM {self.name} WHERE record_id = ?", (record_id,))
         return found[0] if found else None
@@ -148,6 +166,15 @@ class SqliteStore(Store):
             raise StorageError(f"could not open {self.path} ({e})",
                                "Check the directory is writable, or switch to the json backend")
         self.connection.execute("PRAGMA foreign_keys = ON")
+        # Write-ahead logging with synchronous=NORMAL. Every append commits, and
+        # the default (rollback journal + synchronous=FULL) makes that an fsync
+        # per record: 8 ms each, so 800 audit events took 6.4 seconds — slower
+        # than the JSON backend it exists to outrun. Under WAL a commit survives
+        # a process crash; only an OS-level crash can lose the last commits, and
+        # that is the trade a local governance tool should take rather than
+        # batching commits and losing the record of what it was doing when it died.
+        self.connection.execute("PRAGMA journal_mode = WAL")
+        self.connection.execute("PRAGMA synchronous = NORMAL")
         self.applied = migrations.migrate(self.connection)
         self._repositories = {name: SqliteRepository(self.connection, name)
                               for name in COLLECTIONS}

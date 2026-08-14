@@ -10,7 +10,7 @@
 | Group | Command | Purpose |
 | :--- | :--- | :--- |
 | **Setup & Diagnostics** | `init` | Bind a project to the CoreSentinel Core |
-| | `doctor` | Diagnose the 9 CoreSentinel subsystems |
+| | `doctor` | Diagnose the 10 CoreSentinel subsystems |
 | | `status` | At-a-glance governance dashboard |
 | | `config` | Inspect and change resolved settings |
 | | `migrate` | Create or upgrade the record store |
@@ -33,17 +33,18 @@
 | **Integration** | `serve` | Serve the versioned HTTP API and the dashboard |
 | | `mcp` | Run CoreSentinel as an MCP server |
 | | `adapter` | Bind the Core to any AI coding host |
+| | `metrics` | What CoreSentinel measures about itself |
 | | `stats` | Token usage & session telemetry |
 | | `hooks` | Install git pre-commit & pre-push hooks |
 | | `version` | Product version & build context |
 
-Aliases are accepted where they read naturally: `squad` → `agent`, `health` → `score`, `adr` → `decision`, `gates` → `gate`, `ctx` → `context`, `cse` → `evolve`.
+Aliases are accepted where they read naturally: `squad` → `agent`, `health` → `score`, `adr` → `decision`, `gates` → `gate`, `ctx` → `context`, `cse` → `evolve`, `perf` → `metrics`.
 
 ---
 
 ## 🩺 `coresentinel doctor`
 
-Nine subsystem checks, each resolving to `OK`, `WARN` or `FAIL`:
+Ten subsystem checks, each resolving to `OK`, `WARN` or `FAIL`:
 
 ```text
 ================================================================
@@ -57,8 +58,9 @@ Nine subsystem checks, each resolving to `OK`, `WARN` or `FAIL`:
   ✓ Memory                 7 layers valid, 4 recorded entries
   ✓ Governance             34 protocols, ledgers consistent
   ✓ Agent Registry         17 contracts complete
-  ✓ Verification Engine    validator + 7 engines operational
+  ✓ Verification Engine    validator + 11 engines operational
   ✓ Security Rules         5 rules armed, 4 blocking
+  ✓ Observability          14 series, 7/11 subjects
   ✓ Project Context        Python on 'main', 6 host(s)
 
   ────────────────────────────────────────────────────────────
@@ -76,6 +78,7 @@ Nine subsystem checks, each resolving to `OK`, `WARN` or `FAIL`:
 | **Agent Registry** | Every squad contract carries name, role, input, output and authority |
 | **Verification Engine** | Validator present and all 7 engine modules importable |
 | **Security Rules** | Anti-pattern database loaded with an enforcement level on every rule |
+| **Observability** | Metric subjects declared, and every published budget has a measurement behind it |
 | **Project Context** | Git repository, detected stack, and at least one AI host bound |
 
 **Overall states:** `HEALTHY` (all OK) · `DEGRADED` (any WARN) · `CRITICAL` (any FAIL).
@@ -211,6 +214,53 @@ Scope is covered by staged, unstaged **and** untracked files — a brand-new fil
 
 > Logic correctness and maintainability stay with the reviewer agent contracts (Cato and Sage).
 > `review` does not claim to judge them.
+
+---
+
+## 📈 `coresentinel metrics`
+
+What CoreSentinel measures about **itself**, across eleven subjects — `command`,
+`service`, `agent`, `task`, `verification`, `gate`, `memory`, `context`,
+`recall`, `storage`, `audit`.
+
+```bash
+coresentinel metrics                    # series, coverage and the budget verdict
+coresentinel metrics coverage           # which subjects have ever been measured
+coresentinel metrics budgets            # published limits and the basis for each
+coresentinel metrics --subject recall --json
+```
+
+There are no zero-initialised counters. A subject nothing has exercised reports
+as **never observed** rather than as `0`, for the same reason a health dimension
+nothing could evidence reports `UNKNOWN`: a zero is a measurement, and nobody
+took one.
+
+Series are aggregates — count, total, min, max, last — never the samples, so a
+series costs the same after a million observations as after one. They are
+flushed to the record store at shutdown, because a CLI process lives for exactly
+one command.
+
+Exits **1** when a measured series is over its published budget. See
+[Performance](./45-performance-protocol.md#coresentinels-own-performance) for the
+budget table.
+
+> `stats` reads the transcripts of AI hosts. `metrics` measures CoreSentinel.
+
+---
+
+## 📄 Paging
+
+Every list surface pages: default **50**, maximum **200**.
+
+```bash
+coresentinel audit list --limit 20 --offset 40
+curl "$API/api/v1/audit/list?limit=20&offset=40"
+```
+
+A caller asking for more than the maximum receives the maximum with
+`"clamped": true` — the response says it was capped rather than quietly
+returning fewer rows than were requested. `"total": null` means the collection
+was never counted, which is not the same as `0`.
 
 ---
 

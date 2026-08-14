@@ -55,6 +55,12 @@ def compute_hash(record):
     return "sha256:" + hashlib.sha256(_canonical(record).encode("utf-8")).hexdigest()[:HASH_LENGTH]
 
 
+def _is_chained(record):
+    return (record.get("chain") != LEGACY
+            and record.get("seq") is not None
+            and bool(record.get("hash")))
+
+
 def _chain_records(store):
     """Chained records only, oldest first.
 
@@ -64,8 +70,7 @@ def _chain_records(store):
     treated as chain breaks, because a record that was never signed has not been
     tampered with, it was simply never protected.
     """
-    return [r for r in store.audit_events.all()
-            if r.get("chain") != LEGACY and r.get("seq") is not None and r.get("hash")]
+    return [r for r in store.audit_events.all() if _is_chained(r)]
 
 
 def _unchained_records(store):
@@ -74,7 +79,32 @@ def _unchained_records(store):
             if r.get("chain") != LEGACY and (r.get("seq") is None or not r.get("hash"))]
 
 
+# How far back to look for the head of the chain before giving up and reading
+# the whole collection. Escalates so the common case — the newest record is
+# chained — is a single-record read, while a long tail of legacy imports still
+# resolves correctly rather than silently restarting the chain at seq 1.
+TAIL_PROBES = (1, 16, 256)
+
+
 def last(store):
+    """The newest chained record, found without reading the whole trail.
+
+    `append` calls this, and reading every record to write one made the trail
+    quadratic: 200 events took 26 seconds, and the cost per event grew with the
+    trail it was being added to.
+    """
+    for probe in TAIL_PROBES:
+        window = store.audit_events.recent(probe)
+        # recent() is newest-first, so the first chained record in the window is
+        # the last one in the chain.
+        head = next((r for r in window if _is_chained(r)), None)
+        if head:
+            return head
+        if len(window) < probe:
+            # The window was not full, so it held the whole collection and
+            # there is nothing chained in it.
+            return None
+
     records = _chain_records(store)
     return records[-1] if records else None
 
@@ -186,11 +216,26 @@ def verify(store):
     }
 
 
-def recent(store, limit=20, subject=None):
-    records = store.audit_events.all()
+def recent(store, limit=20, subject=None, offset=0):
+    """The newest records, newest first, in a bounded page.
+
+    The page ceiling is enforced by the service layer, not here: this is called
+    with limit+1 to detect a further page, and re-clamping would swallow that
+    sentinel at exactly the maximum page size.
+
+    Filtering by subject still walks the collection: the port exposes append and
+    read-back, not query-by-column, and pushing a WHERE clause into it would
+    make the two backends stop being interchangeable. Unfiltered reads — which
+    is what every surface issues by default — touch only the page.
+    """
+    limit = max(0, int(limit or 0))
+    offset = max(0, int(offset or 0))
+    if not limit:
+        return list(reversed(store.audit_events.all()))[offset:]
     if subject:
-        records = [r for r in records if r.get("subject") == subject]
-    return list(reversed(records))[:limit] if limit else list(reversed(records))
+        matching = [r for r in store.audit_events.all() if r.get("subject") == subject]
+        return list(reversed(matching))[offset:offset + limit]
+    return store.audit_events.page(limit, offset)
 
 
 def get(store, identifier):

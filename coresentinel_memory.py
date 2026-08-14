@@ -41,16 +41,39 @@ FACT_LAYERS = ["working", "session", "project", "longterm", "failures", "pattern
 
 TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 
+# Resolved bindings, keyed by the directory asked about. The walk itself is
+# cheap; doing it once per fact is not. Assembling a context pack over a
+# 10,000-fact store called this 10,009 times and spent 13 of its 30 seconds
+# inside nt.stat — the lookup is loop-invariant and nothing was hoisting it.
+#
+# A binding changes only when `init` writes a config, which calls
+# reset_project_root_cache(). The test suite clears it between tests, so a
+# tmp_path reused by the OS can never carry one test's binding into the next.
+_PROJECT_ROOT_CACHE = {}
+
+
+def reset_project_root_cache():
+    """Forget every resolved binding. Call after binding or unbinding a project."""
+    _PROJECT_ROOT_CACHE.clear()
+
+
 def find_project_root(start_dir="."):
     """Walk up for a CoreSentinel-bound project, the way git looks for .git."""
     try:
         current = Path(start_dir).resolve()
     except OSError:
         return None
+
+    if current in _PROJECT_ROOT_CACHE:
+        return _PROJECT_ROOT_CACHE[current]
+
+    found = None
     for candidate in [current, *current.parents]:
         if (candidate / CONFIG_DIRNAME / "config.json").exists():
-            return candidate
-    return None
+            found = candidate
+            break
+    _PROJECT_ROOT_CACHE[current] = found
+    return found
 
 def layer_path(layer_name, target_dir="."):
     """Resolve a layer to the project store when bound, else to the Core store."""

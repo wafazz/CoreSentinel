@@ -191,7 +191,7 @@ class TestDoctorCommand:
         checks = {c["check"] for c in payload["checks"]}
         assert checks == {"Configuration", "Runtime", "Storage", "Memory", "Governance",
                           "Agent Registry", "Verification Engine", "Security Rules",
-                          "Project Context"}
+                          "Observability", "Project Context"}
 
     def test_overall_state_is_recognized(self, run_cli_json):
         _, payload = run_cli_json("doctor", "--json")

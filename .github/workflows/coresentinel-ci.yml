@@ -1,6 +1,6 @@
 name: CoreSentinel CI
 
-# Pull Request → Tests → Security → Lint → Integration → Compatibility → PASS / FAIL
+# Pull Request → Tests → Security → Performance → Lint → Integration → Compatibility → PASS / FAIL
 on:
   pull_request:
     branches: [main]
@@ -35,6 +35,7 @@ jobs:
           python -m pytest tests \
             --ignore=tests/integration \
             --ignore=tests/security \
+            --ignore=tests/performance \
             -q --junitxml=junit-unit.xml
 
       - name: Upload test report
@@ -71,6 +72,52 @@ jobs:
           git fetch origin ${{ github.base_ref }} --depth=1
           git diff --name-only origin/${{ github.base_ref }}...HEAD
           python coresentinel.py review
+
+  performance:
+    name: Performance Budgets
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: python -m pip install --upgrade pip -r requirements-dev.txt
+
+      # Its own stage rather than part of the unit suite: these tests are the
+      # only ones whose result depends on how busy the machine is, so when one
+      # fails it should be obvious that a budget was exceeded rather than that
+      # a behaviour broke. Absolute limits carry 4x headroom or more; the
+      # scaling ratio is hardware-independent and is the one that matters.
+      - name: Published performance budgets
+        run: python -m pytest tests/performance -q --junitxml=junit-performance.xml
+
+      - name: Budgets must have a measurement behind them
+        run: python coresentinel.py metrics budgets
+
+      - name: No measured series may exceed its budget
+        run: |
+          python coresentinel.py context --task "CI performance probe" >/dev/null
+          python coresentinel.py recall "performance" >/dev/null || true
+          python coresentinel.py metrics --json > metrics.json
+          python - <<'PY'
+          import json, sys
+          report = json.load(open('metrics.json'))['budgets']
+          over = [b for b in report['budgets'] if b['status'] == 'FAIL']
+          for budget in over:
+              print(f"OVER BUDGET: {budget['key']} — {budget['reason']}")
+          print(f"verdict={report['verdict']} passed={report['passed']} "
+                f"failed={report['failed']} unmeasured={report['unknown']}")
+          sys.exit(1 if over else 0)
+          PY
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-report
+          path: junit-performance.xml
 
   lint:
     name: Lint
@@ -196,7 +243,7 @@ jobs:
 
   gate:
     name: PASS / FAIL
-    needs: [tests, security, lint, integration, compatibility]
+    needs: [tests, security, performance, lint, integration, compatibility]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -204,12 +251,17 @@ jobs:
         run: |
           echo "Tests         : ${{ needs.tests.result }}"
           echo "Security      : ${{ needs.security.result }}"
+          echo "Performance   : ${{ needs.performance.result }}"
           echo "Lint          : ${{ needs.lint.result }}"
           echo "Integration   : ${{ needs.integration.result }}"
           echo "Compatibility : ${{ needs.compatibility.result }}"
           echo "-----------------------------------------------"
+          # Every stage is named here as well as in `needs`. Listing a job as a
+          # dependency only makes the gate wait for it; this is what makes the
+          # gate fail because of it.
           if [ "${{ needs.tests.result }}" != "success" ] || \
              [ "${{ needs.security.result }}" != "success" ] || \
+             [ "${{ needs.performance.result }}" != "success" ] || \
              [ "${{ needs.lint.result }}" != "success" ] || \
              [ "${{ needs.integration.result }}" != "success" ] || \
              [ "${{ needs.compatibility.result }}" != "success" ]; then

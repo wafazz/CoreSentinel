@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 CoreSentinel Doctor & Status Engine
-Self-diagnostics across the 9 subsystems that must be healthy for CoreSentinel to
+Self-diagnostics across the 10 subsystems that must be healthy for CoreSentinel to
 govern an AI agent: Configuration, Runtime, Storage, Memory, Governance, Agent
-Registry, Verification Engine, Security Rules, and Project Context.
+Registry, Verification Engine, Security Rules, Observability, and Project Context.
 """
 
 import os
@@ -394,6 +394,53 @@ def check_storage(target_dir="."):
     return result("Storage", "OK", f"{detail['backend']} backend, {total} record(s)", findings)
 
 
+def check_observability(target_dir="."):
+    """Metrics and the published performance budgets: declared, and measurable."""
+    sys.path.insert(0, str(SCRIPT_DIR))
+    try:
+        from coresentinel_core.observability import budgets, metrics as metering
+        from coresentinel_core.runtime.container import Runtime
+    except ImportError as e:
+        return result("Observability", "FAIL", f"observability package unavailable ({e})", [],
+                      "Restore coresentinel_core/observability/")
+
+    findings = [f"{len(metering.SUBJECTS)} metric subjects declared",
+                f"{len(budgets.BUDGETS)} performance budgets published"]
+
+    unjustified = [key for key, budget in budgets.BUDGETS.items()
+                   if budget.get("measured") is None]
+    findings += [f"NO MEASUREMENT BEHIND: {key}" for key in unjustified]
+
+    try:
+        runtime = Runtime.bootstrap(target_dir)
+        recorded = metering.aggregate(runtime.store.metrics.all())
+        runtime.shutdown()
+    except Exception as e:
+        return result("Observability", "WARN", f"recorded metrics unreadable ({e})", findings,
+                      "Run any command to record a series, or check the store")
+
+    observed = sorted({s["subject"] for s in recorded})
+    never = [s for s in metering.SUBJECTS if s not in observed]
+    findings.append(f"{len(observed)}/{len(metering.SUBJECTS)} subjects measured in this store")
+    findings += [f"never observed: {subject}" for subject in never]
+
+    if unjustified:
+        return result("Observability", "WARN",
+                      f"{len(unjustified)} budget(s) publish a limit with no measurement",
+                      findings, "Measure it, or remove the budget — a limit with no basis "
+                                "is a guess wearing a number")
+    if not recorded:
+        # Not a fault. A fresh install has run nothing, and reporting that as
+        # healthy-with-zero-metrics would be the invented number this subsystem
+        # exists to avoid.
+        return result("Observability", "OK",
+                      f"{len(budgets.BUDGETS)} budgets published, nothing measured here yet",
+                      findings)
+    return result("Observability", "OK",
+                  f"{len(recorded)} series, {len(observed)}/{len(metering.SUBJECTS)} subjects",
+                  findings)
+
+
 def detect_stack(path):
     p = Path(path)
     markers = [
@@ -427,6 +474,7 @@ def run_doctor(target_dir=".", verbose=False, emit_json=False):
         check_agent_registry(),
         check_verification_engine(),
         check_security_rules(),
+        check_observability(target_dir),
         check_project_context(target_dir),
     ]
 

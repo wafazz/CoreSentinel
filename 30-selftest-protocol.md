@@ -18,6 +18,7 @@ tests/
 ├── recovery/          Corrupt, missing and BOM-encoded state handling
 ├── runtime/           Configuration precedence, path containment, events, storage ports
 ├── surfaces/          Governance bypass, HTTP API contract, MCP conformance, dashboard
+├── performance/       Published budgets, append scaling, pagination, secret redaction
 ├── telemetry/         Session log parsing, token accounting, aggregation
 └── integration/       End-to-end CLI behaviour in a sandboxed Core
 ```
@@ -38,6 +39,7 @@ python -m pytest tests/integration -q
 A test suite for a memory system must never write to that memory system.
 
 1. **No test touches the real `memory/` directory.** Unit tests monkeypatch the engine's `MEMORY_DIR` and layer paths onto `tmp_path`.
+   1b. **No test inherits another's resolved project binding.** `find_project_root` caches its answer per directory, so the cache is cleared around every test. A directory one test bound must not still look bound to the next.
 2. **No test writes to the user's home directory** or to any host config path (`~/.claude/`, `~/.cursor/`, …).
 3. **Mutating tests run against a sandbox** — the `sandbox` fixture copies the Core into `tmp_path`, so `init`, `sync` and ledger writes land in a throwaway tree.
 4. **Diff-driven engines get a real git repository** from the `git_repo` fixture, never the CoreSentinel repo itself.
@@ -59,6 +61,7 @@ A test suite for a memory system must never write to that memory system.
 | **recovery** | Corrupt JSON fails loudly with the layer named; missing assets suggest a remedy; BOM-encoded files parse; unmanaged host files are never overwritten |
 | **surfaces** | No surface can write unaudited; `api/` and `mcp/` never import storage or an engine; a non-loopback bind without a token is refused; the same operation audits identically through the CLI, the API and MCP; the dashboard serves only its three allowlisted files, calls only real read operations, and ships no sample data |
 | **runtime** | Configuration resolves in precedence order and reports each value's origin; path traversal is refused; a failing event handler cannot fail the emitter; both storage backends satisfy one contract suite; an applied migration cannot be edited |
+| **performance** | Every published budget is asserted against a real store; the cost of an audited event does not grow with the trail it joins; every list surface pages and says when it clamped; no credential format reaches a log, an audit record or a metric — and no ordinary field is blanked for merely containing the word `auth` or `pass` |
 | **telemetry** | The shallowest usage block wins (no double counting); malformed log lines are skipped, not fatal; repeat edits count once |
 | **integration** | Every command answers `--help`; unknown commands exit 1 with a suggestion; every `--json` contract parses and carries no BOM; read-only commands do not mutate the ledger |
 
@@ -69,9 +72,11 @@ A test suite for a memory system must never write to that memory system.
 ```text
 Pull Request
      ↓
-CoreSentinel Tests      unit suite across 6 packages
+CoreSentinel Tests      unit suite across 9 packages
      ↓
 Security                scanner suite + validator + PR diff review
+     ↓
+Performance Budgets     published budgets asserted; no measured series over its limit
      ↓
 Lint                    byte-compile, ruff (E9/F63/F7/F82), JSON registry validation
      ↓
@@ -83,6 +88,10 @@ PASS / FAIL
 ```
 
 Defined in [`.github/workflows/coresentinel-ci.yml`](./.github/workflows/coresentinel-ci.yml). Each stage `needs` the previous one, so a security failure never reaches Integration. The final `gate` job runs with `if: always()` and fails unless **every** upstream stage succeeded — make it the required status check on `main`.
+
+> The gate names every stage in its script as well as in `needs`. Listing a job as a dependency only makes the gate *wait* for it; naming it in the condition is what makes the gate *fail* because of it. A stage added to `needs` alone is a stage whose failure is invisible.
+
+**Performance is its own stage** rather than part of the unit suite: it is the only suite whose result depends on how busy the machine is, so a failure there should read as *a budget was exceeded*, not as *a behaviour broke*. Absolute limits carry at least 4x headroom over what was measured; the one budget that is a ratio rather than a duration is hardware-independent and is the one that matters.
 
 **Compatibility matrix:** `ubuntu-latest`, `windows-latest`, `macos-latest` × Python `3.9`, `3.11`, `3.13`. CoreSentinel's floor is Python 3.9; every engine and test file is verified to parse under the 3.9 grammar.
 
