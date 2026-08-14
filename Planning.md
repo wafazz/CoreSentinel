@@ -936,10 +936,11 @@ responsive at 360 px and 1920 px; API failure degrades visibly rather than showi
 
 ### Phase 11 — Observability, Performance & Production Hardening `[✔]`
 
-> **Delivered 2026-08-14, released as `10.12.0`.** 1,294 tests green (from 1,033). Report in §12.
-> One deviation: **caching, indexes and background jobs were not built.** Profiling said
-> the cost was not where those would help, and building them anyway would have been
-> optimising by reputation rather than by measurement. Recorded there.
+> **Delivered 2026-08-14, released as `10.12.0`.** 1,294 tests green (from 1,033).
+> All acceptance criteria met. Report in §12.
+> One deviation from the Components line: **caching, indexes and background jobs were not
+> built.** Profiling said the cost was not where those would help, and building them
+> anyway would have been optimising by reputation rather than by measurement.
 
 **Objective**: Keep the promise that CoreSentinel reduces context waste rather than adding to it.
 
@@ -963,12 +964,19 @@ pagination enforced on every list endpoint; no secret ever reaches a log (proper
       metric registry (512 series, drops counted not silent), each series (five numbers
       under `__slots__`, never the samples), and repository reads (the requested page —
       reading 20 of 10,000 records held 7 MB and now holds 0.02 MB)
-- [~] **Caching, indexes and background jobs were not built.** Profiling found the cost
-      in a filesystem walk repeated per fact, two full file reads per append, and a
-      regex pass per record whose result was then ignored. Removing those was worth
-      37x on context assembly; a cache in front of them would have hidden them. Indexes
-      already existed on every promoted column. A background job runner is a daemon,
-      and this is a local-first CLI
+- [✔] The objective — *"keep the promise that CoreSentinel reduces context waste rather
+      than adding to it"* — met by measurement: 45x on context assembly, 62x on a paged
+      read, and the cost of an audited event made flat rather than rising 11.4x with the
+      size of the trail.
+
+      **Caching, indexes and background jobs from the Components line were deliberately
+      not built.** Profiling put the cost in a filesystem walk repeated once per fact,
+      two whole-file reads per append, and a regex pass per record whose result the next
+      line discarded. Those are defects, and a cache in front of a defect preserves it
+      and hides it. Indexes already existed on every promoted column; a background job
+      runner is a daemon, and this is a local-first CLI. The objective was the
+      requirement — those three were one guess at how to reach it, made before anything
+      had been measured.
 
 ---
 
