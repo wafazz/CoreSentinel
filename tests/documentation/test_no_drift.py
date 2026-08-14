@@ -188,3 +188,28 @@ class TestTheReadmeDescribesWhatWasMeasured:
         real = int(collected.group(1))
         assert advertised <= real, (
             f"the README advertises {advertised} tests; the suite collects {real}")
+
+    def test_the_protocol_directory_lists_every_document_on_disk(self, core_dir):
+        """F-12: the directory said 37, linked 36, and 38 were on disk.
+
+        A count maintained by hand drifts the moment a document is added, and
+        both directions are wrong: an unlisted document is undiscoverable, a
+        listed one that does not exist is a broken link. Derived from the glob
+        so adding a protocol fails here until the README is updated.
+        """
+        readme = (core_dir / "README.md").read_text(encoding="utf-8-sig")
+        start = readme.index("Protocol directory")
+        block = readme[start:readme.index("</details>", start)]
+
+        linked = set(re.findall(r"\]\(\./([0-9]{2}-[^)]+\.md)\)", block))
+        on_disk = {p.name for p in core_dir.glob("[0-9][0-9]-*.md")}
+
+        assert not on_disk - linked, (
+            f"on disk but absent from the protocol directory: {sorted(on_disk - linked)}")
+        assert not linked - on_disk, (
+            f"linked by the protocol directory but not on disk: {sorted(linked - on_disk)}")
+
+        stated = re.search(r"Protocol directory \((\d+) documents\)", block)
+        assert stated, "the protocol directory no longer states a document count"
+        assert int(stated.group(1)) == len(on_disk), (
+            f"the directory claims {stated.group(1)} documents; {len(on_disk)} are on disk")

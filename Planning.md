@@ -1140,7 +1140,7 @@ recommendation unless directed otherwise.
 | **F-21 `decision` discarded its exit code** *(new)* | **[✔] fixed** | pre-existing: `cmd_decision` ignored the handler's return, so a contradiction exited 0 |
 | **F-18 unknown-command error on stdout** *(new)* | **[✔] fixed** | prose in front of any `--json` consumer — same class as F-16 |
 | **F-19 silent exception swallow in shipped source** *(new)* | **[✔] fixed** | AP-001 at STRICT_BLOCK, written by me in `Container.shutdown()` and caught by CoreSentinel's own scanner |
-| F-10 `memorycore.conf` dead config | **[~] superseded** | replaced by the layered config in Phase 2; the dead file still ships and is removed in Phase 3 |
+| F-10 `memorycore.conf` dead config | **[✔] fixed** | superseded by the layered config in Phase 2, but this row claimed it "is removed in Phase 3" and it never was — it shipped for nine more phases holding a username, an employer name and a UTF-8 BOM. Deleted, and both installers no longer write it: `setup.sh` and `setup.ps1` were the only things that touched the file, and nothing has ever read it |
 | F-15 duplicated helpers | **[~] partial** | 6 `run_cmd` → 1 (Phase 1); `read_json`/`print_header` still duplicated |
 | **F-22 framework detection by substring** *(new)* | **[✔] fixed** | every Laravel project reported Symfony; `next-auth` reported Next.js |
 | **Agent authority unenforced** *(Module E gap)* | **[✔] closed** | the README's read-only claim was true of a JSON file, not of the runtime |
@@ -1163,7 +1163,8 @@ recommendation unless directed otherwise.
 | **P-08 redaction blanked `author`, `authority` and `tests_passed`** *(new)* | **[✔] fixed** | `pass(word|wd)?` made the suffix optional so a bare `pass` matched; `auth` matched `author` and `authority` — a decision-ledger field and a squad-contract field. The audit trail was **destroying real records to protect nothing**, and over-redaction is silent. Split into substring / whole-word / exact-key tiers, both directions pinned by 158 property tests |
 | **No pagination on any list surface** *(Cross-cutting gap)* | **[✔] closed** | default 50, maximum 200, `clamped` reported rather than silently returning fewer; a test derives the requirement from the catalogue so a new list endpoint that forgets to page fails the day it is added |
 | **No observability** *(Cross-cutting gap)* | **[✔] closed** | 11 subjects, bounded registry, budgets, `metrics` command, doctor check |
-| F-11, F-12 | [ ] open | housekeeping: leaked paths in `project-labels.json`, README count |
+| **F-11 leaked paths in `project-labels.json`** | **[✔] fixed** | 12 of 13 keys were absolute paths from a different machine, carrying a username and an employer name (`C--Users-fakrul-hakim-OneDrive---Daythree-Digital-Berhad-...`). Removed; only the `CoreSentinel` seed remains. Safe because `get_project_label()` regenerates any absent key through `auto_label()` and re-saves — the leaked values were byte-identical to what that function produces, so they carried no information and pure exposure |
+| **F-12 README document count** | **[✔] fixed** | the directory heading claimed 37 documents while linking 36 and `ls [0-9][0-9]-*.md` counted 38. `04-memory-ecosystem-protocol.md` and `15-migration-guide.md` were on disk but listed nowhere. Both linked, and the five count claims (three prose, one mermaid node, one `doctor` sample) reconciled to 38, now asserted by a README-versus-disk comparison rather than by hand |
 
 ---
 

@@ -111,20 +111,7 @@ else
 "
 fi
 
-# 1. Update memorycore.conf
-cat << EOF > "$TARGET_DIR/memorycore.conf"
-# CoreSentinel Configuration
-MEMORY_PATH=$TARGET_DIR
-STATS_LOG=$TARGET_DIR/agent-usage-log.json
-LABELS_FILE=$TARGET_DIR/project-labels.json
-AGENT_NAME=$AGENT_NAME
-AGENT_ROLE=$AGENT_ROLE
-CREATE_SUBAGENTS=$CREATE_SUBAGENTS
-SUBAGENT_COUNT=$SUBAGENT_COUNT
-SUBAGENT_NAMING=$SUBAGENT_NAMING
-EOF
-echo "[+] Updated memorycore.conf"
-
+# 1. Render tool targets
 RULE_TEMPLATE="# CoreSentinel Global Memory & Protocol System
 
 ## Identity & Rules
@@ -175,7 +162,7 @@ write_target "$HOME_DIR/.antigravity/AGENTS.md" "Google Antigravity"
 write_target "$HOME_DIR/.gemini/GEMINI.md" "Gemini CLI"
 write_target "$HOME_DIR/.cursor/rules/coresentinel.mdc" "Cursor Global"
 
-# 3. Automatically install Git hooks
+# 2. Automatically install Git hooks
 if [ -f "$TARGET_DIR/install-hooks.sh" ]; then
     chmod +x "$TARGET_DIR/install-hooks.sh"
     "$TARGET_DIR/install-hooks.sh"
