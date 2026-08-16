@@ -745,10 +745,12 @@ def cmd_gate(args):
     report_style = "--report" in args
     if sub == "run":
         target = positional(args, 1)
+        base = flag_value(args, "--base")
         code = gates.run_all_gates(target, emit_json, flag_value(args, "--objective"),
-                                   report_style)
+                                   report_style, base)
         emit_audited("QualityGateFailed" if code else "QualityGatePassed", target,
                      {"objective": flag_value(args, "--objective"),
+                      "base": base,
                       "result": "BLOCKED" if code else "APPROVED"})
         return code
     if sub == "reset":
@@ -2085,7 +2087,8 @@ COMMANDS = [
                "Logic correctness stays with the reviewer agents (Cato / Sage)."},
     {"name": "gate", "aliases": ["gates"], "group": "Verification & Review", "handler": cmd_gate,
      "summary": "Drive the 8-stage Quality Gates pipeline",
-     "usage": ["coresentinel gate run [target-dir] [--objective \"...\"] [--report] [--json]",
+     "usage": ["coresentinel gate run [target-dir] [--objective \"...\"] [--base <ref>] "
+               "[--report] [--json]",
                "coresentinel gate status [--report] [--json]",
                "coresentinel gate reset",
                "coresentinel gate waive --gate Security --reason \"...\""],
@@ -2102,6 +2105,12 @@ COMMANDS = [
                "UNKNOWN means the gate has no automated check, or none could run. It does not\n"
                "block, but it is not a pass. Clear it with a waiver, which always requires a\n"
                "rationale. A FAIL blocks every gate after it.\n"
+               "\n"
+               "--base gates the committed range <ref>...HEAD instead of the working tree.\n"
+               "A CI checkout has a clean tree — the change is already a commit — so without\n"
+               "a base the change-scoped gates report NO_CHANGES and Verification reports\n"
+               "EVIDENCE_INSUFFICIENT about a branch that changed plenty. A base that cannot\n"
+               "be resolved is BASE_UNRESOLVED, never a silent fall back to the tree.\n"
                "\n"
                "--report prints the compact completion report and FINAL STATUS."},
     {"name": "check", "aliases": ["scan"], "group": "Verification & Review", "handler": cmd_check,
