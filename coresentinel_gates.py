@@ -68,11 +68,17 @@ MANUAL_GATES = {
     "Deployment": "no automated check without a deployment target",
 }
 
+# Gates whose verdict depends on which change set is read. Test is deliberately
+# absent: the suite is run against the checkout, not against a diff, so a base
+# that does not resolve says nothing about whether the tests pass.
+BASE_SCOPED_GATES = {"Security", "Implementation", "Review", "Documentation", "Verification"}
+
 # Machine-readable reasons. A CI job branches on these, never on the prose.
 CODES = {
     "NO_AUTOMATED_CHECK": "the gate has no mechanically checkable property",
     "NO_REPOSITORY": "the target is not a git repository",
-    "NO_CHANGES": "there is nothing in the working tree to gate",
+    "NO_CHANGES": "there is nothing in the gated change set",
+    "BASE_UNRESOLVED": "the base ref does not name a commit this clone has",
     "SCANNER_CLEAN": "the security scanner reported no violations",
     "SCANNER_VIOLATIONS": "the security scanner reported violations",
     "TESTS_PASSED": "the test suite exited zero",
@@ -88,7 +94,7 @@ CODES = {
     "DOCS_UPDATED": "documentation changed alongside the source",
     "DOCS_STALE": "source changed and no documentation changed with it",
     "NO_DOCUMENTATION": "this project has no documentation to keep current",
-    "IMPLEMENTATION_PRESENT": "the working tree contains changes to gate",
+    "IMPLEMENTATION_PRESENT": "the gated change set contains changes",
     "UPSTREAM_FAILED": "an earlier gate failed",
     "WAIVED": "a human accepted the risk",
     "NOT_EVALUATED": "the gate has not been evaluated",
@@ -136,23 +142,60 @@ def save_gates(state):
         json.dump(state, f, indent=2)
 
 
-def _changed_files(target_dir):
-    result = execution.git("status", "--porcelain", cwd=target_dir)
-    if not result.ok or not result.stdout:
-        return []
-    return [line[3:].strip() for line in result.stdout.splitlines() if line.strip()]
+def _changed_files(target_dir, base=None):
+    """The set of paths this run is gating.
+
+    Delegates to the evidence engine rather than re-deriving the range here, so
+    a gate and `coresentinel verify` can never disagree about what changed. With
+    `base`, reads the committed range `base...HEAD`; without it, the working tree.
+    """
+    import coresentinel_evidence as evidence
+    return evidence._changed_files(target_dir, base)
+
+
+def _change_source(base):
+    return f"git diff --name-only {base}...HEAD" if base else "git status --porcelain"
+
+
+def _unresolved_base(target_dir, base):
+    """The gate result for a base ref this clone cannot resolve, or None if it can.
+
+    Falling back to the working tree here would be the worst outcome: on CI that
+    tree is clean, so a typo'd base would report NO_CHANGES about a branch that
+    changed plenty — and NO_CHANGES does not block.
+    """
+    import coresentinel_evidence as evidence
+    if not base or evidence._base_resolves(target_dir, base):
+        return None
+    return (UNKNOWN, "BASE_UNRESOLVED",
+            f"base ref '{base}' cannot be resolved in this clone — "
+            f"fetch it before gating against it",
+            f"git rev-parse --verify {base}")
 
 
 # ---------------------------------------------------------------- evaluation
 
-def evaluate_gate(gate_name, target_dir=".", objective=None):
-    """Return (status, code, reason, basis). Never asserts a property it did not check."""
+def evaluate_gate(gate_name, target_dir=".", objective=None, base=None):
+    """Return (status, code, reason, basis). Never asserts a property it did not check.
+
+    `base` gates the committed range `base...HEAD` instead of the working tree,
+    which is the only thing a CI checkout has to offer.
+    """
     if gate_name in MANUAL_GATES:
         return (UNKNOWN, "NO_AUTOMATED_CHECK", MANUAL_GATES[gate_name] +
                 f" — waive with: coresentinel gate waive --gate {gate_name} --reason \"...\"",
                 None)
 
     import coresentinel_evidence as evidence
+
+    # Resolved once, before dispatch. Delegating an unresolvable base to the
+    # evidence engine gets it back as a generic UNKNOWN — NO_AUTOMATED_CHECK on
+    # Security, EVIDENCE_INSUFFICIENT on Verification — which reads as a missing
+    # tool rather than a bad argument, and hides the one fact worth reporting.
+    if gate_name in BASE_SCOPED_GATES:
+        unresolved = _unresolved_base(target_dir, base)
+        if unresolved:
+            return unresolved
 
     if gate_name == "Requirement":
         if objective:
@@ -166,32 +209,34 @@ def evaluate_gate(gate_name, target_dir=".", objective=None):
                 "pass one with: coresentinel gate run --objective \"...\"", None)
 
     if gate_name == "Security":
-        return _from_finding(evidence.check_security(target_dir),
+        return _from_finding(evidence.check_security(target_dir, base),
                              PASS, "SCANNER_CLEAN", "SCANNER_VIOLATIONS")
 
     if gate_name == "Implementation":
         if not execution.is_git_repository(target_dir):
             return UNKNOWN, "NO_REPOSITORY", "not a git repository — no implementation to inspect", None
-        changed = _changed_files(target_dir)
+        changed = _changed_files(target_dir, base)
         if not changed:
-            return UNKNOWN, "NO_CHANGES", "working tree is clean — no implementation to gate", \
-                "git status --porcelain"
+            empty = (f"nothing changed between {base} and HEAD — no implementation to gate"
+                     if base else "working tree is clean — no implementation to gate")
+            return UNKNOWN, "NO_CHANGES", empty, _change_source(base)
+        where = f"in {base}...HEAD" if base else "in the working tree"
         return (PASS, "IMPLEMENTATION_PRESENT",
-                f"{len(changed)} file(s) changed in the working tree", "git status --porcelain")
+                f"{len(changed)} file(s) changed {where}", _change_source(base))
 
     if gate_name == "Test":
-        return _from_finding(evidence.check_tests(target_dir),
+        return _from_finding(evidence.check_tests(target_dir, base),
                              PASS, "TESTS_PASSED", "TESTS_FAILED", "NO_TEST_RUNNER")
 
     if gate_name == "Review":
-        return _from_finding(evidence.check_diff(target_dir),
+        return _from_finding(evidence.check_diff(target_dir, base),
                              PASS, "REVIEW_CLEAN", "REVIEW_BLOCKING", "NO_CHANGES")
 
     if gate_name == "Documentation":
-        return _documentation_gate(target_dir)
+        return _documentation_gate(target_dir, base)
 
     if gate_name == "Verification":
-        report = evidence.verify(target_dir, objective or "quality gate verification")
+        report = evidence.verify(target_dir, objective or "quality gate verification", base)
         basis = f"coresentinel verify — {report['evidence_coverage']}/100 evidence coverage"
         if report["verdict"] == evidence.INDETERMINATE:
             return UNKNOWN, "EVIDENCE_INSUFFICIENT", report["rationale"], basis
@@ -203,16 +248,18 @@ def evaluate_gate(gate_name, target_dir=".", objective=None):
     return UNKNOWN, "NO_AUTOMATED_CHECK", "no check is defined for this gate", None
 
 
-def _documentation_gate(target_dir):
+def _documentation_gate(target_dir, base=None):
     """Documentation that never changes while the code does is documentation that lies."""
     root = Path(target_dir)
     if not execution.is_git_repository(target_dir):
         return UNKNOWN, "NO_REPOSITORY", "not a git repository — nothing to compare", None
 
-    changed = _changed_files(target_dir)
+    source = _change_source(base)
+    changed = _changed_files(target_dir, base)
     if not changed:
-        return UNKNOWN, "NO_CHANGES", "working tree is clean — nothing to document", \
-            "git status --porcelain"
+        empty = (f"nothing changed between {base} and HEAD — nothing to document"
+                 if base else "working tree is clean — nothing to document")
+        return UNKNOWN, "NO_CHANGES", empty, source
 
     has_docs = bool(list(root.glob("*.md")) or (root / "docs").is_dir())
     if not has_docs:
@@ -223,15 +270,14 @@ def _documentation_gate(target_dir):
     docs_changed = [f for f in changed if Path(f).suffix in DOC_SUFFIXES]
 
     if not source_changed:
-        return (PASS, "DOCS_UPDATED", "no source changed, so nothing is out of date",
-                "git status --porcelain")
+        return (PASS, "DOCS_UPDATED", "no source changed, so nothing is out of date", source)
     if docs_changed:
         return (PASS, "DOCS_UPDATED",
                 f"{len(docs_changed)} documentation file(s) changed alongside "
-                f"{len(source_changed)} source file(s)", "git status --porcelain")
+                f"{len(source_changed)} source file(s)", source)
     return (FAIL, "DOCS_STALE",
             f"{len(source_changed)} source file(s) changed and no documentation changed",
-            "git status --porcelain")
+            source)
 
 
 def _from_finding(finding, pass_status, pass_code, fail_code, unknown_code=None):
@@ -244,7 +290,18 @@ def _from_finding(finding, pass_status, pass_code, fail_code, unknown_code=None)
     return UNKNOWN, unknown_code or "NO_AUTOMATED_CHECK", finding["detail"], finding["basis"]
 
 
-def run_all_gates(target_dir=".", emit_json=False, objective=None, report_style=False):
+def run_all_gates(target_dir=".", emit_json=False, objective=None, report_style=False,
+                  base=None):
+    # A base that names no commit is a bad argument, not a finding. Running the
+    # pipeline anyway produces ten gates' worth of BASE_UNRESOLVED and, because
+    # UNKNOWN does not block, still reports APPROVED — the loudest possible way
+    # to say nothing. Refuse the run instead.
+    if base and _unresolved_base(target_dir, base) is not None:
+        print(f"[!] Base ref '{base}' cannot be resolved in this clone. "
+              f"Fetch it before gating against it — nothing was evaluated.",
+              file=sys.stderr)
+        return EXIT_FAILED
+
     state = load_gates()
     gates = state.setdefault("gates", {})
     blocked_by = None
@@ -264,7 +321,7 @@ def run_all_gates(target_dir=".", emit_json=False, objective=None, report_style=
                 "waived_reason": None}
             continue
 
-        status, code, reason, basis = evaluate_gate(gate_name, target_dir, objective)
+        status, code, reason, basis = evaluate_gate(gate_name, target_dir, objective, base)
         gates[gate_name] = {
             "status": status, "code": code, "reason": reason, "basis": basis,
             "timestamp": datetime.now().strftime(execution.TIMESTAMP_FORMAT),
@@ -272,8 +329,11 @@ def run_all_gates(target_dir=".", emit_json=False, objective=None, report_style=
         if status == FAIL:
             blocked_by = gate_name
 
+    # Recorded so `gate status` can still say which range the stored verdicts
+    # were reached against, long after the run that reached them.
+    state["change_source"] = f"{base}...HEAD" if base else "working tree"
     save_gates(state)
-    report = _report(state, gates, target_dir, objective)
+    report = _report(state, gates, target_dir, objective, base)
 
     if emit_json:
         print(json.dumps(report, indent=2))
@@ -284,12 +344,15 @@ def run_all_gates(target_dir=".", emit_json=False, objective=None, report_style=
     return EXIT_FAILED if report["verdict"] == "BLOCKED" else EXIT_OK
 
 
-def _report(state, gates, target_dir, objective=None):
+def _report(state, gates, target_dir, objective=None, base=None):
     failed = [n for n, g in gates.items() if g.get("status") in (FAIL, BLOCKED)]
     return {
         "coresentinel_api": "1.1",
         "target": str(Path(target_dir).resolve()),
         "objective": objective,
+        "base": base,
+        "change_source": (f"{base}...HEAD" if base
+                          else state.get("change_source", "working tree")),
         "evaluated_at": state.get("last_updated"),
         "pipeline": GATE_PIPELINE,
         "gates": gates,
@@ -323,6 +386,7 @@ def _render(report, title):
     print(f"  🛡️  CoreSentinel {title}")
     print("=" * 64)
     print(f"  Last Evaluated: {report.get('evaluated_at') or 'never'}")
+    print(f"  Change Source : {report.get('change_source') or 'working tree'}")
     if report.get("objective"):
         print(f"  Objective     : {report['objective']}")
     print("")
@@ -353,6 +417,7 @@ def _render_report(report):
     print("\nTASK COMPLETE" if report["final_status"] == "APPROVED" else "\nTASK BLOCKED")
     if report.get("objective"):
         print(f"  {report['objective']}")
+    print(f"  gated against: {report.get('change_source') or 'working tree'}")
     print("")
     for gate_name in report["pipeline"]:
         gate = report["gates"].get(gate_name, blank_gate())
@@ -400,8 +465,10 @@ if __name__ == "__main__":
     argv = sys.argv[1:]
     sub = argv[0].lower() if argv and not argv[0].startswith("-") else "status"
     as_json = "--json" in argv
+    base_arg = (argv[argv.index("--base") + 1]
+                if "--base" in argv and argv.index("--base") + 1 < len(argv) else None)
     if sub == "run":
-        sys.exit(run_all_gates(".", as_json, report_style="--report" in argv))
+        sys.exit(run_all_gates(".", as_json, report_style="--report" in argv, base=base_arg))
     elif sub == "reset":
         reset_gates()
     elif sub == "waive":

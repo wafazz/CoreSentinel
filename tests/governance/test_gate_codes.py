@@ -51,7 +51,7 @@ class TestReasonCodes:
             assert status == gates.UNKNOWN and code == "NO_AUTOMATED_CHECK"
 
     def test_an_upstream_failure_is_coded(self, isolated_gates, git_repo, capsys, monkeypatch):
-        def always_fail(name, target_dir=".", objective=None):
+        def always_fail(name, target_dir=".", objective=None, base=None):
             if name == "Security":
                 return gates.FAIL, "SCANNER_VIOLATIONS", "a secret was committed", "scanner"
             return gates.PASS, "REQUIREMENT_STATED", "fine", None
@@ -125,7 +125,7 @@ class TestCompletionReport:
 
     def test_a_blocked_run_names_the_gate_and_its_code(self, isolated_gates, git_repo,
                                                        capsys, monkeypatch):
-        def fail_security(name, target_dir=".", objective=None):
+        def fail_security(name, target_dir=".", objective=None, base=None):
             if name == "Security":
                 return gates.FAIL, "SCANNER_VIOLATIONS", "a secret was committed", "scanner"
             return gates.PASS, "REQUIREMENT_STATED", "fine", None
@@ -150,6 +150,120 @@ class TestCompletionReport:
         report = json.loads(capsys.readouterr().out)
         assert report["final_status"] in ("APPROVED", "BLOCKED")
         assert report["verdict"] in ("CLEAR", "BLOCKED")
+
+
+@pytest.fixture
+def merged_branch(git_repo, write_file):
+    """A branch whose change is committed and whose working tree is clean.
+
+    The shape of every CI checkout. Gates that read only the tree see nothing
+    here, which is exactly where a change most needs gating.
+    """
+    git_repo.git("checkout", "-q", "-b", "feature")
+    write_file(git_repo.path / "charge.py", "def charge():\n    return 1\n")
+    git_repo.git("add", "-A")
+    git_repo.git("commit", "-q", "-m", "add charge")
+    assert not git_repo.git("status", "--porcelain").stdout.strip(), \
+        "the fixture must leave a clean tree or it proves nothing"
+    return git_repo
+
+
+class TestCommittedRangeGating:
+    """`gate run --base <ref>` gates the committed range.
+
+    Regression for the pipeline reaching APPROVED on a clean CI checkout with
+    eight of ten gates UNKNOWN, while `verify --base main` scored the same
+    branch 100/100. Two engines, one repository, opposite answers.
+    """
+
+    def test_a_committed_change_is_invisible_without_a_base(self, merged_branch):
+        status, code, _, _ = gates.evaluate_gate("Implementation", str(merged_branch.path))
+        assert status == gates.UNKNOWN and code == "NO_CHANGES"
+
+    def test_the_same_commit_gates_against_its_base(self, merged_branch):
+        status, code, reason, _ = gates.evaluate_gate(
+            "Implementation", str(merged_branch.path), base="HEAD~1")
+        assert status == gates.PASS and code == "IMPLEMENTATION_PRESENT"
+        assert "1 file(s)" in reason
+
+    def test_an_unresolvable_base_is_unknown_and_never_a_pass(self, merged_branch):
+        """The dangerous failure: falling back to the clean tree would report
+        NO_CHANGES about a branch that changed plenty — and NO_CHANGES does not
+        block, so a typo'd base would wave the whole pipeline through."""
+        for gate in sorted(gates.BASE_SCOPED_GATES):
+            status, code, _, _ = gates.evaluate_gate(
+                gate, str(merged_branch.path), base="origin/does-not-exist")
+            assert status == gates.UNKNOWN, f"{gate} did not report UNKNOWN"
+            assert code == "BASE_UNRESOLVED", f"{gate} reported {code}"
+
+    def test_an_unresolvable_base_refuses_the_run_rather_than_approving_it(
+            self, isolated_gates, merged_branch, capsys):
+        """UNKNOWN does not block, so evaluating every gate against a base that
+        does not exist would report FINAL STATUS: APPROVED on a typo."""
+        code = isolated_gates.run_all_gates(str(merged_branch.path),
+                                            base="origin/does-not-exist")
+        captured = capsys.readouterr()
+        assert code == gates.EXIT_FAILED
+        assert "cannot be resolved" in captured.err
+        assert "APPROVED" not in captured.out
+
+    def test_the_test_gate_still_runs_when_the_base_is_unresolvable(self, merged_branch):
+        """The suite is run against the checkout, not a diff. Reporting
+        BASE_UNRESOLVED here would blame the argument for an unrelated fact."""
+        assert "Test" not in gates.BASE_SCOPED_GATES
+        _, code, _, _ = gates.evaluate_gate("Test", str(merged_branch.path),
+                                            base="origin/does-not-exist")
+        assert code != "BASE_UNRESOLVED"
+
+    def test_the_documentation_gate_reads_the_committed_range(self, merged_branch):
+        """charge.py is committed source with no documentation beside it."""
+        status, code, _, _ = gates.evaluate_gate(
+            "Documentation", str(merged_branch.path), base="HEAD~1")
+        assert status == gates.FAIL and code == "DOCS_STALE"
+
+    def test_the_base_reaches_the_evidence_engine(self, merged_branch, monkeypatch):
+        """Security, Test, Review and Verification delegate; the base must survive
+        the hand-off or those four gate a different change set than the rest."""
+        import coresentinel_evidence as evidence
+
+        seen = {}
+        for name in ("check_security", "check_tests", "check_diff"):
+            def recorder(target_dir=".", base=None, _name=name):
+                seen[_name] = base
+                return {"status": evidence.UNKNOWN, "detail": "stub", "basis": None}
+            monkeypatch.setattr(evidence, name, recorder)
+
+        def fake_verify(target_dir=".", claim="", base=None):
+            seen["verify"] = base
+            return {"verdict": evidence.VERIFIED, "score": 100, "evidence_coverage": 75,
+                    "rationale": "stub"}
+        monkeypatch.setattr(evidence, "verify", fake_verify)
+
+        for gate in ("Security", "Test", "Review", "Verification"):
+            gates.evaluate_gate(gate, str(merged_branch.path), base="HEAD~1")
+
+        assert seen == {"check_security": "HEAD~1", "check_tests": "HEAD~1",
+                        "check_diff": "HEAD~1", "verify": "HEAD~1"}
+
+    def test_the_report_declares_which_change_source_it_gated(self, isolated_gates,
+                                                              merged_branch, capsys):
+        isolated_gates.run_all_gates(str(merged_branch.path), emit_json=True)
+        assert json.loads(capsys.readouterr().out)["change_source"] == "working tree"
+
+        isolated_gates.run_all_gates(str(merged_branch.path), emit_json=True, base="HEAD~1")
+        report = json.loads(capsys.readouterr().out)
+        assert report["change_source"] == "HEAD~1...HEAD"
+        assert report["base"] == "HEAD~1"
+
+    def test_a_stored_verdict_remembers_the_range_it_was_reached_against(
+            self, isolated_gates, merged_branch, capsys):
+        """`gate status` reads persisted state; a verdict whose range is forgotten
+        cannot be interpreted later."""
+        isolated_gates.run_all_gates(str(merged_branch.path), base="HEAD~1", emit_json=True)
+        capsys.readouterr()
+
+        isolated_gates.show_status(str(merged_branch.path), emit_json=True)
+        assert json.loads(capsys.readouterr().out)["change_source"] == "HEAD~1...HEAD"
 
 
 class TestCliFlagRegistration:
