@@ -9,6 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Hosts](https://img.shields.io/badge/Hosts-Claude_%7C_Cursor_%7C_Gemini_%7C_Codex_%7C_Copilot_%7C_Windsurf-blue)](#-how-does-it-work)
 [![Tests](https://img.shields.io/badge/Self--tests-1355_passing-brightgreen)](#-coresentinel-tests-itself)
+[![Dashboard](https://img.shields.io/badge/Dashboard-Monitoring-purple)](https://github.com/wafazz/CoreSentinel-Dashboard-Monitoring)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](#-install)
 
 </div>
@@ -591,7 +592,7 @@ $ coresentinel mcp --tools
 
 MCP tools come from the same catalogue, so **MCP cannot reach an operation that skips governance** — the bypass is structurally impossible rather than forbidden by a rule someone has to remember. A test walks the import graph and fails the build if `api/` or `mcp/` imports storage or an engine directly.
 
-The same server also serves the dashboard at `http://127.0.0.1:7878/` — seven read-only views over three files with no build step, no npm and no framework. It is a client of `/api/v1` like everything else, because a browser has no other way into the process.
+The same server also serves the dashboard at `http://127.0.0.1:7878/` — seven read-only views over three files with no build step, no npm and no framework. For advanced monitoring, visualization, and session telemetry, see the companion repository [CoreSentinel-Dashboard-Monitoring](https://github.com/wafazz/CoreSentinel-Dashboard-Monitoring).
 
 **No sample data ships in it.** When the API stops answering, every panel says so where its number was:
 
