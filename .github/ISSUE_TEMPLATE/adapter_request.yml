@@ -1,0 +1,31 @@
+name: AI Host Adapter Request
+description: Propose an adapter for a new AI assistant, IDE, or tool
+labels: ["adapter", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Request integration or adapter support for a new AI coding assistant (e.g., Aider, Roo Code, Continue.dev, OpenHands, etc.).
+  - type: input
+    id: host_name
+    attributes:
+      label: AI Host / Tool Name
+      description: Name of the AI tool or coding assistant
+      placeholder: "Aider / Continue.dev / Roo Code"
+    validations:
+      required: true
+  - type: input
+    id: config_file
+    attributes:
+      label: Target Rules / Configuration File
+      description: What file format or filename does this host consume for system instructions/rules?
+      placeholder: ".aider.conf.yml / .continue/config.json / .roorules"
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context / Documentation Links
+      description: Links to the host's documentation explaining how it loads project instructions or rules.
+    validations:
+      required: true

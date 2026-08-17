@@ -1,0 +1,48 @@
+name: Bug Report
+description: Create a report to help us improve CoreSentinel
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report an issue! Please provide verifiable evidence and reproduction steps.
+  - type: input
+    id: version
+    attributes:
+      label: CoreSentinel Version
+      description: What version of CoreSentinel are you running? (Run `python coresentinel.py version`)
+      placeholder: "11.0.0"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS version and Python version
+      placeholder: "Windows 11 / Ubuntu 24.04 / macOS Sequoia, Python 3.12"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce & Evidence
+      description: Provide the exact commands run and the actual terminal output/error.
+      placeholder: |
+        1. Run `coresentinel verify`
+        2. Output received: ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen instead?
+    validations:
+      required: true
