@@ -20,6 +20,28 @@ if (-not $TargetDir) {
 }
 
 $HomeDir = [Environment]::GetFolderPath("UserProfile")
+
+$StandardSquad = @(
+    @{ Name = "Scout"; Role = "Codebase Researcher & Explorer" },
+    @{ Name = "Architect"; Role = "System Architecture & Design Specialist" },
+    @{ Name = "Builder"; Role = "Core Implementation Specialist" },
+    @{ Name = "Tester"; Role = "QA & Unit Test Specialist" },
+    @{ Name = "Security"; Role = "Security & Vulnerability Auditor" },
+    @{ Name = "Reviewer"; Role = "Code Review & Quality Specialist" },
+    @{ Name = "Optimizer"; Role = "Performance & Profiling Specialist" },
+    @{ Name = "DevOps"; Role = "CI/CD & Deployment Specialist" },
+    @{ Name = "Migrator"; Role = "Stack Migration Specialist (MIMIC)" },
+    @{ Name = "Database"; Role = "Database & Migration Specialist" },
+    @{ Name = "API"; Role = "API & Integration Specialist" },
+    @{ Name = "AI-Spec"; Role = "AI Provider & Failover Specialist" },
+    @{ Name = "Debugger"; Role = "Structured Debugging Specialist" },
+    @{ Name = "Flaky-Fixer"; Role = "Flaky Test Elimination Specialist" },
+    @{ Name = "Incident"; Role = "Emergency Incident Specialist" },
+    @{ Name = "Doc-Writer"; Role = "Documentation & Handoff Specialist" },
+    @{ Name = "Evolver"; Role = "Self-Evolution & Anti-Pattern Auditor" }
+)
+$SubAgentList = @()
+
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host " CoreSentinel Installer & Tool Binding " -ForegroundColor Cyan
 Write-Host " Target Memory Path: $TargetDir" -ForegroundColor Yellow
@@ -52,7 +74,6 @@ if (-not $NonInteractive) {
     }
 
     # 4 & 5. Sub-agents details (if enabled)
-    $SubAgentList = @()
     if ($CreateSubAgents -eq "Yes") {
         if ($SubAgentCount -le 0) {
             $inputVal = Read-Host "4) How many sub-agents? [Default: 17]"
@@ -66,26 +87,6 @@ if (-not $NonInteractive) {
             $namingChoice = Read-Host "   Choice (1 or 2) [Default: 1]"
             $SubAgentNaming = if ($namingChoice.Trim() -eq "2") { "Custom" } else { "Auto" }
         }
-
-        $StandardSquad = @(
-            @{ Name = "Scout"; Role = "Codebase Researcher & Explorer" },
-            @{ Name = "Architect"; Role = "System Architecture & Design Specialist" },
-            @{ Name = "Builder"; Role = "Core Implementation Specialist" },
-            @{ Name = "Tester"; Role = "QA & Unit Test Specialist" },
-            @{ Name = "Security"; Role = "Security & Vulnerability Auditor" },
-            @{ Name = "Reviewer"; Role = "Code Review & Quality Specialist" },
-            @{ Name = "Optimizer"; Role = "Performance & Profiling Specialist" },
-            @{ Name = "DevOps"; Role = "CI/CD & Deployment Specialist" },
-            @{ Name = "Migrator"; Role = "Stack Migration Specialist (MIMIC)" },
-            @{ Name = "Database"; Role = "Database & Migration Specialist" },
-            @{ Name = "API"; Role = "API & Integration Specialist" },
-            @{ Name = "AI-Spec"; Role = "AI Provider & Failover Specialist" },
-            @{ Name = "Debugger"; Role = "Structured Debugging Specialist" },
-            @{ Name = "Flaky-Fixer"; Role = "Flaky Test Elimination Specialist" },
-            @{ Name = "Incident"; Role = "Emergency Incident Specialist" },
-            @{ Name = "Doc-Writer"; Role = "Documentation & Handoff Specialist" },
-            @{ Name = "Evolver"; Role = "Self-Evolution & Anti-Pattern Auditor" }
-        )
 
         if ($SubAgentNaming -eq "Custom") {
             for ($i = 1; $i -le $SubAgentCount; $i++) {
@@ -113,6 +114,17 @@ if (-not $NonInteractive) {
     if (-not $CreateSubAgents) { $CreateSubAgents = "Yes" }
     if ($SubAgentCount -le 0) { $SubAgentCount = 17 }
     if (-not $SubAgentNaming) { $SubAgentNaming = "Auto" }
+
+    if ($CreateSubAgents -eq "Yes") {
+        for ($i = 0; $i -lt $SubAgentCount; $i++) {
+            if ($i -lt $StandardSquad.Count) {
+                $SubAgentList += $StandardSquad[$i]
+            } else {
+                $num = $i + 1
+                $SubAgentList += @{ Name = "Agent-$num"; Role = "Specialized Task Sub-Agent $num" }
+            }
+        }
+    }
 }
 
 # Build Sub-agent markdown representation
@@ -136,42 +148,49 @@ $Targets = @(
     @{ Tool = "Cursor Global";    Path = "$HomeDir\.cursor\rules\coresentinel.mdc" }
 )
 
-$RuleTemplate = @"
+# Literal template: single-quoted here-string so markdown backticks survive
+# (in a double-quoted here-string PowerShell treats ` as its escape character).
+$RuleTemplate = @'
 # CoreSentinel Global Memory & Protocol System
 
 ## Identity & Rules
-You are an autonomous AI coding assistant named **$AgentName**.
-Role: $AgentRole
-Always adhere to the protocols stored in: `$TargetDir`
-$SubAgentMd
+You are an autonomous AI coding assistant named **{{AGENT_NAME}}**.
+Role: {{AGENT_ROLE}}
+Always adhere to the protocols stored in: `{{TARGET_DIR}}`
+{{SUB_AGENTS}}
 ## Quick Reference & Process Roadmap
-- Central Index: `$TargetDir\00-identity.md`
-- QA Sentinel Mode: `$TargetDir\01-sentinel-identity.md`
-- Squad Phase Gates: `$TargetDir\02-team-protocol.md`
-- New Project Init: `$TargetDir\05-init-protocol.md`
-- Stack Migration (MIMIC): `$TargetDir\06-mimic-protocol.md`
-- Auto-Learn Stack: `$TargetDir\10-learn-protocol.md`
-- Test Strategy: `$TargetDir\25-test-protocol.md`
-- Security Protocol: `$TargetDir\40-security-protocol.md`
-- Deployment Protocol: `$TargetDir\51-deployment-protocol.md`
-- Self-Evolution Log: `$TargetDir\55-self-evolution.md`
-- Structured Debugging: `$TargetDir\60-debug-protocol.md`
-- Emergency Incident: `$TargetDir\61-incident-protocol.md`
+- Central Index: `{{TARGET_DIR}}\00-identity.md`
+- QA Sentinel Mode: `{{TARGET_DIR}}\01-sentinel-identity.md`
+- Squad Phase Gates: `{{TARGET_DIR}}\02-team-protocol.md`
+- New Project Init: `{{TARGET_DIR}}\05-init-protocol.md`
+- Stack Migration (MIMIC): `{{TARGET_DIR}}\06-mimic-protocol.md`
+- Auto-Learn Stack: `{{TARGET_DIR}}\10-learn-protocol.md`
+- Test Strategy: `{{TARGET_DIR}}\25-test-protocol.md`
+- Security Protocol: `{{TARGET_DIR}}\40-security-protocol.md`
+- Deployment Protocol: `{{TARGET_DIR}}\51-deployment-protocol.md`
+- Self-Evolution Log: `{{TARGET_DIR}}\55-self-evolution.md`
+- Structured Debugging: `{{TARGET_DIR}}\60-debug-protocol.md`
+- Emergency Incident: `{{TARGET_DIR}}\61-incident-protocol.md`
 
 ## Active Verification & Executable Engine
-- CoreSentinel CLI Executable: Run `python "$TargetDir\coresentinel.py" verify` (or `coresentinel verify`)
-- Automated Anti-Pattern Engine: `$TargetDir\anti-patterns.json`
-- Automated Gate Validator: Run `python "$TargetDir\sentinel-validator.py"`
+- CoreSentinel CLI Executable: Run `python "{{TARGET_DIR}}\coresentinel.py" verify` (or `coresentinel verify`)
+- Automated Anti-Pattern Engine: `{{TARGET_DIR}}\anti-patterns.json`
+- Automated Gate Validator: Run `python "{{TARGET_DIR}}\sentinel-validator.py"`
 
 ## Commands
 - `coresentinel verify` -> Runs full 6-point verification suite (Tests, Static Check, Security, Lint, Audit, Diff)
-- `show stats` -> Run `python "$TargetDir\agent-stats.py"` to view token usage.
-- `$AgentName init` -> Scaffolds a new project (`05-init-protocol.md`).
+- `show stats` -> Run `python "{{TARGET_DIR}}\agent-stats.py"` to view token usage.
+- `{{AGENT_NAME}} init` -> Scaffolds a new project (`05-init-protocol.md`).
 - `mimic this` -> Activates MIMIC stack migration (`06-mimic-protocol.md`).
-- `$AgentName test` -> Activates Sentinel QA Mode (`01-sentinel-identity.md`).
-- `$AgentName debug` -> Activates Structured Debugging (`60-debug-protocol.md`).
-- `$AgentName incident` -> Emergency incident response (`61-incident-protocol.md`).
-"@
+- `{{AGENT_NAME}} test` -> Activates Sentinel QA Mode (`01-sentinel-identity.md`).
+- `{{AGENT_NAME}} debug` -> Activates Structured Debugging (`60-debug-protocol.md`).
+- `{{AGENT_NAME}} incident` -> Emergency incident response (`61-incident-protocol.md`).
+'@
+
+$RuleTemplate = $RuleTemplate.Replace('{{AGENT_NAME}}', $AgentName).
+                              Replace('{{AGENT_ROLE}}', $AgentRole).
+                              Replace('{{TARGET_DIR}}', $TargetDir).
+                              Replace('{{SUB_AGENTS}}', $SubAgentMd)
 
 foreach ($item in $Targets) {
     $parent = Split-Path -Parent $item.Path

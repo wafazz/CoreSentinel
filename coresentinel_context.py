@@ -6,6 +6,7 @@ stack, frameworks, test runner, git state, entry points and recorded memory fact
 """
 
 import os
+import re
 import sys
 import json
 from pathlib import Path
@@ -28,6 +29,19 @@ FRAMEWORK_MARKERS = {
     "django": "Django", "flask": "Flask", "fastapi": "FastAPI", "laravel": "Laravel",
     "symfony": "Symfony", "rails": "Rails", "tailwindcss": "Tailwind CSS",
     "prisma": "Prisma", "typeorm": "TypeORM", "sqlalchemy": "SQLAlchemy",
+}
+
+# Composer packages that identify an actual framework rather than a standalone
+# component. symfony/mailer or symfony/mime do NOT make a project Symfony, so the
+# framework bundle has to be present before the label is claimed.
+COMPOSER_FRAMEWORK_PACKAGES = {
+    "laravel/framework": "Laravel",
+    "symfony/framework-bundle": "Symfony",
+    "symfony/symfony": "Symfony",
+    "slim/slim": "Slim",
+    "cakephp/cakephp": "CakePHP",
+    "yiisoft/yii2": "Yii",
+    "codeigniter4/framework": "CodeIgniter",
 }
 
 KEY_FILES = ["README.md", "LICENSE", "CLAUDE.md", "AGENTS.md", "Dockerfile",
@@ -53,24 +67,44 @@ def read_text(path):
         return ""
 
 
+def match_dependency_markers(names, found):
+    """Match markers against dependency NAMES, on segment boundaries.
+
+    Matching on segments rather than raw substrings keeps 'react' from firing on
+    unrelated packages that merely contain the letters.
+    """
+    for name in names:
+        low = name.lower().strip()
+        segments = set(re.split(r"[/\-_.\s\[\]@]+", low)) | {low}
+        for marker, label in FRAMEWORK_MARKERS.items():
+            if label not in found and marker in segments:
+                found.append(label)
+
+
 def detect_frameworks(target):
     found = []
     pkg = read_json(target / "package.json")
     if pkg:
         deps = list(pkg.get("dependencies", {})) + list(pkg.get("devDependencies", {}))
-        for dep in deps:
-            for marker, label in FRAMEWORK_MARKERS.items():
-                if marker in dep.lower() and label not in found:
-                    found.append(label)
+        match_dependency_markers(deps, found)
 
-    for filename in ["requirements.txt", "pyproject.toml", "composer.json", "Gemfile"]:
+    # composer.json is parsed, not text-scanned: PHP projects routinely pull single
+    # framework components without adopting the framework itself.
+    composer = read_json(target / "composer.json")
+    if composer:
+        packages = list(composer.get("require", {})) + list(composer.get("require-dev", {}))
+        for package in packages:
+            label = COMPOSER_FRAMEWORK_PACKAGES.get(package.lower().strip())
+            if label and label not in found:
+                found.append(label)
+
+    for filename in ["requirements.txt", "pyproject.toml", "Gemfile"]:
         path = target / filename
         if not path.exists():
             continue
-        content = read_text(path).lower()
-        for marker, label in FRAMEWORK_MARKERS.items():
-            if marker in content and label not in found:
-                found.append(label)
+        # Strip version pins/extras so only the dependency names are matched.
+        names = re.findall(r"[A-Za-z0-9_.\-/]+", read_text(path))
+        match_dependency_markers(names, found)
 
     return found
 

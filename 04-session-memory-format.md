@@ -24,7 +24,7 @@
 
 ## Session Context
 - **Project**: [Project name]
-- **Profile**: [Path to MemoryCore profile]
+- **Profile**: [Path to CoreSentinel profile]
 - **Branch**: [Current git branch]
 - **Status**: [active / paused / blocked]
 - **Focus**: [One-line summary of current work]
