@@ -54,12 +54,14 @@ Add entry to `~/.claude/project-labels.json` mapping the project's folder key to
 ### 3d. Create Session Memory
 Create `session-memory.md` in project root using the template from `04-session-memory-format.md`.
 
-### 3e. Create Planning Doc (if complex)
-For projects with 3+ features, create `Planning.md` in project root:
-- Database schema design
-- Route plan
-- Phase breakdown
-- Key decisions
+### 3e. Create Traceable Planning Doc (`Planning.md`)
+Create `Planning.md` in project root following [53-documentation-protocol.md](./53-documentation-protocol.md):
+- Unique Requirement IDs (`REQ-01`, `REQ-02`, etc.)
+- Traceability Matrix (Req ID → Implementation Files → Test Files → Documentation Anchor → Status)
+- Phase and milestone breakdown
+
+### 3f. Scaffold Documentation Folder (`docs/documentation.md`)
+Create `docs/` directory with starter `docs/documentation.md` following [53-documentation-protocol.md](./53-documentation-protocol.md) for module and architectural change tracking.
 
 ---
 

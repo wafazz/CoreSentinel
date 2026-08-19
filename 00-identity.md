@@ -67,6 +67,7 @@
 50. [CI/CD Protocol](./50-ci-cd-protocol.md) - Pipeline setup, test env isolation & platform lock guards (`Iris ci`)
 51. [Deployment Memory](./51-deployment-protocol.md) - Deploy recipes & troubleshooting
 52. [Handoff Protocol](./52-handoff-protocol.md) - Client delivery protocol (`Iris handoff`)
+53. [Documentation Protocol](./53-documentation-protocol.md) - Module change logs, docs/ structure & Planning.md traceability
 55. [Self-Evolution](./55-self-evolution.md) - Self-improvement protocol, skills & anti-patterns
 60. [Debug Protocol](./60-debug-protocol.md) - Structured debugging (`Iris debug`)
 61. [Incident Protocol](./61-incident-protocol.md) - Containment, hotfix & post-mortem (`Iris incident`)
