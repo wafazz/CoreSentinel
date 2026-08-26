@@ -85,7 +85,8 @@ As you build projects, add your patterns here. Each pattern should include:
 Laravel **13.x** (12 left bug-fix support 2026-08-13 — there is no LTS) · `inertiajs/inertia-laravel` **^3.3** ·
 `@inertiajs/react` + `@inertiajs/vite` **^3.6** · React **19.2** (Inertia 3 *requires* 19+) ·
 TypeScript **5.9 — NOT 7.0** · Vite **8.2** + `laravel-vite-plugin` **^3.2** · PHP **8.3–8.5** ·
-Bootstrap **5.3.8** (Bootstrap 6 does not exist) · AdminLTE **4.3.1** · MySQL **8.0.17+**.
+Bootstrap **5.3.8** (Bootstrap 6 does not exist) · AdminLTE **4.3.1** *(→ **4.9.1** as of
+2026-08-27, re-verified against the npm registry — check before pinning)* · MySQL **8.0.17+**.
 Breeze/Jetstream are dead paths (removed from the installer in L12; starter kits now use Fortify).
 Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was removed from Inertia in v3.
 
@@ -357,6 +358,28 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   parent 404s before your own ownership check runs. Keep the explicit check anyway; it
   documents the invariant and survives a future route change.
 - **First used in**: Basic Custom E-Commerce — REQ-001 / REQ-002
+
+### AdminLTE 4 in a Blade App Without Node
+- **Stack**: Laravel 11+/12, Blade, AdminLTE 4.9.1, Bootstrap 5.3
+- **Problem**: Get a real admin template without adopting a Node build chain, and
+  without loading it from a CDN at runtime.
+- **Solution**: AdminLTE 4 is a CSS/JS theme over Bootstrap 5.3, so in a Blade app it is
+  a **template choice, not a framework change** — routes, controllers and models are
+  untouched. Vendor four things into `public/`: `adminlte.min.css`, `adminlte.min.js`,
+  Bootstrap's **`bootstrap.bundle.min.js`**, and Bootstrap Icons' CSS **plus its
+  `fonts/*.woff2`**. Shell markup:
+  `app-wrapper` → `app-header` / `app-sidebar` (`data-bs-theme="dark"`) /
+  `app-main` → `app-content-header` + `app-content`. Sidebar toggling is
+  `data-lte-toggle="sidebar"`; treeview is `data-lte-toggle="treeview"` on the `ul`.
+- **Gotchas**: AdminLTE's JS does **not** include Bootstrap's — dropdowns and the
+  sidebar toggle need the bundle loaded first, in that order. Bootstrap Icons' CSS
+  references `fonts/` **relative to itself**, so the directory layout must be preserved;
+  assert the resolved path on disk in a test (not over HTTP — serving static files is the
+  web server's job and the router will 404 them). `woff2` precedes `woff` in the
+  `@font-face` src, so shipping only the woff2 is safe. Delete any hand-rolled sidebar CSS
+  the theme now owns rather than leaving it to collide. Pin the version: AdminLTE 4 moved
+  4.3 → 4.9 inside a few months.
+- **First used in**: Basic Custom E-Commerce (admin panel, 2026-08-27)
 
 ### Laravel Without Node (server-rendered, no build step)
 - **Stack**: Laravel 11+/12, Blade + Bootstrap, cheap VPS or shared hosting

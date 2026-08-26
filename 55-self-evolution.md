@@ -623,6 +623,38 @@ Track mistakes to never repeat.
   call has already altered.
 - **Applies to**: All projects
 
+### Anti-Pattern: Repeating a defect I had already written into the anti-pattern log
+- **What happened**: Added a `needsReviewCount` view composer registered on `layouts.admin`
+  only. The dashboard **child view** renders that variable in its own section, so it was
+  undefined and every dashboard request 500'd. This is the *identical* mistake recorded
+  earlier the same day as "View composer registered only on `layouts.*`", and the review
+  checklist item I wrote for `35-review-protocol.md` says in as many words: *"View composers
+  registered for every namespace that renders the shared variable, not just `layouts.*`"*.
+- **Impact**: Caught by tests within a minute — but the log entry and the checklist did not
+  prevent it, which is the point worth recording. Writing a rule down is not the same as
+  reading it at the moment of the decision.
+- **Rule**: When a phase's own log already contains an anti-pattern for the exact mechanism
+  being touched, **re-read that entry before writing the code**, not after the test fails.
+  For view composers specifically: register against every namespace that renders the
+  variable, and treat "the layout uses it" as insufficient evidence that only the layout
+  uses it.
+- **Applies to**: All projects — and to the maintenance of this log itself
+
+### Anti-Pattern: A `str.replace()` anchor pointing at the wrong section number
+- **What happened**: Inserted a decision record into `Planning.md` anchored on `### 12.3`,
+  believing §12 was the architecture section. §12 is **Database Design**; §12.3 is a table
+  list. The `assert` fired correctly — but only *after* an earlier edit in the same script
+  had already written to the file, and the commit ran anyway. Result: the stack table gained
+  a row cross-referencing a section that does not describe it, the decision record was never
+  written, and the docs changelog edit queued behind it was silently skipped.
+- **Impact**: A commit that claimed to record a decision and did not. Fixed in a follow-up,
+  but the partial-write shape is the hazard: assertions protect the *edit*, not the *batch*.
+- **Rule**: Validate **every** anchor in a multi-file edit script **before** writing any
+  file — collect failures first, then apply. And verify the section a cross-reference points
+  at actually covers the subject; `grep -n '^### '` the target document rather than
+  trusting a remembered outline.
+- **Applies to**: All scripted multi-file documentation edits
+
 ## Learned Skills — Basic Custom E-Commerce
 
 ### Skill: Run the guard suites against the real engine, not just SQLite
