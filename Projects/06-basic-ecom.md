@@ -74,6 +74,16 @@ Written 2026-08-27:
 
 **Not promoted**: the `[LEARN]` Laravel 13 + Inertia block stays research-sourced. This project shipped Laravel **12 + Blade**; Inertia, React, Vite and Fortify were never used, so it is not evidence for them.
 
+## Post-delivery changes (client requests, 2026-08-27)
+All after the Phase 11 handoff, all client-visible:
+1. **AdminLTE 4.9.1** admin template, vendored locally (no CDN, no Node). Uncovered that the storefront had **never loaded Bootstrap JS** — the mobile navbar toggler had been inert since Phase 4.
+2. **Owner/HQ dashboard** — headline tiles + day/week/month/year comparisons. Ads Cost and ROAS were specified but have no data source here, so they became **Average Order Value** and **Payment Conversion**; the ads-spend setting added for them was removed rather than left dead.
+3. **Order status vocabulary** → Pending · New Order · Processing · In Delivery · Completed · Returned · Cancelled. `needs_review` retained as **system-set only** (filterable, not assignable). Reversible data migration; settlement now lands on New Order, not Processing.
+
+Handoff artifact **republished** to the same URL after these — it had gone stale at 199 tests and did not mention the new workflow.
+
+**Current: 235 tests / 660 assertions green on SQLite and MariaDB 10.4.28.**
+
 ## Work Log
 
 ### 2026-08-26 — Init against the client's Laravel 12 spec

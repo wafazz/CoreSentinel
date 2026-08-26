@@ -655,6 +655,43 @@ Track mistakes to never repeat.
   trusting a remembered outline.
 - **Applies to**: All scripted multi-file documentation edits
 
+### Anti-Pattern: Logging a rule, then not applying it — twice
+- **What happened**: Recorded "validate **every** anchor in a multi-file edit script BEFORE
+  writing any file" after a partial batch shipped a commit that claimed a decision it had not
+  recorded. Then did the same thing again on the very next feature: an edit script asserted on
+  a `Planning.md` anchor that did not match, **wrote the other file first**, and the commit
+  went out — a second commit claiming a decision it had not recorded. Separately, in the same
+  session, repeated a view-composer defect that was already in this log *and* in the review
+  checklist I had written for it.
+- **Impact**: Three repeats of two known defects, all caught, none shipped to production —
+  but the log demonstrably did not change behaviour. That is the finding worth keeping: a rule
+  written after the fact is a record, not a control.
+- **Rule**: A recurring defect needs a **mechanism**, not a paragraph. For scripted edits that
+  means the script itself validates first and exits before any write — make that the template,
+  not the intention:
+  ```python
+  missing = [k for k, (old, _) in edits.items() if old not in files[k]]
+  if missing: sys.exit("ABORT before writing: " + str(missing))
+  ```
+  And when about to touch a mechanism this log already has an entry for, **re-read that entry
+  before writing the code**, not after the test fails.
+- **Applies to**: All scripted edits, and to the maintenance of this log
+
+### Anti-Pattern: A published deliverable left behind the code it describes
+- **What happened**: Published a client handoff Artifact stating "199 tests / 564 assertions",
+  then changed client-visible behaviour three more times — the admin template, the dashboard
+  metrics, and the entire order-status vocabulary. The artifact still claimed the old figures
+  and said nothing about the workflow states the client would operate with daily. It was only
+  caught by explicitly diffing the published document against reality.
+- **Impact**: A live client-facing link, quietly wrong, describing a workflow that no longer
+  existed. Exactly the "documentation lying about code" failure recorded twice already this
+  project — but pointed outward, at the client, which is worse.
+- **Rule**: A published artifact is a **deliverable with a URL**, not a snapshot. Any change to
+  client-visible behaviour after publishing means re-checking it: diff the claims (version
+  numbers, counts, feature lists, workflow names) against the code, then republish to the same
+  URL. Add it to the end-of-change checklist alongside tests and docs.
+- **Applies to**: All published handoffs, reports and status artifacts
+
 ## Learned Skills — Basic Custom E-Commerce
 
 ### Skill: Run the guard suites against the real engine, not just SQLite

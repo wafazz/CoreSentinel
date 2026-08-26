@@ -359,6 +359,54 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   documents the invariant and survives a future route change.
 - **First used in**: Basic Custom E-Commerce — REQ-001 / REQ-002
 
+### Renaming a Status Enum That Is Already in the Database
+- **Stack**: Laravel 11+, PHP 8.1+ backed enums, MySQL/MariaDB
+- **Problem**: A client wants their own operational vocabulary for a status column that is
+  already populated (`pending_payment` → `pending`, `paid` → `new_order`, `shipped` →
+  `in_delivery`, plus a genuinely new case).
+- **Solution**: Because the column is `VARCHAR` and the enum lives in PHP, this is a **data**
+  migration, not a schema one — but it is not optional: historical rows would otherwise hold
+  values the enum can no longer cast, and **every read of them throws**. Remap, then move the
+  column default, in one reversible migration:
+  ```php
+  private const RENAMES = ['pending_payment' => 'pending', 'paid' => 'new_order'];
+  foreach (self::RENAMES as $from => $to) {
+      DB::table('orders')->where('order_status', $from)->update(['order_status' => $to]);
+  }
+  $table->string('order_status', 32)->default('pending')->change();
+  ```
+  Write `down()` as the exact inverse and **run the rollback once** to prove it.
+- **Gotchas**: Separate **system-set** states from **operator-selectable** ones. A state the
+  system concludes (an oversell flag, a reconciliation hold) must not be assignable by hand:
+  expose `selectable()` on the enum, restrict the form with
+  `Rule::enum(Status::class)->only(Status::selectable())`, but keep every case in the **list
+  filter** so those rows stay findable. Critically — if the current value is not in the
+  `<select>`, the browser falls back to the **first option**, and saving the form silently
+  reassigns the record. Render the current state as a selected `(current)` option when it is
+  not selectable. Put domain predicates (`countsAsSale()`) on the enum so reports cannot drift
+  from one another.
+- **First used in**: Basic Custom E-Commerce (order statuses, 2026-08-27)
+
+### Dashboard Metrics You Do Not Have Data For
+- **Stack**: Any reporting UI built to a reference design
+- **Problem**: A dashboard mock specifies tiles the system has no data source for — ad spend
+  and ROAS on a store that tracks no advertising, "paid + COD" on a prepaid-only store.
+- **Solution**: Never render a fabricated figure to fill a slot, and never render `0` for an
+  untracked metric — **"we spent nothing" is a different claim from "we do not track this"**.
+  Three honest options, in order of preference: (1) replace the tile with a metric the data
+  actually supports — average order value, payment conversion; (2) give the figure a real
+  admin-maintained source and compute from it; (3) render an explicit *Not tracked* state.
+  Where an average or ratio has no denominator, pass `null` and say so — an average of nothing
+  is undefined, not zero. Same for percentage change against a zero baseline: "up from zero"
+  is not a percentage; render a dash.
+- **Gotchas**: When you add a setting purely to feed a metric and then drop the metric, **remove
+  the setting too** — validation rule, accessor, form field and test — or it becomes cruft
+  behind a feature that no longer exists. Also check whether two tiles are structurally
+  identical in *this* system before shipping both: a prepaid-only store's "sales" and
+  "collection" coincide by construction, and the reference design only distinguished them
+  because that business had COD.
+- **First used in**: Basic Custom E-Commerce (owner dashboard, 2026-08-27)
+
 ### AdminLTE 4 in a Blade App Without Node
 - **Stack**: Laravel 11+/12, Blade, AdminLTE 4.9.1, Bootstrap 5.3
 - **Problem**: Get a real admin template without adopting a Node build chain, and
