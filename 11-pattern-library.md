@@ -221,6 +221,158 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
 - **Gotchas**: `ALTER TABLE` on a table with an **indexed** virtual column is forced to `ALGORITHM=COPY` — every future migration on that table is a full rebuild, and `->algorithm('inplace')` errors. A generated column **cannot read** a column carrying `ON UPDATE CASCADE` / `ON UPDATE SET NULL` / `ON DELETE SET NULL`. `utf8mb4_0900_ai_ci` doesn't exist (that's MySQL 8); `utf8mb4_uca1400_*` needs 10.10+ — use `utf8mb4_unicode_ci`, since MariaDB's own default is the weaker `general_ci`. No `defaultStringLength(191)` needed: `innodb_default_row_format` has been `dynamic` since 10.2, giving 3072-byte keys. `JSON` is a `LONGTEXT` alias compared **as text**, and the `->`/`->>` operators don't exist until **13.1**. Identifiers cap at 64 chars and Laravel does not truncate — pass explicit names via `constrained(indexName: …)`.
 - **First used in**: E-Commerce Catalog System (planned)
 
+## Laravel 12 + Blade + MySQL (server-rendered commerce)
+
+> **BATTLE-TESTED.** Shipped in **Basic Custom E-Commerce** (2026-08-27): Laravel 12.68,
+> PHP 8.3, Blade, MySQL 8/MariaDB 10.4, no Node, no queues. 199 tests / 564 assertions
+> green on both engines. These are `Known` confidence, unlike the `[LEARN]`
+> Laravel 13 + Inertia block above — which remains research-sourced and is **not**
+> promoted by this project, because Inertia, React, Vite and Fortify were never used.
+
+### Fail Closed on an Unverifiable Third-Party Response
+- **Stack**: Laravel 12, any REST gateway (first used against ToyyibPay)
+- **Problem**: You must confirm a payment server-side, but the vendor's API reference
+  is unobtainable (403 to automated fetch) and community sources disagree on the
+  response field names. You cannot write a parser you can prove correct.
+- **Solution**: Do not guess a single field name, and do not block delivery either.
+  Read an ordered list of **documented candidate keys**, and return an explicit
+  `unverified` result when none matches:
+  ```php
+  private const STATUS_KEYS = ['billpaymentStatus', 'billPaymentStatus', 'status'];
+  $status = $this->firstString($row, self::STATUS_KEYS);
+  if ($status === null) {
+      return PaymentVerification::unverified('No recognised status field.', $row);
+  }
+  ```
+  `unverified` is a first-class outcome, not an exception: the caller leaves the order
+  **pending**. Ship the integration complete and inert; one config change activates it
+  once a human confirms the shape. Log the `reason` verbatim so the person resolving it
+  is told exactly what was missing.
+- **Gotchas**: The failure mode must be asymmetric and you must say so out loud —
+  refusing to settle a real payment is recoverable, marking an unpaid order paid is not.
+  Make the ambiguity configurable where it is cheap (`TOYYIBPAY_AMOUNT_FORMAT=decimal|cents`)
+  and have the mismatch log print **both** interpretations, so the correct setting is
+  obvious from one live response. Write the "this is deliberate, not a bug" note into the
+  README and the deploy runbook — otherwise the next developer 'fixes' it by guessing.
+- **First used in**: Basic Custom E-Commerce — REQ-005 / OQ-11
+
+### OAuth Refresh-Token Rotation Under Concurrency
+- **Stack**: Laravel 11+, any OAuth 2 provider that rotates refresh tokens (EasyParcel Open API)
+- **Problem**: The refresh token changes on every use. Two concurrent requests that both
+  find the access token expired will both refresh; rotation invalidates one of the results
+  and the integration dies silently at the *next* refresh, hours later.
+- **Solution**: Serialise with an atomic cache lock and **re-read the token row inside the
+  lock** — the waiter must not act on the row it read before blocking:
+  ```php
+  return Cache::lock('provider:refresh', 10)->block(5, function () {
+      $fresh = $this->token();                       // re-read INSIDE the lock
+      if (! $fresh->isExpired()) return $fresh->access_token;   // someone else did it
+      $this->storeTokens($this->requestToken([...])); // persist the NEW refresh token
+      return $this->token()?->access_token;
+  });
+  ```
+- **Gotchas**: **Persisting the new refresh token is the whole point** — keeping the old one
+  is the silent killer. The `file` cache driver supports `Cache::lock()`, so this needs no
+  Redis and no extra table. Tokens cannot live in `.env`: they rotate at runtime, and after
+  `config:cache` Laravel does not read `.env` at all — store them in a table with the
+  Eloquent `encrypted` cast. Set the app cipher **before** the first token is written;
+  changing it later makes existing ciphertext undecryptable.
+- **First used in**: Basic Custom E-Commerce — REQ-006
+
+### Money Across a Decimal-String API Boundary
+- **Stack**: PHP 8.3, any API returning prices as strings (EasyParcel `pricing.total_amount`)
+- **Problem**: Internal money is integer minor units, but the vendor returns `"10.84"`.
+  A `(int) ($amount * 100)` conversion reintroduces exactly the float error the integer
+  storage exists to prevent.
+- **Solution**: One conversion function, called once at the service boundary, that never
+  multiplies by 100 as a float — split on the decimal point, pad to three places, and round
+  on the third digit as integers:
+  ```php
+  [$whole, $fraction] = array_pad(explode('.', $trimmed, 2), 2, '0');
+  $fraction = str_pad(substr($fraction, 0, 3), 3, '0', STR_PAD_RIGHT);
+  $minor = intdiv((int) $whole * 1000 + (int) $fraction + 5, 10);
+  ```
+  Reject anything not matching `/^-?\d+(\.\d+)?$/` rather than coercing it.
+- **Gotchas**: Round at the third decimal, don't truncate — `"10.999"` must become `1100`,
+  not `1099`. Keep the reverse (`format()`) display-only and never parse it back for
+  arithmetic. Some gateways take minor units directly (ToyyibPay `billAmount` is in cents),
+  in which case the correct amount of conversion code is **none**.
+- **First used in**: Basic Custom E-Commerce — REQ-006
+
+### Forced First-Login Password Change (handover credentials)
+- **Stack**: Laravel 11+ with the default auth guard
+- **Problem**: A seeded or handed-over admin credential survives into production because
+  "force a password change on first login" was written in the runbook instead of the code.
+- **Solution**: Three parts, none optional. A `users.must_change_password` flag; middleware
+  on the whole admin group that redirects everywhere except the change form **and logout**
+  (omit logout and you trap the user); and a seeder that **refuses to run in production**
+  without real credentials in env:
+  ```php
+  if (app()->isProduction() && (blank($email) || blank($password))) {
+      throw new RuntimeException('Refusing to seed a default admin in production.');
+  }
+  ```
+  Provide `php artisan shop:create-admin` using `$this->secret()` as the supported server
+  path — the password then never reaches the screen or shell history.
+- **Gotchas**: Set the flag even when a real password was supplied via env: the person who
+  typed it into `.env` should not be the only one who knows it. Call
+  `Auth::logoutOtherDevices()` on change. Enforce the policy with
+  `Password::min(12)->letters()->numbers()` and require `current_password`.
+- **First used in**: Basic Custom E-Commerce — REQ-009
+
+### Guarded Atomic Update in Eloquent (Laravel form of the Race-Free Action Guard)
+- **Stack**: Laravel 11+, MySQL/MariaDB
+- **Problem**: Decrement stock, or transition an order to paid, exactly once under
+  concurrent callers — without `SELECT` then `UPDATE`.
+- **Solution**: Put the predicate in the write and check the affected row count. The query
+  builder returns it:
+  ```php
+  $ok = ProductVariant::query()->whereKey($id)
+      ->where('stock_qty', '>=', $qty)->decrement('stock_qty', $qty) === 1;
+
+  $first = Order::query()->whereKey($id)
+      ->where('payment_status', PaymentStatus::Pending->value)
+      ->update(['payment_status' => PaymentStatus::Paid->value]) === 1;
+  ```
+  Only the caller that gets `1` proceeds. A duplicate gateway callback gets `0` and is a no-op.
+- **Gotchas**: Never `$model->decrement()` on a **loaded** model — that reads then writes and
+  reintroduces the race. Test it against the **real engine**; SQLite will not tell the truth
+  about these guarantees. When the guarded decrement fails after money was taken, flag the
+  order (`needs_review`) rather than accepting it silently.
+- **First used in**: Basic Custom E-Commerce — REQ-005 / REQ-008
+  (Laravel expression of *Atomic Race-Free Action Guard*, above.)
+
+### Route Model Binding — two traps in one nested admin resource
+- **Stack**: Laravel 11+
+- **Problem**: Two separate 404/500 bugs that both look like "the route is wrong".
+- **Solution**:
+  1. **`getRouteKeyName()` leaks.** Setting it to `'slug'` for pretty storefront URLs applies
+     to **admin routes too**, so `route('admin.products.edit', $id)` 404s and renaming a
+     product changes its admin URL. Pin admin routes explicitly: `{product:id}`.
+  2. **A custom key turns on scoped bindings**, and Laravel derives the child relation from
+     the **parameter name**: `{variation:id}` under `{product}` calls `Product::variations()`.
+     If the relation is `variants()`, name the parameter `{variant}`. The URL segment
+     (`/variations`) and the parameter name are independent.
+- **Gotchas**: Scoped binding is a bonus once the name is right — a child belonging to another
+  parent 404s before your own ownership check runs. Keep the explicit check anyway; it
+  documents the invariant and survives a future route change.
+- **First used in**: Basic Custom E-Commerce — REQ-001 / REQ-002
+
+### Laravel Without Node (server-rendered, no build step)
+- **Stack**: Laravel 11+/12, Blade + Bootstrap, cheap VPS or shared hosting
+- **Problem**: The skeleton ships Vite + Tailwind, so deploying a CSS file requires Node on
+  the build host — real operational cost for a server-rendered site with one stylesheet.
+- **Solution**: Delete `package.json`, `vite.config.js` and `resources/css|js`. Vendor the CSS
+  framework into `public/css/` and reference it with `asset()`. Strip every `npm`/`vite` line
+  from `composer.json` scripts. Product uploads go to a `public/uploads` filesystem disk, so
+  `storage:link` is not needed either.
+- **Gotchas**: The skeleton's `welcome.blade.php` calls `@vite` behind a manifest check, so it
+  silently keeps working — delete it or you ship a page pulling a remote font CDN. Assert the
+  absence in a test (`assertStringNotContainsString('/build/assets', $html)`), otherwise a
+  future package quietly reintroduces the dependency. Removing Vite deviates from the stock
+  skeleton, so record it as a decision, not a silent omission.
+- **First used in**: Basic Custom E-Commerce
+
 ### Laravel on Native Windows 11 (no WSL)
 - **Stack**: Laravel 13, Windows 11, Vite 8
 - **Problem**: which local environment, and what silently degrades.

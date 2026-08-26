@@ -494,3 +494,166 @@ Track mistakes to never repeat.
   When two installers claim parity, run **both** — a passing twin proves nothing
   about the other.
 - **Applies to**: All cross-shell installers on Windows
+
+---
+
+## Basic Custom E-Commerce — 2026-08-27 (Laravel 12, client delivery)
+
+### Anti-Pattern: A plan that promises a control, and a runbook line that pretends to be it
+- **What happened**: `Planning.md` §17.4 said "Force an admin password change on first login."
+  I wrote that sentence, approved it, built ten phases, wrote `DEPLOYMENT.md` repeating it as a
+  bullet — and **never implemented anything**. `AdminSeeder` shipped `admin@basic-ecom.test`
+  with the password `password` and no mechanism to require changing it. It was caught only
+  because {USER_NAME} highlighted that one line in the seeder during handoff review.
+- **Impact**: A live payment-handling store would have gone out with a known working admin
+  credential and a deployment document *claiming* that credential was forced to change. The
+  document made the gap harder to see, not easier — anyone auditing the runbook would have
+  ticked it off.
+- **Rule**: When a plan states a **control**, it is a work item, not prose. At the phase that
+  should implement it, grep the plan for imperative security language — "force", "must",
+  "require", "never" — and confirm each has a file and a test behind it. A control that exists
+  only in a document is a control that does not exist. Prefer the mechanism that cannot be
+  skipped: a DB flag plus middleware, not an instruction to a human.
+- **Applies to**: Every project with a written plan or runbook
+
+### Anti-Pattern: Phantom completion left in the traceability matrix
+- **What happened**: The `REQ-013` row listed `app/Http/Controllers/Admin/ShipmentController.php`
+  and "EasyParcelService booking methods" as implementation paths. **Neither existed** — the
+  feature was blocked and only its schema, model and enum were built. The row sat there through
+  Phases 8–11 and into the client handoff. I only found it because {USER_NAME} asked "complete?"
+  and I checked instead of answering from memory.
+- **Impact**: The client-facing traceability record claimed delivery of a scope item that was
+  never built. `53-documentation-protocol.md` §4.2 forbids exactly this, and I had written the
+  matrix myself.
+- **Rule**: A traceability matrix is an assertion about the filesystem, so **verify it against
+  the filesystem** before any handoff: loop the listed paths and `test -f` each one. When a
+  requirement is partially built, split the row explicitly — "Built: … / NOT built: …" — never
+  leave the aspirational path list in place with a status chip beside it.
+- **Applies to**: Any project under Protocol 53
+
+### Anti-Pattern: Silent `str.replace()` after a formatter rewrote the anchor
+- **What happened**: Edited files with `python3` + `str.replace()` throughout. Laravel Pint
+  rewrote a fully-qualified `\App\Services\ToyyibPayService::class` to the imported short form
+  between two of my edits. My next replacement targeted the FQCN string, matched nothing, and
+  **wrote the file back unchanged with no error**. The container binding was never added; all
+  15 payment tests failed at once with `BindingResolutionException`.
+- **Impact**: Ten minutes chasing a "container" bug that was a no-op edit. The failure was loud
+  only because a test suite existed — the same silent miss in a doc edit would have shipped.
+- **Rule**: `str.replace()` returns a copy and reports nothing. **Assert the anchor before
+  replacing**: `assert old in s, "anchor missing"` / `sys.exit("MISS: ...")`. Re-read the file
+  after any formatter, linter or codemod runs — never edit against a remembered version of a
+  file a tool has since touched.
+- **Applies to**: All scripted file edits
+
+### Anti-Pattern: `Http::fake()` merges — it does not override
+- **What happened**: In an end-to-end test I faked `*getBillTransactions` early with a
+  placeholder amount, then called `Http::fake()` again later with the correct amount for the
+  order that now existed. Laravel **merged** the stub sets; the first pattern still matched, so
+  the stale placeholder won. The payment refused to settle on an amount mismatch — which was
+  the code behaving **correctly** — and it presented as an application bug.
+- **Impact**: Debugged the application for a failure caused entirely by the test harness. The
+  dangerous version of this is the opposite outcome: a stale permissive stub making a broken
+  guard look like it passes.
+- **Rule**: Fake each URL pattern **once per test**. When the response depends on state created
+  later in the test, use a **closure** stub that reads that state at call time
+  (`'*endpoint' => fn () => Http::response([...Order::firstOrFail()...])`), rather than
+  re-faking. When a fake-driven test fails, verify the stub before suspecting the code.
+- **Applies to**: All Laravel HTTP-client testing
+
+### Anti-Pattern: A test that asserts the framework's test shim, not the application
+- **What happened**: Wrote `assertStatus(419)` to prove CSRF protection on a form POST. It could
+  never pass: `ValidateCsrfToken` calls `runningUnitTests()` and skips verification entirely
+  under `APP_ENV=testing`. I had written a test of Laravel's own test-mode behaviour and called
+  it a security test.
+- **Impact**: Would have shipped as false assurance in the security suite — the worst kind of
+  test, because its presence stops anyone writing the real one.
+- **Rule**: Before asserting a framework behaviour, ask what would have to break for this test
+  to fail — if the answer is "the framework", it is not your test. Assert the **project's
+  decision** instead: that the form ships a token, and that the CSRF exclusion list contains
+  exactly the one route intended and nothing else. Note that Laravel 11+ stores
+  `validateCsrfTokens(except:)` in the **static** `$neverVerify`, not the instance `$except`.
+- **Applies to**: All framework-level testing
+
+### Anti-Pattern: Docblock describing behaviour the function does not have
+- **What happened**: Wrote an order-number generator whose docblock read "Retries a few times on
+  collision" over a body that was `random_int(1, 9999)` with **no retry at all**. The random
+  suffix also collides roughly half the time by ~120 orders in a day (birthday problem), so the
+  comment was describing the mitigation for a defect it was also concealing.
+- **Impact**: Caught by writing a test for sequential order numbers. Left alone, a busy day
+  would have produced duplicate-key failures at checkout — for real customers, at the worst
+  moment.
+- **Rule**: A docblock is an assertion; write it **after** the body or verify it against the
+  body before committing. When a comment claims a safety property (retry, lock, idempotency,
+  validation), there must be a test named for that property. Treat "N random digits" as a
+  collision source, not a uniqueness source — derive sequence from state and let a UNIQUE index
+  plus a real retry be the guard.
+- **Applies to**: All projects
+
+### Anti-Pattern: Overriding a framework base-class method with an incompatible signature
+- **What happened**: Added `Setting::all(): array` and `Setting::value(string)` as convenience
+  accessors on an Eloquent model. `Model::all($columns = ['*'])` already exists with a different
+  signature, and `value()` is forwarded to the query builder via `__callStatic`. The override
+  would have broken the Eloquent contract for anything calling `Setting::all()` expecting a
+  Collection.
+- **Impact**: Caught before it ran, but only because I re-read the file. It would have surfaced
+  later as a type error in unrelated code.
+- **Rule**: Before naming a static helper on a model, check it against the base class's public
+  API. Prefer a name the framework does not use (`cached()`, `getInt()`) over shadowing one it
+  does. Convenience is not worth an incompatible override.
+- **Applies to**: Eloquent, and any framework base class
+
+### Anti-Pattern: Writing a heredoc into a directory that does not exist
+- **What happened**: `cat > app/Services/CartService.php <<'EOF'` where `app/Services/` had never
+  been created. The redirect failed, the file was not written, and the only signal was a
+  `php -l` error on a missing file at the end of a long command.
+- **Impact**: Minor — one wasted round trip. Recorded because the same shape in a longer batch
+  would leave a silently missing file among many written ones.
+- **Rule**: `mkdir -p` the target directory in the same command as any heredoc write to a new
+  path, and verify with `php -l` or `test -f` immediately after.
+- **Applies to**: All shell-driven file creation
+
+### Anti-Pattern: Reading state after mutating it, to decide what the mutation did
+- **What happened**: `CartController::store()` decided whether a quantity had been capped with
+  `$resulting < $this->cart->qtyFor($id) + $requested` — but `qtyFor()` was read **after**
+  `add()` had already written. The condition was always true, so every add reported "capped".
+- **Impact**: Cosmetic here, but the shape is the same one that produces wrong stock and wrong
+  totals elsewhere.
+- **Rule**: Capture the before-value into a variable **before** the mutating call. If a function
+  needs to report what it changed, have it return that — do not reconstruct it from state the
+  call has already altered.
+- **Applies to**: All projects
+
+## Learned Skills — Basic Custom E-Commerce
+
+### Skill: Run the guard suites against the real engine, not just SQLite
+- **Learned from**: Basic Custom E-Commerce
+- **Pattern**: Keep the fast suite on SQLite in-memory, but run every suite that asserts a
+  **database-enforced** guarantee — guarded `UPDATE` affected-row counts, UNIQUE collisions,
+  collation behaviour — against the actual MySQL/MariaDB target before release. Here that meant
+  199 tests green on both engines on every phase, via one env-prefixed command.
+- **Why**: The stock-decrement and duplicate-payment guarantees are enforced by the database,
+  not by PHP. A test that passes only on SQLite proves nothing about the thing it exists to
+  prove. It also caught the dev/prod engine split early (local MariaDB 10.4 vs target MySQL 8).
+- **Applied to**: Any project where correctness depends on DB-level constraints
+
+### Skill: Deliver a blocked integration complete and inert, not absent
+- **Learned from**: Basic Custom E-Commerce (ToyyibPay, OQ-11)
+- **Pattern**: When a third-party contract cannot be verified, still build the whole path —
+  service, controller, settlement transaction, tests — with the unverifiable step returning an
+  explicit refusal. Ship it switched off behind config, with the refusal reason logged verbatim
+  and stated in the README, the deploy runbook and the handoff.
+- **Why**: The client gets everything that *can* be built, the remaining work is one confirmation
+  rather than a phase, and nobody later mistakes the deliberate refusal for a defect. The
+  alternative — guessing the contract — converts an open question into a silent money bug.
+- **Applied to**: Any integration blocked on an unobtainable specification
+
+### Skill: Answer "is it complete?" by checking, not by recalling
+- **Learned from**: Basic Custom E-Commerce
+- **Pattern**: On any completion or handoff question, run the verification before composing the
+  answer — working tree clean, suites green on every target, and each claimed implementation
+  path confirmed to exist on disk. Then answer from that output.
+- **Why**: I had every reason to believe the project was complete, and it was not: one
+  requirement's file list was fictional. The check took one command; the wrong answer would have
+  gone to a client. Confidence about your own recent work is precisely where verification feels
+  least necessary and is most needed.
+- **Applied to**: All handoffs, status reports and completion claims

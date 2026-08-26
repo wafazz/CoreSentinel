@@ -7,8 +7,8 @@
 
 | Project | Target | Status | Domain |
 |---|---|---|---|
+| Basic Custom E-Commerce | VPS (Nginx + PHP 8.3 + MySQL 8) | Handed off, not yet deployed | TBC |
 <!-- Add your projects here as you deploy them -->
-<!-- Example: | My App | VPS (DigitalOcean) | Deployed | myapp.com | -->
 
 ---
 
@@ -58,6 +58,66 @@ sudo certbot --nginx -d domain.com
 # 10. Optimize
 php artisan config:cache && php artisan route:cache && php artisan view:cache
 ```
+
+### Recipe A2: Laravel server-rendered — no Node, no queue worker
+
+Use when the app is **Blade-only with no build step** and `QUEUE_CONNECTION=sync`.
+Recipe A's `npm install && npm run build`, `storage:link` and Supervisor block are all
+**wrong** here and will either fail or install a service that does nothing.
+First shipped: Basic Custom E-Commerce (Laravel 12, PHP 8.3).
+
+```bash
+# 1. Server — note: no nodejs/npm
+sudo apt install -y nginx mysql-server \
+  php8.3-fpm php8.3-{cli,mbstring,xml,curl,zip,mysql,bcmath} \
+  composer certbot python3-certbot-nginx git unzip
+
+# 2. Install
+cd /var/www && git clone {repo} {project} && cd {project}
+composer install --no-dev --optimize-autoloader
+cp .env.example .env
+php artisan key:generate          # ONCE — see the warning below
+
+# 3. Database — do NOT run a blanket db:seed in production
+php artisan migrate --force
+php artisan db:seed --class=SettingSeeder --force   # config rows only, no demo data
+php artisan shop:create-admin                       # prompts; never echoes the password
+
+# 4. Permissions — no storage:link; uploads go straight into public/
+sudo chown -R www-data:www-data storage bootstrap/cache public/uploads
+sudo chmod -R 775 storage bootstrap/cache public/uploads
+
+# 5. Caches
+php artisan config:cache && php artisan route:cache && php artisan view:cache
+
+# 6. TLS
+sudo certbot --nginx -d {domain}
+```
+
+Nginx: `root /var/www/{project}/public;` — the document root on `public/` is what keeps
+`.env`, `app/`, `config/`, `database/`, `storage/`, `vendor/` off the web. Add
+`location ~ /\.(?!well-known).* { deny all; }` and set `client_max_body_size` above the
+app's upload cap.
+
+**Deploy an update**
+
+```bash
+git pull && composer install --no-dev --optimize-autoloader
+php artisan migrate --force
+php artisan optimize:clear
+php artisan config:cache && php artisan route:cache && php artisan view:cache
+```
+
+**Traps this recipe exists to avoid**
+
+| Trap | Detail |
+|---|---|
+| `APP_KEY` rotation | If any column uses the `encrypted` cast (OAuth tokens, API secrets), regenerating `APP_KEY` makes those rows undecryptable. Generate **once**; back `.env` up **separately from the DB dump** — one backup holding both carries its own key. Same for the app `cipher`: fix it before the first ciphertext is written. |
+| Blanket `db:seed` | Demo-catalogue seeders will happily insert test products into a live store. Seed named classes only, and make the admin seeder **refuse** to run in production without env credentials. |
+| `env()` after `config:cache` | Returns **null**. Only ever call `env()` inside `config/`. Silent, and only in production — the worst combination. |
+| MariaDB under the `mysql` driver | Set `DB_CONNECTION=mariadb` on a MariaDB host. `renameColumn()` is a hard syntax error on MariaDB ≤ 10.5.2 under the `mysql` grammar — a future migration fails on deploy, not in testing. |
+| Payment callback URL | Must be publicly reachable over **HTTPS** before the first real transaction; a gateway cannot call `localhost`. Verify from outside the box, not from the box. |
+| Handover credentials | Ship a forced first-login password change (DB flag + middleware), not a runbook instruction. See `11-pattern-library.md`. |
 
 ### Recipe B: Docker
 

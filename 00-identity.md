@@ -35,6 +35,7 @@
 - Daisy CRM - *(no project file yet)*
 - AgenticCore - Portable agent memory system (Markdown + Bash/PowerShell + Python) - *(no project file yet)*
 - AutomationSentinel - QA automation expansion pack for MemoryCore (Markdown + Bash/PowerShell) - *(no project file yet)*
+- [Basic Custom E-Commerce](./Projects/06-basic-ecom.md) - Small-business storefront, ToyyibPay + EasyParcel rates (Laravel 12 + PHP 8.3 + Blade + MySQL 8.0) - `Desktop/Codex Lure/project/basic-ecom` - **client project, RM1,000** - **DELIVERED 2026-08-27**, 11/11 phases, 199 tests; blocked on OQ-11 (payments) + OQ-13 (booking)
 <!-- Copy ./Projects/_template.md to ./Projects/<nn>-<name>.md, then link it above -->
 
 ## Protocols & References (Arranged in Process Order: 00 to 61)

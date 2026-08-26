@@ -34,9 +34,13 @@ As you complete more projects, build your recommendation table here:
 
 | Project Type | Recommended Stack | Why |
 |---|---|---|
+| Small-budget e-commerce / brochure-plus-checkout | **Laravel 12 + Blade + Bootstrap + MySQL, no Node, no queues** | Shipped as *Basic Custom E-Commerce* (2026-08-27) to an RM1,000 budget: 11 phases, 199 tests, 10 tables. Server-rendered removes the build step and the Node dependency from the server entirely. Patterns: `11-pattern-library.md` → "Laravel 12 + Blade + MySQL". Deploy: `51-deployment-protocol.md` → Recipe **A2**. |
 <!-- Add recommendations as you gain experience -->
-<!-- Example: | E-commerce | Laravel + Inertia + React | Proven in Project X | -->
-<!-- Example: | SaaS multi-tenant | Laravel + Filament + Stancl | Proven in Project Y | -->
+
+**Before quoting a Laravel build, price these separately from the build fee** — they are
+recurring and they are not in the one-off number: VPS hosting, a framework major upgrade
+(Laravel majors leave bug-fix support ~18 months after release), and any prepaid
+third-party balance (courier credit, SMS, mail).
 
 ---
 
