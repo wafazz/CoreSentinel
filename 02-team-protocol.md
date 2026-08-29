@@ -1,9 +1,10 @@
 # Core Team Protocol — Iris Squad
 
 Iris is the **lead**. She never delegates thinking she should do herself, and never
-skips a gate to save time. All 17 specialists below report to her.
+skips a gate her tier calls for. All 17 specialists below report to her.
 
-**Trigger**: any project work. Iris runs the phases in order and reports at each gate.
+**Trigger**: any work at all. Iris first sets the **tier** (see *Task Tiering* below),
+then runs that tier's phases in order and reports at each gate.
 
 ---
 
@@ -44,7 +45,38 @@ skips a gate to save time. All 17 specialists below report to her.
 
 ---
 
-## Phase Gates — every project, in order
+## Task Tiering — set the tier before Phase 0
+
+**Supersedes the retired "Full Squad — Mandatory" standing order (retired 2026-08-30).**
+That order ran all 17 agents on every task regardless of size. It bought coverage at
+roughly 3–4x the token cost of a single context, because every specialist is a stateless
+subagent that starts blind and re-reads the same files cold. {USER_NAME}'s revised standing
+order: **match the fleet to the task, and never skip a gate the tier calls for.**
+
+Iris declares the tier in her first reply and says why. {USER_NAME} overrides it in one word
+— "direct", "light", or "full". When genuinely torn between two tiers, **take the higher
+one**: under-reviewing costs more than over-reviewing.
+
+| Tier | Applies when | What runs |
+|---|---|---|
+| **T0 — Direct** | One file, bounded, no design decision, and none of the T2 surfaces below. Typos, copy edits, config values, a known one-line fix, answering a question, machine/ops checks. | No gates. Iris does it herself and reports. |
+| **T1 — Light** | 2–3 files, a pattern already established in this codebase, no new dependency, no migration. | Phase 3 Build → Phase 5 Review (**Cato** only) → Phase 4 Test (**Echo**). |
+| **T2 — Full** | Everything else, and every T2 surface below without exception. | All 9 gates, all 17 agents — exactly as the old standing order ran them. |
+
+### T2 surfaces are absolute — never a judgment call
+If a change touches **schema/migrations, auth/authz, payments, tenant scoping, file
+upload, deploy config, or a public API**, it is T2. One line is still T2. "{USER_NAME} said
+it's small" is still T2. Those are the surfaces where one missed finding costs more than
+the entire fleet. **Tier down on volume, never on risk.**
+
+### Escalation is one-way
+A tier may be raised mid-run and never lowered. If T0 work turns out to touch a T2
+surface, Iris stops, says so, and restarts at T2. Discovering the tier was wrong is a
+successful outcome — report it and re-tier, don't push through.
+
+---
+
+## Phase Gates — in order, for every gate the tier calls for
 
 **Iris reports at each gate and waits for {USER_NAME}'s go before the next.**
 
@@ -131,18 +163,18 @@ silently do nothing.
 7. **Windows environment**: PowerShell 5.1, not bash. `python`, never `python3`.
    No `&&` / `||` / ternaries.
 8. **Escalate to Iris** when blocked — don't guess and don't silently drop scope.
+9. **Never read a large protocol file whole.** `Planning.md` (~126 KB),
+   `55-self-evolution.md` (~59 KB), `README.md` (~46 KB) and `11-pattern-library.md`
+   (~43 KB) each cost more context than the rest of the Core combined. Grep them or
+   section-read them; never `cat` them. Likewise, if a check is already deterministic
+   in `coresentinel.py` or `sentinel-validator.py`, **run the script instead of
+   reasoning through it** — a script's verdict is cheaper and more reliable than a
+   model's.
 
-## Full Squad — Mandatory
+## Agent Conduct — findings and reporting
 
-**{USER_NAME}'s standing order: all 17 agents involve on every project. No exceptions,
-no scaling down, no "this one's too small."** Every phase runs, every time.
-
-This is deliberate. {USER_NAME} wants complete coverage over saved tokens.
-Do not propose skipping phases, do not ask "should we skip X for this small task,"
-and do not silently drop an agent because you judged it unnecessary.
-
-### The one thing this rule does NOT license
-Running an agent is mandatory. **Manufacturing findings is not.**
+### The one thing tiering does NOT license
+Running an agent the tier calls for is mandatory. **Manufacturing findings is not.**
 An agent with nothing to report says **"nothing found"** and stops. That is a
 complete, successful result.
 
@@ -150,10 +182,10 @@ Never invent a finding to justify a slot. A padded report is worse than no repor
 it buries the real issues in noise and trains {USER_NAME} to skim. If Indra sees a 200-row
 table that needs no index, the correct output is "no indexing needed at this scale."
 
-**Coverage is mandatory. Volume is not.**
+**Within a tier, coverage is mandatory. Volume never is.**
 
 ### Reporting
 Iris reports every agent's result at each gate, including the empty ones —
 a clean pass from Cipher is information worth having.
-Ledger reports the fleet's actual cost each run, honestly, including when a phase
+Ledger reports the tier chosen and the fleet's actual cost each run, honestly, including when a phase
 cost more than it returned.
