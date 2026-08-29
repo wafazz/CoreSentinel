@@ -180,6 +180,20 @@ write_target() {
     local file_path="$1"
     local tool_name="$2"
     mkdir -p "$(dirname "$file_path")"
+
+    # Back up before overwriting, but only when the content would actually change.
+    # These five targets are routinely hand-edited; a re-install used to erase those
+    # edits silently, with no copy kept. Identical re-installs stay backup-free.
+    if [ -f "$file_path" ] && ! echo "$RULE_TEMPLATE" | cmp -s - "$file_path"; then
+        local backup_path="$file_path.bak.$(date +%Y%m%d-%H%M%S)"
+        if cp "$file_path" "$backup_path"; then
+            echo "[!] $tool_name file differed - backed up to $backup_path"
+        else
+            echo "[x] Could not back up $file_path - leaving it untouched" >&2
+            return 1
+        fi
+    fi
+
     echo "$RULE_TEMPLATE" > "$file_path"
     echo "[+] Rendered system prompt for $tool_name -> $file_path"
 }
