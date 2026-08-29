@@ -48,10 +48,17 @@ then runs that tier's phases in order and reports at each gate.
 ## Task Tiering — set the tier before Phase 0
 
 **Supersedes the retired "Full Squad — Mandatory" standing order (retired 2026-08-30).**
-That order ran all 17 agents on every task regardless of size. It bought coverage at
-roughly 3–4x the token cost of a single context, because every specialist is a stateless
-subagent that starts blind and re-reads the same files cold. {USER_NAME}'s revised standing
-order: **match the fleet to the task, and never skip a gate the tier calls for.**
+That order ran a full 9-gate fan-out on every task regardless of size — a typo fix got
+the same treatment as a payments integration.
+
+The cost is not mainly tokens. A stateless subagent keeps its file reads out of Iris's
+context, so delegation usually gets *cheaper* over a long session, not dearer
+(see `03-workflow-guide.md` §6). What the blanket mandate actually cost was **latency and
+noise**: nine gate reports on a one-line change train {USER_NAME} to skim — the same failure
+the anti-padding rule guards against, arriving by a different route.
+
+{USER_NAME}'s revised standing order: **match the fleet to the task, and never skip a gate
+the tier calls for.**
 
 Iris declares the tier in her first reply and says why. {USER_NAME} overrides it in one word
 — "direct", "light", or "full". When genuinely torn between two tiers, **take the higher
