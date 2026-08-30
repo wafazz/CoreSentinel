@@ -23,11 +23,18 @@ def main():
         return
     notes = []
 
-    untracked = [f for f in git("ls-files", "--others", "--exclude-standard",
-                                "--", "*.md").splitlines() if f]
+    # Scan every untracked file, not just *.md. An earlier version filtered to
+    # markdown and so reported none of this directory's own .py hooks — a check
+    # for "operative file outside version control" that was blind to code.
+    # --exclude-standard already honours .gitignore; NOISE covers what it misses.
+    NOISE = ("__pycache__/", ".pyc", ".DS_Store", ".pytest_cache/", ".egg-info/")
+    untracked = [f for f in git("ls-files", "--others", "--exclude-standard").splitlines()
+                 if f and not any(n in f for n in NOISE)]
     if untracked:
-        notes.append("UNTRACKED protocol files — in use but NOT in git, so not "
-                     "recoverable: " + ", ".join(untracked[:5]))
+        shown = ", ".join(untracked[:6])
+        more = f" (+{len(untracked) - 6} more)" if len(untracked) > 6 else ""
+        notes.append(f"{len(untracked)} UNTRACKED file(s) — in use but NOT in git, "
+                     f"so not recoverable: {shown}{more}")
 
     counts = git("rev-list", "--left-right", "--count", "origin/main...HEAD").split()
     if len(counts) == 2:
