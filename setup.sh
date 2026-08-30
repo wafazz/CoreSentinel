@@ -151,6 +151,7 @@ Full data: $TARGET_DIR/03-workflow-guide.md section 6
 - QA Sentinel Mode: $TARGET_DIR/01-sentinel-identity.md
 - Squad Phase Gates: $TARGET_DIR/02-team-protocol.md
 - Workflow & Token Economics: $TARGET_DIR/03-workflow-guide.md
+- Skill Layer (host skills -> phase gates): $TARGET_DIR/18-skills-protocol.md
 - New Project Init: $TARGET_DIR/05-init-protocol.md
 - Stack Migration (MIMIC): $TARGET_DIR/06-mimic-protocol.md
 - Auto-Learn Stack: $TARGET_DIR/10-learn-protocol.md
