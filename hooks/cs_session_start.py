@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+"""CoreSentinel SessionStart gate.
+
+Reports Core drift into the model's context at session start, so the failures
+55-self-evolution.md is meant to catch surface automatically instead of waiting
+to be noticed. Fail-open: any error exits 0 silently.
+"""
+import json, os, subprocess, sys
+
+CS = os.environ.get("CORESENTINEL_DIR", os.path.expanduser("~/Desktop/CS"))
+
+
+def git(*a):
+    try:
+        return subprocess.run(["git", "-C", CS, *a], capture_output=True,
+                              text=True, timeout=5).stdout.strip()
+    except Exception:
+        return ""
+
+
+def main():
+    if not os.path.isdir(os.path.join(CS, ".git")):
+        return
+    notes = []
+
+    untracked = [f for f in git("ls-files", "--others", "--exclude-standard",
+                                "--", "*.md").splitlines() if f]
+    if untracked:
+        notes.append("UNTRACKED protocol files — in use but NOT in git, so not "
+                     "recoverable: " + ", ".join(untracked[:5]))
+
+    counts = git("rev-list", "--left-right", "--count", "origin/main...HEAD").split()
+    if len(counts) == 2:
+        behind, ahead = counts
+        branch = git("branch", "--show-current") or "HEAD"
+        if behind.isdigit() and int(behind) > 0:
+            notes.append(f"Core is {behind} commit(s) BEHIND origin/main on {branch}")
+        if ahead.isdigit() and int(ahead) > 0:
+            notes.append(f"Core has {ahead} unpushed commit(s) on {branch}")
+
+    dirty = [l for l in git("status", "--short").splitlines() if l]
+    if dirty:
+        notes.append(f"{len(dirty)} uncommitted file(s) in the Core")
+
+    try:
+        md = open(os.path.expanduser("~/.claude/CLAUDE.md"), encoding="utf-8").read()
+        if "Task Tiering" not in md:
+            notes.append("CLAUDE.md carries NO Task Tiering block — setup.sh likely "
+                         "overwrote it; re-render from the current Core")
+    except Exception:
+        pass
+
+    if not notes:
+        return
+    print(json.dumps({"hookSpecificOutput": {
+        "hookEventName": "SessionStart",
+        "additionalContext": "CoreSentinel drift check:\n- " + "\n- ".join(notes),
+    }}))
+
+
+try:
+    main()
+except Exception:
+    pass
+sys.exit(0)
