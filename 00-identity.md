@@ -29,13 +29,17 @@
 - **Debug Protocol**: Structured debugging. Trigger: "Iris debug". Protocol: [Debug](./60-debug-protocol.md)
 - **Handoff Protocol**: Client delivery. Trigger: "Iris handoff". Protocol: [Handoff](./52-handoff-protocol.md)
 - **Adapter Layer**: Bind the Core to any AI host. Trigger: `coresentinel adapter sync`. Protocol: [Adapters](./13-adapter-protocol.md)
+- **Skill Layer**: Bind host skills to the phase gates. Trigger: session start. Protocol: [Skills](./18-skills-protocol.md)
 
 ## Active Projects
 - [Example Project](./Projects/01-example-project.md) - Reference entry
 - Daisy CRM - *(no project file yet)*
 - AgenticCore - Portable agent memory system (Markdown + Bash/PowerShell + Python) - *(no project file yet)*
 - AutomationSentinel - QA automation expansion pack for MemoryCore (Markdown + Bash/PowerShell) - *(no project file yet)*
+- Sales Dashboard SaaS - Stock + Sales + Dashboard SaaS for small businesses (Laravel 12 + Vue 3 islands + AdminLTE 4 + MariaDB) - `Desktop/Codex Lure/Sales Dashboard` - PH-1 complete
+- [Omnichannel Messaging SaaS](./Projects/05-omnichannel-saas.md) - Multi-tenant WhatsApp/Telegram/Live-Chat platform with visual flow builder (NestJS 11 + TS 5.9.3 + Prisma 7 + PostgreSQL 18 + React 19) - `Desktop/Codex Lure/project/SaaS-OnmiChannel` - **[LEARN]** MILESTONE-011 delivered (unified inbox); building
 - [Basic Custom E-Commerce](./Projects/06-basic-ecom.md) - Small-business storefront, ToyyibPay + EasyParcel rates (Laravel 12 + PHP 8.3 + Blade + MySQL 8.0) - `Desktop/Codex Lure/project/basic-ecom` - **client project, RM1,000** - **DELIVERED 2026-08-27**, 11/11 phases, 199 tests; blocked on OQ-11 (payments) + OQ-13 (booking)
+- [Daily Spend](./Projects/07-daily-spend.md) - Simple daily spending SaaS, PWA wallet portal + AdminLTE owner console (Laravel 12 + Inertia 3 + Vue 3.5 + TS + MariaDB) - `Desktop/Codex Lure/project/Daily Spend` - **own SaaS** - **BUILT 2026-08-29**, 25/25 requirements, 137 tests; pending mail provider + deploy
 <!-- Copy ./Projects/_template.md to ./Projects/<nn>-<name>.md, then link it above -->
 
 ## Protocols & References (Arranged in Process Order: 00 to 61)
@@ -56,6 +60,7 @@
 15. [Migration Guide](./15-migration-guide.md) - Upgrading a v1 install to CoreSentinel v2 (`11.0.0`)
 16. [API & Integration Protocol](./16-api-protocol.md) - Webhook idempotency, signatures & backoff (`Iris api`)
 17. [AI Protocol](./17-ai-protocol.md) - Multi-provider failover, token metering & prompt defense (`Iris ai`)
+18. [Skill Layer Protocol](./18-skills-protocol.md) - Host skill inventory, phase bindings & invocation rules (`Iris skills`)
 25. [Test Protocol](./25-test-protocol.md) - Test strategy & authoring
 26. [Test Data Protocol](./26-test-data-protocol.md) - Fixtures & environments
 27. [Test Pattern Library](./27-test-pattern-library.md) - Solved testing patterns

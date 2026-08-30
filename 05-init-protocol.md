@@ -35,6 +35,7 @@ As you complete more projects, build your recommendation table here:
 | Project Type | Recommended Stack | Why |
 |---|---|---|
 | Small-budget e-commerce / brochure-plus-checkout | **Laravel 12 + Blade + Bootstrap + MySQL, no Node, no queues** | Shipped as *Basic Custom E-Commerce* (2026-08-27) to an RM1,000 budget: 11 phases, 199 tests, 10 tables. Server-rendered removes the build step and the Node dependency from the server entirely. Patterns: `11-pattern-library.md` → "Laravel 12 + Blade + MySQL". Deploy: `51-deployment-protocol.md` → Recipe **A2**. |
+| Mobile-first SaaS / PWA with an owner console | **Laravel 12 + Inertia 3 + Vue 3.5 + TS 5.9 + Vite 7 + Bootstrap 5.3.8 + AdminLTE 4.9.1 + MariaDB** | Shipped as *Daily Spend* (2026-08-29): 25 requirements, 10 tables, 137 tests, one session. One Inertia/Vue stack serves **both** surfaces — AdminLTE is a stylesheet, not a second frontend, so there is one build and one mental model. Patterns: `11-pattern-library.md` → the Laravel 12 + Inertia entries. Start from the plain `laravel/laravel` skeleton: the official Vue starter kit is Laravel-13-only. |
 <!-- Add recommendations as you gain experience -->
 
 **Before quoting a Laravel build, price these separately from the build fee** — they are

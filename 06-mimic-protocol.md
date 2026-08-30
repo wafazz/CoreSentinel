@@ -110,3 +110,4 @@ Execute the plan systematically.
 | Date | Source Stack | Target Stack | Project | Status |
 |------|------------|-------------|---------|--------|
 <!-- Entries added after completed migrations -->
+| 2026-08-23 | PHP 8 procedural + mysqli + AdminLTE | Laravel 12 + Vue 3 (Inertia) + Tailwind 4 | wkrich -> wkrich-v2 | Phases 1-8 complete; phase 9 complete except parallel run + cutover. 204 tests. 0 unexplained commission differences across 2,000 replayed orders. 35 decisions logged. |

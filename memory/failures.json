@@ -1,3 +1,229 @@
 {
-  "facts": []
+  "facts": [
+    {
+      "id": "MEM-8d2cceeca2",
+      "fact": "COMMISSION ANTI-PATTERN (found in all 3 prior projects): commission rate stored on a MUTABLE settings row with no effective dating. Editing commission_ranks.rate or commission_settings.rate retroactively changes what a re-run of a CLOSED period produces. Fix: effective-dated immutable rule versions (valid_from/valid_to, new row on edit) and stamp rule_version_id onto every commission row",
+      "confidence": 0.97,
+      "classification": "Known (Empirically Verified)",
+      "source": "Explore agent comparative read of dzi-holistik, AgentStockit, SAAS-Agent-Management commission tables",
+      "created_at": "2026-08-15 12:57:42",
+      "last_verified": "2026-08-15 12:57:42"
+    },
+    {
+      "id": "MEM-b725f197ac",
+      "fact": "COMMISSION ANTI-PATTERN: commission calculated INLINE inside a payment-gateway callback (AgentStockit PaymentController:36, SAAS-Agent PaymentController:208) with NO unique index and NO idempotency check. Gateways retry callbacks, so this creates duplicate money. AgentStockit PayoutService::createBatch() also sweeps approved commissions into payout_items but never flips them to paid - running it twice pays the same commission twice. Fix: queued job keyed on order + DB unique index on (order_id,user_id,type,level)",
+      "confidence": 0.97,
+      "classification": "Known (Empirically Verified)",
+      "source": "Explore agent read of AgentStockit and SAAS-Agent CommissionService and PaymentController",
+      "created_at": "2026-08-15 12:57:42",
+      "last_verified": "2026-08-15 12:57:42"
+    },
+    {
+      "id": "MEM-310a94f8b1",
+      "fact": "COMMISSION ANTI-PATTERN: no reversal or clawback path exists in ANY of the 3 prior projects. Order refunded/returned/cancelled after payout leaves the commission untouched. dzi-holistik even HARD-DELETES a pending commission to correct it (CommissionService::discardStale). Money rows must never vanish. Fix: reversed state + contra entry referencing the original, event-driven on order cancel/return/refund",
+      "confidence": 0.97,
+      "classification": "Known (Empirically Verified)",
+      "source": "Explore agent grep for void/reversed/clawback across all 3 projects - zero hits",
+      "created_at": "2026-08-15 12:57:42",
+      "last_verified": "2026-08-15 12:57:42"
+    },
+    {
+      "id": "MEM-984b2337f8",
+      "fact": "TOOLCHAIN ANTI-PATTERN CONFIRMED TWICE: reading a database CLIENT binary version and reporting it as the server version. SMEOS ADR-005 wrongly forbade 'features newer than PG 14' on this basis and had to withdraw the clause. Repeated on 2026-08-15 on the same machine: psql --version says 14.18, running server is 16.14. Rule: the only authoritative version is 'select version()' executed against the listening port",
+      "confidence": 0.98,
+      "classification": "Known (Empirically Verified)",
+      "source": "SMEOS Planning.md ADR-005 withdrawal + direct reproduction 2026-08-15",
+      "created_at": "2026-08-15 13:36:45",
+      "last_verified": "2026-08-15 13:36:45"
+    },
+    {
+      "id": "MEM-c35b2de174",
+      "fact": "REPRODUCED 2026-08-15 in Brand New ERP P0: Pest's expect($x)->not->toContain('a', 'my failure message') PASSES UNCONDITIONALLY because the second argument is parsed as another EXPECTED VALUE, not a message. A company_id mass-assignment guard written this way sat green while the violation was present. Only a deliberately planted violation exposed it. Fix: expect(in_array($needle, $haystack, true))->toBeFalse('message'). General rule: toContain/toContainEqual take variadic expected values - never pass a message to them. Every negated guard assertion must be proven by mutation before it is trusted",
+      "confidence": 0.99,
+      "classification": "Known (Empirically Verified)",
+      "source": "Planted company_id into Branch fillable; suite reported 49 passed. After rewrite it reported 1 failed, 48 passed",
+      "created_at": "2026-08-15 13:47:08",
+      "last_verified": "2026-08-15 13:47:08"
+    },
+    {
+      "id": "MEM-f7e32d0542",
+      "fact": "SELF-INFLICTED 2026-08-15 Brand New ERP P0: a line-based Python comment-stripper silently corrupted 12 PHP files. Cause: a single-line docblock '/** @return array */' matched the block-OPEN branch, set drop_block=True and continued WITHOUT testing the same line for the closing '*/', so every following code line was swallowed until the next '*/'. Files were left syntactically invalid; the failure surfaced only as a confusing Pest DatasetMissing error, not as a parse error at the edit site. RULE: any script that rewrites source must run a syntax check (php -l / node --check / python -m py_compile) over EVERY touched file in the same step, and must handle open-and-close-on-one-line before the open-only branch. This is the same class as the PowerShell BOM anti-pattern - a mechanical rewrite that reports success while producing unparseable files",
+      "confidence": 0.99,
+      "classification": "Known (Empirically Verified)",
+      "source": "12 files broken and restored by hand; verified with a full php -l sweep, 0 broken after repair",
+      "created_at": "2026-08-15 13:53:21",
+      "last_verified": "2026-08-15 13:53:21"
+    },
+    {
+      "id": "MEM-ad88128791",
+      "fact": "CORESENTINEL DEFECT found 2026-08-15: coresentinel_evidence.py line 169 probes only vendor/bin/phpunit for PHP projects. Pest installs phpunit as a transitive dependency and Pest's shim exits 1 with 'Please run ./vendor/bin/pest instead', so verify reports a FALSE FAIL on every Pest project regardless of suite health. Workaround until fixed: read the pest output directly, do not trust the verify tests line on a Pest project. Fix: probe vendor/bin/pest before vendor/bin/phpunit",
+      "confidence": 0.99,
+      "classification": "Known (Empirically Verified)",
+      "source": "Read coresentinel_evidence.py:169-172; reproduced with 143 passing Pest tests reported as FAIL",
+      "created_at": "2026-08-15 14:00:22",
+      "last_verified": "2026-08-15 14:00:22"
+    },
+    {
+      "id": "MEM-15702806b8",
+      "fact": "LARAVEL 11/12 TRAP found 2026-08-15: $middleware->priority([...]) in bootstrap/app.php REPLACES the entire framework default priority list, it does not merge. Passing two classes left a 2-entry list with Authenticate absent, so a route middleware hoisted to position 0 ran BEFORE authentication and its abort(401) pre-empted the guest redirect. Symptom was a guest getting 401 instead of a redirect to /login, which reads like an auth-config problem, not a priority problem. Correct API: prependToPriorityList($before, $insert) / appendToPriorityList($after, $insert), which preserve the 13 defaults. Also note Illuminate\\\\Auth\\\\Middleware\\\\Authenticate is NOT in the default priority list, so it must be inserted explicitly if ordering against it matters. Guard with a test asserting index(Authenticate) < index(YourMiddleware) < index(SubstituteBindings)",
+      "confidence": 0.99,
+      "classification": "Known (Empirically Verified)",
+      "source": "Reproduced and fixed in Brand New ERP P1; verified priority list went from 2 entries to 13 with correct ordering",
+      "created_at": "2026-08-15 14:13:17",
+      "last_verified": "2026-08-15 14:13:17"
+    },
+    {
+      "id": "MEM-2a42f1ef48",
+      "fact": "PROCESS RULE reinforced 2026-08-15: a scripted string replace that does not ASSERT it matched is a silent no-op. Twice in this project a python replace ran, printed a success message, and changed nothing because a formatter (Pint) had already rewritten the anchor text - once leaving a broken middleware priority in place while I believed it fixed. Rule: every scripted edit asserts count==1 before writing, or uses an edit tool that errors on no-match. A rewrite that cannot fail is a rewrite that cannot be trusted",
+      "confidence": 0.99,
+      "classification": "Known (Empirically Verified)",
+      "source": "Two occurrences in Brand New ERP P1; the third attempt used an assert and correctly caught the mismatch",
+      "created_at": "2026-08-15 14:13:17",
+      "last_verified": "2026-08-15 14:13:17"
+    },
+    {
+      "id": "MEM-dacd4d8fc7",
+      "fact": "ELOQUENT TRAP found 2026-08-15: a database column DEFAULT does not populate an in-memory model. Customer::create(['code'=>..,'name'=>..]) left $customer->currency NULL even though the column defaults to 'MYR', because the default is applied by Postgres on INSERT and never read back unless the model is refreshed. A price resolver then received null where a currency string was required and threw a TypeError. FIX: mirror every meaningful DB default in the model's protected $attributes array so the in-memory object and the persisted row agree before any refresh",
+      "confidence": 0.98,
+      "classification": "Known (Empirically Verified)",
+      "source": "Reproduced in Brand New ERP P2 PriceResolverTest; fixed by adding $attributes defaults to 14 models",
+      "created_at": "2026-08-15 14:26:19",
+      "last_verified": "2026-08-15 14:26:19"
+    },
+    {
+      "id": "MEM-06b8807b26",
+      "fact": "NAMING TRAP found 2026-08-15: Laravel pluralised model UnitOfMeasure to table 'unit_of_measures' while the migration created 'units_of_measure' (correct English). Nothing failed until first use. GUARD ADDED: a reflection-driven test asserting every Eloquent model maps to a table that actually exists (Schema::hasTable on getTable()). This catches the whole class of model/migration name drift at suite time rather than in production",
+      "confidence": 0.99,
+      "classification": "Known (Empirically Verified)",
+      "source": "Caught by the isolation suite in Brand New ERP P2; guard now permanent in tests/Isolation/SchemaGuardsTest.php",
+      "created_at": "2026-08-15 14:26:19",
+      "last_verified": "2026-08-15 14:26:19"
+    },
+    {
+      "id": "MEM-2db20821ca",
+      "fact": "LARAVEL 11/12 TRAP found 2026-08-15: framework AUTO-DISCOVERS listeners in app/Listeners (any class with a handle() method type-hinting an event). Adding an explicit Event::listen for the same event/listener pair registers it TWICE, so every side effect runs twice. In Brand New ERP P4 this silently reserved stock twice per order line - a duplicate-inventory bug that looked like a reservation logic error, not a wiring error. Fix: rely on auto-discovery OR disable it, never both. GUARD: assert Event::getListeners(YourEvent::class) has exactly the expected count; the guard was proven by planting the duplicate registration and confirming both the guard and the behavioural test fail",
+      "confidence": 0.99,
+      "classification": "Known (Empirically Verified)",
+      "source": "Reproduced in Brand New ERP P4: 2 reservations for 1 order line; fixed and guarded",
+      "created_at": "2026-08-15 15:36:42",
+      "last_verified": "2026-08-15 15:36:42"
+    },
+    {
+      "id": "MEM-337cee8b65",
+      "fact": "POSTGRESQL CONSTRAINT found 2026-08-15: 'FOR UPDATE is not allowed with aggregate functions'. A sequence allocator written as Model::query()->where(...)->lockForUpdate()->max('sequence') is invalid SQL on Postgres and fails at runtime, not at analysis. Fix: lock the LAST ROW instead of the aggregate - orderByDesc('sequence')->lockForUpdate()->first() - then compute next in PHP, plus a retry on unique violation 23505 to cover the first-insert race where no row exists to lock",
+      "confidence": 0.99,
+      "classification": "Known (Empirically Verified)",
+      "source": "Reproduced in Brand New ERP P5 attribution touch sequencing; fixed and 18 tests green",
+      "created_at": "2026-08-15 15:51:17",
+      "last_verified": "2026-08-15 15:51:17"
+    },
+    {
+      "id": "MEM-a1091f6bff",
+      "fact": "TESTING NUANCE recorded 2026-08-15: layered defence makes single-mutation proofs inconclusive. The attribution reports carried company scoping on BOTH the attributions table and the joined orders table, so removing either one alone did NOT leak and the isolation test still passed - which reads like a weak test but is actually redundant protection. Only stripping EVERY filter from the query made the test fail (2 rows instead of 1). RULE: when a planted violation does not fail a test, determine whether the test is weak or the code is redundantly protected before concluding either; strip the whole layer to find out",
+      "confidence": 0.97,
+      "classification": "Known (Empirically Verified)",
+      "source": "Three successive planted violations against AttributionReport in Brand New ERP P5",
+      "created_at": "2026-08-15 15:51:17",
+      "last_verified": "2026-08-15 15:51:17"
+    },
+    {
+      "id": "MEM-690680648d",
+      "fact": "POSTGRESQL NULL-DISTINCTNESS TRAP found 2026-08-15: a UNIQUE index does NOT prevent duplicates when a participating column is NULL, because Postgres treats NULLs as distinct. A commission idempotency constraint on (company_id, order_id, order_item_id, recipient_user_id, plan_id, type) silently allowed unlimited duplicates for ORDER-LEVEL accruals where order_item_id is NULL - the exact rows the constraint existed to protect. Detected only because a test tried to insert a deliberate duplicate and no exception was thrown. FIX on PG15+: UNIQUE NULLS NOT DISTINCT (...). Verified: after the fix, removing the application-level idempotency check produces a UniqueConstraintViolationException instead of a duplicate row",
+      "confidence": 0.99,
+      "classification": "Known (Empirically Verified)",
+      "source": "Reproduced and fixed in Brand New ERP P6; proven by planted violation",
+      "created_at": "2026-08-15 16:04:54",
+      "last_verified": "2026-08-15 16:04:54"
+    },
+    {
+      "id": "MEM-d617bd83bf",
+      "fact": "PHP TRAP repeated twice in one project (2026-08-15): enum instances CANNOT be used as array keys. foreach ([SomeEnum::A => X, SomeEnum::B => Y] as $k => $v) raises 'Cannot access offset of type SomeEnum on array' at runtime, not at analysis, and the message points at the foreach rather than at the literal. It bit Brand New ERP twice - once in P1 DataScopeTest and again in P5-P8 ReportingTest - because the map-literal reads naturally. FIX: use a list of pairs, foreach ([[SomeEnum::A, X], [SomeEnum::B, Y]] as [$k, $v]). Worth remembering because PHPStan does not catch it and the error surfaces far from the cause",
+      "confidence": 0.99,
+      "classification": "Known (Empirically Verified)",
+      "source": "Two independent occurrences in Brand New ERP; both fixed with pair lists",
+      "created_at": "2026-08-15 16:23:47",
+      "last_verified": "2026-08-15 16:23:47"
+    },
+    {
+      "id": "MEM-46afbc8049",
+      "fact": "OPERATIONAL TRAP found 2026-08-15 during a backup rehearsal: pg_dump REFUSES to dump a server newer than itself ('aborting because of server version mismatch'). On this machine the client on PATH is 14.18 while the server is 16.14, so the very first backup attempt failed outright. An unrehearsed backup plan would have discovered this during an incident. FIX: resolve a client binary whose MAJOR version matches the server before dumping - query 'show server_version_num', then look under /opt/homebrew/opt/postgresql@<major>/bin and /usr/lib/postgresql/<major>/bin, and verify with --version before use. Also refuse to write a dump under 1KB so an empty file is never mistaken for a backup. This is the THIRD time the client-vs-server version distinction has caused a defect on this project",
+      "confidence": 0.99,
+      "classification": "Known (Empirically Verified)",
+      "source": "Reproduced in Brand New ERP P9; backup.sh and restore.sh now resolve the matching client",
+      "created_at": "2026-08-15 16:43:10",
+      "last_verified": "2026-08-15 16:43:10"
+    },
+    {
+      "id": "MEM-7690ca4b06",
+      "fact": "SECURITY FINDING 2026-08-15 Brand New ERP P9: Laravel 11/12 config/filesystems.php ships the local disk with 'serve' => true, which registers GET /storage/{path} AND PUT /storage/{path} with NO middleware whatsoever. On a system whose private disk holds business documents that is unauthenticated read AND write. It is invisible in route:list review unless you look at middleware, and no test catches it by default. FIX: set 'serve' => false on any private disk and serve documents through an authorised controller. GUARD: a test that fails if any route under storage/ has an empty middleware stack",
+      "confidence": 0.99,
+      "classification": "Known (Empirically Verified)",
+      "source": "Found by auditing every state-changing route's middleware in Brand New ERP P9; fixed and guarded",
+      "created_at": "2026-08-15 16:43:10",
+      "last_verified": "2026-08-15 16:43:10"
+    },
+    {
+      "id": "MEM-b8f13cd146",
+      "fact": "MEASUREMENT TRAP 2026-08-15: an N+1 probe that compares query counts between a first and second request measures CACHE WARMING, not N+1. In Brand New ERP the audit screen showed 12 queries for 3 rows and 7 for 30 - the count went DOWN - because the first request primed the permission cache. Reading that as a pass or a fail would both have been wrong. FIX: issue one warm-up request before measuring, then compare steady-state counts at two data volumes within the SAME company and user",
+      "confidence": 0.98,
+      "classification": "Known (Empirically Verified)",
+      "source": "Reproduced in Brand New ERP P9 QueryBudgetTest; corrected and the guard then caught a removed eager load",
+      "created_at": "2026-08-15 16:43:10",
+      "last_verified": "2026-08-15 16:43:10"
+    },
+    {
+      "id": "MEM-dec4543e25",
+      "fact": "UI WAVE 2026-08-15: A route-name mismatch (ModuleSeeder said 'commissions.index', routes/web.php registered 'commission.index') passed Pint, PHPStan, tsc, the Vite build and all 1387 tests. NavigationBuilder filters modules whose route does not resolve, so the only symptom would have been a Commission entry silently absent from every sidebar. RULE: any filter that hides broken things also hides your own mistakes - it needs a test asserting the filtered set is empty. Two architecture tests now enforce this and both were proven by planting the exact mismatch.",
+      "confidence": 0.99,
+      "classification": "Known (Empirically Verified)",
+      "source": "tests/Architecture/ModuleRouteTest.php; planted violation reproduced the silent drop",
+      "created_at": "2026-08-15 17:55:34",
+      "last_verified": "2026-08-15 17:55:34"
+    },
+    {
+      "id": "MEM-24452cce32",
+      "fact": "UI WAVE 2026-08-15: Three screen authorization tests passed for the wrong reason and were only caught by planting violations. (1) 'salesperson cannot see customers' - the salesperson role DOES hold customers.view by design; rewritten against storekeeper. (2) 'salesperson cannot cancel an order' - asserted the rendered permissions.cancel flag, never the endpoint; removing the server-side cancel mapping left it green; a direct-POST test was added. (3) 'cannot void an invoice' - an Invoice has NO owner column so an 'own' scope was doing the refusing, not the invoices.void permission; rewritten with a branch-scoped manager who can open the invoice and is still refused. RULE: before asserting a role is refused, assert that role can reach the resource by some other route - otherwise you are testing the scope, not the permission.",
+      "confidence": 0.99,
+      "classification": "Known (Empirically Verified)",
+      "source": "tests/Feature/{CustomerScreenTest,OrderScreenTest,InvoiceScreenTest}.php; all three failures surfaced only under planted violations",
+      "created_at": "2026-08-15 17:55:34",
+      "last_verified": "2026-08-15 17:55:34"
+    },
+    {
+      "id": "MEM-4b18584675",
+      "fact": "PURCHASING UI 2026-08-15: LandedCostAllocator read $item->variant->weight_grams ?? 0 but GoodsReceiptItem had NO variant relation. In PHP $null->prop ?? 0 quietly yields 0, so every by-weight landed cost apportioned nothing while reporting success. Nine phases of tests missed it because there was no by-weight test AND the fixture gave both variants the SAME weight - so even a by-weight assertion would have matched the by-quantity answer. It surfaced only when adding the relation turned the silent null into a LazyLoadingViolationException. RULES: (1) '?? 0' on a chained property access converts a missing relation into a plausible number - never use it to guard a relation; (2) a fixture whose values are identical across rows cannot distinguish a correct split from a broken one.",
+      "confidence": 0.99,
+      "classification": "Known (Empirically Verified)",
+      "source": "app/Domain/Purchasing/LandedCostAllocator.php:90; 8 tests failed at once on adding the relation; new by-weight test proven by removing the relation again",
+      "created_at": "2026-08-15 18:19:08",
+      "last_verified": "2026-08-15 18:19:08"
+    },
+    {
+      "id": "MEM-7c68d52cdf",
+      "fact": "ACCESS ADMIN 2026-08-15: Third occurrence of the layered-defence false pass. Two access-control tests were passing because a DIFFERENT guard refused first: (1) 'cannot change your own access' - the owner demoting themselves also tripped the last-owner guard, so removing the self-edit guard changed nothing; (2) 'cannot deactivate the last owner' - the request carried role=owner which tripped the escalation guard first. The second exposed a real design flaw: re-submitting a member's EXISTING role was treated as granting it, so an admin could not edit an owner's branch at all. Fixed so escalation only runs when the role actually changes. RULE: where defence is layered, a refusal proves nothing about the guard you meant to test - isolate the actor and payload so only that one guard can answer, then plant.",
+      "confidence": 0.99,
+      "classification": "Known (Empirically Verified)",
+      "source": "tests/Feature/AccessAdminScreenTest.php; both guards passed under planted removal until the tests were rewritten",
+      "created_at": "2026-08-15 18:53:42",
+      "last_verified": "2026-08-15 18:53:42"
+    },
+    {
+      "id": "MEM-02b9b63de7",
+      "fact": "COMMISSION CONFIG 2026-08-15: Two design defects. (1) publishVersion() closed the outgoing rate by writing valid_to onto it - a DB trigger rejects any update to commission_rule_versions because a published rate is a historical fact. The fix was not to drop the trigger but to derive which version is in force from valid_from ordering, which the engine already did. RULE: when an invariant the codebase already enforces blocks a new feature, the feature is usually what is wrong. (2) RoleProvisioner used updateOrCreate on RolePermissionScope, resetting every scope to the role default. Harmless while only the seeder set scopes; DESTRUCTIVE the moment scopes became editable in the UI - every deploy would silently widen a narrowed scope back. Changed to firstOrCreate and added erp:sync-roles. RULE: making a seeded value user-editable turns every idempotent seeder into a data-loss bug - audit the seeder in the same change.",
+      "confidence": 0.99,
+      "classification": "Known (Empirically Verified)",
+      "source": "DB trigger commission_rule_versions_no_update; both fixes proven by planting the original code and watching the tests fail",
+      "created_at": "2026-08-15 19:12:50",
+      "last_verified": "2026-08-15 19:12:50"
+    },
+    {
+      "id": "MEM-84ad90e86f",
+      "fact": "TOOLING ANTI-PATTERN, fixed 2026-08-16: an evidence check that probes for a tool by BINARY PRESENCE rather than by which tool the project actually drives. coresentinel_evidence.check_tests ran vendor/bin/phpunit whenever it existed, but Pest ships PHPUnit as a dependency, so on every Pest project the binary is present, refuses to run ('Please run [./vendor/bin/pest] instead') and exits 1 - reported as a FAILING TEST SUITE. Brand New ERP was accused of a failing suite in 352ms while its 1770 tests pass in 155s. A fabricated FAIL is the same defect class as the fabricated PASS this engine was rewritten to remove, and worse in one way: it accuses working code, so the tell is DURATION - a suite that 'fails' far faster than it could possibly run did not run. Same session: check_lint had no PHP branch at all, so Pint reported as 'no linter configured'. Fixed by preferring vendor/bin/pest and adding a Pint branch, both proven by mutation (5 of 7 new tests fail with the defect replanted)",
+      "confidence": 0.97,
+      "classification": "Known (Empirically Verified)",
+      "source": "Brand New ERP verify run 2026-08-16; coresentinel_evidence.py:169 and :209",
+      "created_at": "2026-08-16 08:24:11",
+      "last_verified": "2026-08-16 08:24:11"
+    }
+  ]
 }

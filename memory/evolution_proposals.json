@@ -30,8 +30,24 @@
     "proposed_change": "Add the Memory Ecosystem Protocol: confidence decay (0.05 per 30 unverified days, floor 0.30, failures and pinned facts exempt), tiered promotion with an opt-in transferable gate for the project-to-core hop, duplicate consolidation that keeps max confidence rather than boosting, and budgeted compaction. Every operation is a dry run until --apply and snapshots before destroying.",
     "evidence": "Recorded facts had no expiry, no dedup and no search: 436-test suite (131 new) covers decay idempotence, promotion scope containment, no-confidence-manufacture on merge and snapshot reversibility",
     "impact_analysis": "Medium risk; decay mutates stored confidence. Mitigations: opt-in --apply on every operation, automatic pre-operation snapshots with restore, decay computed from base_confidence so it is idempotent, and re-verification requires an explicit match string",
-    "review_status": "PENDING_REVIEW",
-    "approver": null,
-    "version": "1.3.0"
+    "review_status": "APPROVED",
+    "approver": "Fakrul",
+    "version": "1.3.0",
+    "approved_at": "2026-08-15 13:27:34"
+  },
+  {
+    "id": "EVO-004",
+    "timestamp": "2026-08-15 13:28:06",
+    "target_protocol": "02-team-protocol.md",
+    "proposed_change": "Make Standing Rule 7 platform-conditional instead of unconditionally Windows. Current text mandates 'PowerShell 5.1, not bash. python, never python3. No && / || / ternaries' for all agents on all projects. Replace with a rule that resolves the shell and interpreter from the host OS at session start, and states the Windows constraints as the Windows branch only, with a macOS/Linux branch specifying zsh/bash and python3.",
+    "evidence": "Session 2026-08-15 on darwin 24.6.0: every CoreSentinel invocation required python3 (python is absent), zsh is the shell, and && is required. Rule 7 as written was wrong for 100 percent of commands in this session. Corroborating prior incidents already in 55-self-evolution.md: the 2026-08-10 anti-pattern where install.sh probed HOME/Desktop which does not exist under OneDrive redirection, and the 2026-08-10 sed Windows-path anti-pattern - both are cases of a platform assumption baked into a rule producing silent wrongness on the other platform.",
+    "impact_analysis": "Low risk; the rule is advisory guidance to agents, not an executable control. No code path reads it. Mitigation: the Windows constraints are preserved verbatim as the Windows branch, so nothing is lost for Windows sessions. Failure mode if wrong: an agent uses the wrong interpreter name and the command errors loudly at once, which is self-correcting.",
+    "review_status": "APPROVED",
+    "approver": "Fakrul",
+    "version": "1.4.0",
+    "candidate": null,
+    "applied_at": null,
+    "snapshot": null,
+    "approved_at": "2026-08-16 08:22:52"
   }
 ]

@@ -166,6 +166,14 @@ def check_tests(target_dir=".", base=None):
         result = execution.python("-m", "pytest", "-q", cwd=target_dir, timeout=TEST_TIMEOUT)
         return _test_verdict("tests", label, weight, result)
 
+    # Pest ships PHPUnit as a dependency, so vendor/bin/phpunit exists on a Pest
+    # project but refuses to run and exits 1 — which reads as a failing suite.
+    # A fabricated FAIL is the same defect as a fabricated PASS: pest wins.
+    pest = target / "vendor" / "bin" / "pest"
+    if pest.exists():
+        result = execution.run([str(pest), "--no-coverage"], cwd=target_dir, timeout=TEST_TIMEOUT)
+        return _test_verdict("tests", label, weight, result)
+
     phpunit = target / "vendor" / "bin" / "phpunit"
     if phpunit.exists():
         result = execution.run([str(phpunit), "--no-coverage"], cwd=target_dir, timeout=TEST_TIMEOUT)
@@ -246,6 +254,16 @@ def check_lint(target_dir=".", base=None):
                              execution.run(["cargo", "clippy", "--", "-D", "warnings"],
                                            cwd=target_dir, timeout=TEST_TIMEOUT),
                              "clippy reported no warnings", "clippy reported warnings")
+
+    # PHP had no branch at all, so a Laravel project with Pint installed and wired
+    # into its own gate script reported "no linter is configured".
+    pint = target / "vendor" / "bin" / "pint"
+    if pint.exists():
+        return _exit_verdict("lint", label, weight,
+                             execution.run([str(pint), "--test"], cwd=target_dir,
+                                           timeout=TEST_TIMEOUT),
+                             "pint reported no style violations",
+                             "pint reported style violations")
 
     return _finding("lint", label, weight, UNKNOWN,
                     "no linter is configured for this project or installed on this machine")

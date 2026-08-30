@@ -444,6 +444,94 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   skeleton, so record it as a decision, not a silent omission.
 - **First used in**: Basic Custom E-Commerce
 
+### Laravel 12 — `authorizeResource()` Is Dead, Use `HasMiddleware`
+- **Stack**: Laravel 11+/12, resource controllers
+- **Problem**: `$this->authorizeResource(Model::class, 'model')` in a controller constructor
+  throws `Call to undefined method ...::middleware()` at request time — not at boot, so it
+  looks like a routing fault.
+- **Solution**: Laravel 11 moved middleware out of controllers, and the base `Controller` no
+  longer has `middleware()`. `AuthorizesRequests::authorizeResource()` still calls it.
+  Implement `HasMiddleware` and declare the same mapping explicitly:
+  ```php
+  class TransactionController extends Controller implements HasMiddleware
+  {
+      public static function middleware(): array
+      {
+          return [
+              new Middleware('can:viewAny,'.Transaction::class, only: ['index']),
+              new Middleware('can:create,'.Transaction::class, only: ['create', 'store']),
+              new Middleware('can:update,transaction', only: ['edit', 'update']),
+              new Middleware('can:delete,transaction', only: ['destroy']),
+          ];
+      }
+  }
+  ```
+  The route-parameter form (`can:update,transaction`) resolves the bound model, so it keeps
+  the "a method added later is covered by default" property `authorizeResource` had.
+- **Gotchas**: keep the `AuthorizesRequests` trait only if a method still calls
+  `$this->authorize()` directly. Route-model binding runs in `SubstituteBindings` (web group)
+  **before** a route-level `admin` middleware, so an unauthorised request to a *nonexistent*
+  id returns **404, not 403** — a test asserting 403 must use a real record or it passes for
+  the wrong reason.
+- **First used in**: Daily Spend — REQ-05…REQ-13 (2026-08-29)
+
+### Laravel 12 — `APP_TIMEZONE` Is Silently Ignored
+- **Stack**: Laravel 11+/12 (slim skeleton)
+- **Problem**: `APP_TIMEZONE=Asia/Kuala_Lumpur` in `.env` has no effect. `config('app.timezone')`
+  stays `UTC`, `now()` returns UTC, and anything anchored to the app clock (scheduler,
+  admin dashboards, seeders) lands on a different calendar day from users whose own timezone
+  is set correctly.
+- **Solution**: the slimmed `config/app.php` ships **`'timezone' => 'UTC'`** as a literal, not
+  `env('APP_TIMEZONE', 'UTC')`. Change it, then assert it:
+  ```php
+  $this->assertSame(env('APP_TIMEZONE'), config('app.timezone'));
+  ```
+- **Gotchas**: this is invisible until two clocks are compared — the app looked fine because
+  every *user-facing* query used `$user->timezone`. It surfaced only when demo data seeded with
+  `now()` failed to appear under "today". Any project mixing `config('app.timezone')` and a
+  per-user timezone needs this assertion.
+- **First used in**: Daily Spend (2026-08-29)
+
+### Date Columns Are Calendar Days, Not Instants
+- **Stack**: Any ORM over MySQL/MariaDB with a `DATE` column
+- **Problem**: a scheduled job compared `$model->next_date` (a `DATE` cast to Carbon) against
+  `Carbon::now($user->timezone)->startOfDay()`. Same printed value, different instants —
+  midnight-UTC vs midnight-UTC+8 — so `lte()` returned **false** and a due-today record never
+  fired. Silent: no error, just nothing happening.
+- **Solution**: compare calendar dates as calendar dates. ISO strings sort and compare
+  correctly and carry no zone:
+  ```php
+  $today = Carbon::now($tz)->toDateString();
+  while ($model->next_date->toDateString() <= $today) { … }
+  ```
+  Same for equality — `->toDateString() === $tomorrow` rather than `isSameDay()`.
+- **Gotchas**: the failure only appears when the app clock and the user clock straddle
+  midnight, so it passes all day and breaks for a window each night. Storing the column as
+  `DATE` (not `DATETIME`) is the right call and removes conversion from every report path —
+  but only if the *comparisons* respect that too.
+- **First used in**: Daily Spend — REQ-13 (2026-08-29)
+
+### Privilege Columns Must Not Be Fillable — and the Silent No-Op That Follows
+- **Stack**: Laravel, any version
+- **Problem**: `users.role` and `users.status` were correctly kept out of `$fillable`. An admin
+  controller then did `$user->update(['status' => $validated['status']])` — which mass-assignment
+  protection silently discards. **Suspending a user did nothing, with no error and a success
+  toast.** A green-looking feature that had never worked.
+- **Solution**: keep privilege out of `$fillable`, and give the model one explicit method that
+  is the only supported path:
+  ```php
+  public function changeStatus(UserStatus $status): void
+  {
+      $this->forceFill(['status' => $status])->save();
+  }
+  ```
+  Same for `email_verified_at` when a profile update should reset verification.
+- **Gotchas**: `update()` returning `true` proves the query ran, not that the field changed.
+  Any field deliberately excluded from `$fillable` needs a named mutator, or every future
+  caller reintroduces the bug. A feature test asserting the *resulting state* catches it;
+  one asserting the redirect does not.
+- **First used in**: Daily Spend — REQ-20 (2026-08-29)
+
 ### Laravel on Native Windows 11 (no WSL)
 - **Stack**: Laravel 13, Windows 11, Vite 8
 - **Problem**: which local environment, and what silently degrades.

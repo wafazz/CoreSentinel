@@ -495,6 +495,55 @@ Track mistakes to never repeat.
   about the other.
 - **Applies to**: All cross-shell installers on Windows
 
+### Anti-Pattern: Reporting a service found by port-scanning instead of by reading the config
+- **What happened**: At the Phase 1 gate I reported the dev database as **MariaDB 11.8.2 on
+  port 3306**, having found a `mariadbd` listener with `lsof`. {USER_NAME}'s projects all point
+  at **port 3307, MariaDB 10.4.28** — a different instance entirely. I only noticed when
+  `mariadb -u root` on 3306 failed with access denied and I went looking at sibling `.env`
+  files.
+- **Impact**: A confidently wrong fact in a gate report a stack decision was made on. It
+  mattered: on 10.4 `DB_CONNECTION=mariadb` is load-bearing (`renameColumn` emits syntax the
+  engine does not have until 10.5.2), whereas on 11.8 it is merely preferred. Had I built to
+  the reported version, the first `renameColumn` migration would have been a hard error.
+- **Rule**: A listening socket is a machine fact, not a project fact. To learn which database
+  a project uses, read a **sibling project's `.env`** — or the project's own — before running
+  `lsof`. When both exist, say which one the projects actually target and why. Same shape as
+  the "empty grep proves absence" anti-pattern: the tool answered a question I had not asked.
+- **Applies to**: All projects, every environment report
+
+### Anti-Pattern: Faking the channel that the dedupe guard reads
+- **What happened**: Wrote `Notification::fake()` in a test asserting a budget warning fires
+  **once per month**. The once-per-month guard is a query against the `notifications` table.
+  Faking the channel stops the row being written, so the guard never saw its own prior send and
+  the test reported 2 notifications. I nearly "fixed" working production code to satisfy it.
+- **Impact**: Cost a debug cycle and almost produced a real regression in correct code.
+- **Rule**: Before faking a facade, ask what the code under test **reads**. If the guard reads
+  the same store the fake intercepts, the fake tests itself. Assert on the real rows instead
+  (`$user->notifications()->where(...)->count()`). Fakes are for *outbound* effects you cannot
+  observe; they are wrong for a mechanism whose evidence is persisted state.
+- **Applies to**: All projects — `Notification::fake`, `Mail::fake`, `Bus::fake`, `Event::fake`
+
+### Skill: Let the seeded demo disagree with the app, then find out why
+- **Pattern**: After building, seed realistic demo data and read the app's own numbers back
+  through a real request. "Today: 0.00" next to a week total that obviously included today was
+  the only visible symptom of `APP_TIMEZONE` being ignored — no test caught it, because every
+  test used one clock consistently.
+- **Why**: A test suite proves internal consistency. Demo data crossing a real boundary (seed
+  clock vs request clock, PHP vs DB) proves the boundary. Cross-check an invariant that must
+  hold across the two — here, *the plotted series must sum to the headline*.
+- **Applies to**: Any app with time-series or aggregate reporting
+
+### Anti-Pattern: Trusting `update()` on a field that is not fillable
+- **What happened**: See the Pattern Library entry *Privilege Columns Must Not Be Fillable*.
+  `$user->update(['status' => 'suspended'])` silently discarded the field and returned `true`;
+  admin suspension never worked, and the UI showed a success toast.
+- **Impact**: A security-relevant control that appeared to work. Caught only because a test
+  asserted the **resulting state** rather than the redirect.
+- **Rule**: When a field is deliberately outside `$fillable`, `update()` is not the API for it
+  — write a named method. And always assert the post-condition, never the response alone: a
+  302 to the right place proves routing, not effect.
+- **Applies to**: All Laravel projects
+
 ---
 
 ## Basic Custom E-Commerce — 2026-08-27 (Laravel 12, client delivery)

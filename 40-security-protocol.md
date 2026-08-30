@@ -11,6 +11,21 @@
 
 ---
 
+## Skill Binding
+
+`security-review` reviews the pending changes on the current branch. Run it at
+Phase 6 before walking the sections below.
+
+What it does **not** cover, and Argus/Cipher/Aegis still own by hand:
+- **Git history** (§1) — the skill reads the branch diff, not what leaked six commits ago
+- **Multi-tenant scoping** (§4) — it cannot know which column is the tenant key
+- **Production hardening** (§8) — deploy config lives outside the diff
+- **Dependency audit** (§7) — run `npm audit` / `composer audit` yourself
+
+A clean `security-review` is **not** a clean Phase 6. It is one of three inputs.
+
+---
+
 ## 1. Secret & Credential Protection
 
 ### Never Commit Secrets

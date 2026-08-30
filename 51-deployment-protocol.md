@@ -185,3 +185,46 @@ docker-compose up -d
 | CSS/JS not loading | Run build command, check manifest |
 | Mixed content (HTTP/HTTPS) | Set APP_URL to https |
 | Redis connection refused | Check Redis service is running |
+
+---
+
+## Recipe A3 — Laravel 12 + Inertia/Vue PWA on a small VPS
+
+First used: **Daily Spend** (2026-08-29). nginx + PHP-FPM 8.3 + MySQL 8 or MariaDB 10.5+.
+
+**Node is a build-time dependency only.** `npm run build` emits `public/build`; the server
+needs no Node at runtime. If the host cannot run Node, build in CI and ship `public/build`
+as an artifact.
+
+```bash
+composer install --no-dev --optimize-autoloader
+php artisan migrate --force
+npm ci && npm run build
+php artisan config:cache route:cache view:cache
+sudo systemctl reload php8.3-fpm
+```
+
+Cron, one line — the only scheduled work is recurring-expense generation at 00:15:
+```
+* * * * * cd /var/www/app && php artisan schedule:run >> /dev/null 2>&1
+```
+
+**TLS is not optional.** A service worker will not register over plain HTTP, so without a
+certificate the PWA requirement simply does not function — no install prompt, no offline
+shell. Set `SESSION_SECURE_COOKIE=true` at the same time.
+
+**Keep the previous `public/build` for a grace period** after an atomic-symlink deploy.
+Inertia 3 lazy-splits chunks by default, so an open tab 404s on a stale chunk otherwise;
+the app handles `vite:preloadError` by reloading, but only if the old chunk 404s rather
+than the whole origin failing.
+
+**Gotchas found the hard way:**
+- `config/app.php` in the slim skeleton hardcodes `'timezone' => 'UTC'`. Fix it to read
+  `env('APP_TIMEZONE')` or the scheduler runs on a different calendar day from your users.
+- On **MariaDB ≤ 10.4**, `DB_CONNECTION=mariadb` is mandatory, not stylistic — the `mysql`
+  driver emits `RENAME COLUMN`, which that engine does not have.
+- Private user uploads (`storage/app/private/`) are in the backup set and must not be
+  web-reachable. `storage:link` is not needed if nothing user-uploaded is public.
+- Take the database backup **before** any risky DDL, not after it goes wrong.
+
+---

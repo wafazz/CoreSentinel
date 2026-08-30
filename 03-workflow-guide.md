@@ -1,86 +1,152 @@
-# Coding Workflow Guide (Claude Pro)
+# Coding Workflow Guide
+> How to spend a session. Updated for the current Claude Code harness — skills, subagents, plan mode, background work.
+
+The old version of this file optimised for a fixed pool of "sessions" on Claude Pro
+and told you to downgrade the model to save quota. Both assumptions are gone. What
+actually costs you now is **context** and **rework**, not session count.
+
+---
 
 ## 1. Plan Before You Start
-Write down all tasks in order of priority before opening Claude Code. Group related tasks together into one session.
+
+Write the tasks down in priority order before opening Claude Code, and group related
+ones into a single run.
 
 ```
-Bad (wastes sessions):
-  Session 1: "add variant to product"
-  Session 2: "oh also add variant to checkout"
-  Session 3: "fix the stock control for variants too"
+Bad (three rounds of re-reading the same files):
+  Run 1: "add variant to product"
+  Run 2: "oh also add variant to checkout"
+  Run 3: "fix the stock control for variants too"
 
-Good (one session):
-  Session 1: "Implement full product variation feature"
-  (give the complete plan upfront)
+Good (one run, files read once):
+  "Implement full product variation feature"  + the complete plan upfront
 ```
 
-## 2. Session Budget Strategy
+The cost is not the request. It is that each new run re-reads the same files cold.
 
-| Priority | Sessions | Use For |
-|---|---|---|
-| Main Build | 1-2 | Big features, multi-file changes |
-| Bug Fixes | 1 | Group ALL bugs into one session |
-| Quick Tasks | 1 | Small UI tweaks, text changes |
-| Reserve | 1 | Emergencies only |
+---
 
-## 3. Talk Efficiently
-Give full context upfront. One detailed message beats 10 small ones.
+## 2. Talk Efficiently
+
+Give full context upfront. One detailed message beats ten small ones.
 
 ```
-Bad (burns tokens fast):
-  "change the button" → "no the other button" → "make it red" → "also add icon"
-
-Good (1 message):
-  "In stock-control.php, change the Add Stock button:
-   make it red, add a plus icon, move it below the table"
+Bad:   "change the button" → "no the other button" → "make it red" → "also add icon"
+Good:  "In stock-control.php, change the Add Stock button: make it red,
+        add a plus icon, move it below the table"
 ```
 
-## 4. Use Plan Mode for Big Features
-For anything touching 3+ files, say "Plan this feature first before coding."
-- Agent researches first (cheaper reads) before writing (expensive outputs)
-- You approve the plan before code is written
-- No wasted rewrites
-
-## 5. Batch Requests
-Collect all small pending items and do them in one message:
-> "Do all of these:
-> 1. Fix the checkout undefined var warning
-> 2. Add variant name to order page
-> 3. Sort stock control by ID
-> 4. Show dropdown arrow on variant selector"
-
-## 6. Daily Workflow Template
-
-```
-Morning:
-  Session 1 (Main)  - Plan + build the biggest feature
-  Session 2 (Fixes) - Batch all bugs/tweaks from testing
-
-Afternoon:
-  Session 3 (Main)  - Continue feature OR start next one
-  Session 4 (Reserve) - Only if urgent
-
-End of day:
-  Save memory (agent auto-saves)
-  "show stats" (check token usage)
-```
-
-## 7. Token-Saving Tips
-
-| Do This | Not This |
+| Do this | Not this |
 |---|---|
-| Give complete requirements in one message | Drip-feed one requirement at a time |
-| Say "fix all warnings in this file" | Fix warnings one by one |
-| Provide the file path | Make the agent search for it |
-| Say "same pattern as [file]" | Re-explain the same UI pattern |
-| Use plan mode for big tasks | Let agent code then redo it |
+| Complete requirements in one message | Drip-feed one at a time |
+| "Fix all warnings in this file" | Fix them one by one |
+| Give the file path | Make Iris search for it |
+| "Same pattern as [file]" | Re-explain the pattern |
+| Plan mode for big tasks | Let her code it, then redo it |
 
-## 8. Switch Models to Save Quota
+---
 
-| Task Type | Use Model | Why |
+## 3. Pick the Right Mode of Work
+
+| Situation | Use | Why |
 |---|---|---|
-| Big features, multi-file | Opus | Best quality |
-| Bug fixes, small edits | Sonnet | Good enough, saves quota |
-| Search, read, quick questions | Haiku | Fastest, cheapest |
+| Touching 3+ files, or design not settled | **Plan mode** | Research is cheap, rewrites are not. Approve the plan before code exists. |
+| A known, bounded edit | Just ask | Plan mode on a one-liner is overhead |
+| Answering "where/does this exist?" across many files | **`Explore` agent** | Returns the conclusion, not the file dumps — keeps your context clean |
+| A long build/test/deploy | **Background task** | Keeps working across turns; you get notified on exit |
+| Repeating a check on an interval | **`loop` skill** | `/loop 5m <cmd>` — do not hand-poll |
+| A scheduled or unattended run | **`schedule` skill** | Cron-backed cloud agent |
 
-Switch model anytime: type `/model` in Claude Code.
+---
+
+## 4. Use the Skills — They Replace Hand-Walking
+
+The single biggest efficiency change: a host skill already does much of what the
+protocols describe in prose. See [Skill Layer Protocol](./18-skills-protocol.md).
+
+| Instead of | Run |
+|---|---|
+| Reading a diff line by line for bugs | `/code-review` |
+| Hunting duplication by hand | `/simplify` |
+| Walking the security checklist blind | `/security-review` |
+| Guessing a Claude model ID or price | the `claude-api` skill — **always** |
+| "From now on, whenever X happens…" | `/update-config` — this needs a **hook**, memory cannot do it |
+| Permission prompts interrupting a long run | `/fewer-permission-prompts` |
+
+---
+
+## 5. Model Selection
+
+Switch anytime with `/model`. Current families: **Opus 5** (deepest reasoning),
+**Sonnet 5**, **Haiku 4.5** (fastest), **Fable 5**. `/fast` toggles fast mode on
+Opus — faster output, *not* a downgrade to a smaller model.
+
+| Task | Model |
+|---|---|
+| Architecture, multi-file features, hard debugging | Opus 5 |
+| Routine feature work, bounded fixes | Sonnet 5 |
+| Search, file reads, quick lookups | Haiku 4.5 |
+
+Do not downgrade mid-task to save money on a problem the smaller model will get
+wrong — a wrong answer costs a full rerun. Downgrade **between** tasks, not inside one.
+
+---
+
+## 6. Token Economics — Manage Context, Not Sessions
+
+Measured on a real session (Brand New ERP, 2026-08-30):
+
+| | |
+|---|---|
+| Unique content produced | ~1.3M tokens |
+| Cache reads billed | **1,203,276,429 tokens** |
+| Amplification | **~900x** |
+
+Context size that session: **22,124** on the first turn, **435,918** median, **997,157** peak.
+
+**~99% of spend is cache re-reads, not new content.** Every turn re-reads the whole
+accumulated context. So the true cost of anything you put in context is not its size —
+it is **its size multiplied by every turn that follows it**. A turn at 436k costs roughly
+20x the same turn at 22k.
+
+Four levers, highest impact first:
+
+1. **Start a fresh conversation for an unrelated task.** This outweighs the other three
+   combined. Carrying ERP context into a CSS fix bills the whole ERP transcript on every
+   turn of the CSS work. `/clear` between unrelated tasks.
+2. **Delegate wide reads to an agent.** The dumps land in the agent's context, not yours,
+   so they are never re-billed. Reading 30 files inline costs ~60k that is re-read every
+   remaining turn — 500 turns later that is ~30M. The same work delegated costs ~30k once
+   plus a ~1k summary: **~530k, roughly 50x cheaper.** Delegation gets *cheaper* the
+   longer the session runs.
+3. **Do not rewrite whole files.** `tool_use` was 66.9% of unique content — larger than
+   all tool results combined — mostly `Write`/`Edit` carrying full file bodies. Prefer a
+   narrow `Edit`; use `sed` or a script for mechanical bulk changes.
+4. **Cap exploratory output.** The largest single tool results that session were 73k, 72k
+   and 56k characters. Each became a permanent context resident, re-billed on every later
+   turn. Pipe exploration through `head`/`grep`.
+
+### What this does NOT mean
+Do not artificially split one task across conversations. Long work is summarised
+automatically and continues across the boundary — chopping a feature in half just pays
+to rebuild the same context twice. **Split by topic, never mid-task.**
+
+---
+## 7. Daily Shape
+
+```
+Morning
+  Plan + build the biggest feature      (plan mode → build → Phase 4 tests)
+  Batch every bug and tweak from testing into one run
+
+Afternoon
+  Continue the feature, or start the next
+  Review + security gates before anything ships   (/code-review, /security-review)
+
+End of day
+  Phase 8 persistence — Iris writes what the project taught, and says which files
+  "show stats" — token usage
+```
+
+Phase 8 is the step that gets silently skipped. See
+[Team Protocol](./02-team-protocol.md) — "saved to memory" with no file list is not a report.
