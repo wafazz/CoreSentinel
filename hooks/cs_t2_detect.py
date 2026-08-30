@@ -38,5 +38,6 @@ def main():
 try:
     main()
 except Exception:
-    pass
+    # Fail open: never block real work. Logged rather than swallowed (AP-001).
+    cs_state.log_error("cs_t2_detect")
 sys.exit(0)

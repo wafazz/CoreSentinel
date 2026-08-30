@@ -10,6 +10,10 @@ import json, os, sys
 OVERSIZED = {"Planning.md", "55-self-evolution.md", "README.md", "11-pattern-library.md"}
 
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import cs_state
+
+
 def main():
     d = json.load(sys.stdin)
     ti = d.get("tool_input") or {}
@@ -38,5 +42,6 @@ def main():
 try:
     main()
 except Exception:
-    pass
+    # Fail open: never block real work. Logged rather than swallowed (AP-001).
+    cs_state.log_error("cs_guard_large_read")
 sys.exit(0)

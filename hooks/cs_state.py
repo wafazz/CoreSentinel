@@ -1,8 +1,25 @@
 #!/usr/bin/env python3
 """Shared per-session state for the CoreSentinel hooks."""
-import json, os, re
+import datetime, json, os, re, sys, traceback
 
 DIR = os.path.expanduser("~/.claude/coresentinel-state")
+LOG = os.path.join(DIR, "hook-errors.log")
+
+
+def log_error(where):
+    """Record a hook failure instead of swallowing it (AP-001).
+
+    Hooks must never block real work, so callers still exit 0 — but the
+    traceback lands here so a broken hook is diagnosable rather than silently
+    inert. Call from inside an except block.
+    """
+    try:
+        os.makedirs(DIR, exist_ok=True)
+        with open(LOG, "a", encoding="utf-8") as fh:
+            fh.write(f"--- {datetime.datetime.now().isoformat()} {where}\n")
+            fh.write(traceback.format_exc() + "\n")
+    except OSError:
+        print(f"CoreSentinel hook {where} failed and could not log", file=sys.stderr)
 
 # T2 surfaces from 02-team-protocol.md. Absolute, never a judgment call.
 T2 = [
@@ -25,7 +42,10 @@ def load(session_id):
     try:
         with open(path_for(session_id), encoding="utf-8") as fh:
             return json.load(fh)
-    except Exception:
+    except FileNotFoundError:
+        return {"t2": [], "blocked": False}          # first edit of the session
+    except (OSError, ValueError):
+        log_error("cs_state.load")                   # corrupt or unreadable
         return {"t2": [], "blocked": False}
 
 
@@ -34,8 +54,8 @@ def save(session_id, state):
         os.makedirs(DIR, exist_ok=True)
         with open(path_for(session_id), "w", encoding="utf-8") as fh:
             json.dump(state, fh)
-    except Exception:
-        pass
+    except (OSError, TypeError):
+        log_error("cs_state.save")
 
 
 def classify(path):

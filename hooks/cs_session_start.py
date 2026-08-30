@@ -10,11 +10,19 @@ import json, os, subprocess, sys
 CS = os.environ.get("CORESENTINEL_DIR", os.path.expanduser("~/Desktop/CS"))
 
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import cs_state
+
+
 def git(*a):
     try:
         return subprocess.run(["git", "-C", CS, *a], capture_output=True,
                               text=True, timeout=5).stdout.strip()
-    except Exception:
+    except subprocess.TimeoutExpired:
+        cs_state.log_error(f"cs_session_start.git({a[0]}) timed out")
+        return ""
+    except OSError:                      # git absent or CS unreadable
+        cs_state.log_error(f"cs_session_start.git({a[0]})")
         return ""
 
 
@@ -51,11 +59,14 @@ def main():
 
     try:
         md = open(os.path.expanduser("~/.claude/CLAUDE.md"), encoding="utf-8").read()
-        if "Task Tiering" not in md:
-            notes.append("CLAUDE.md carries NO Task Tiering block — setup.sh likely "
-                         "overwrote it; re-render from the current Core")
-    except Exception:
-        pass
+    except FileNotFoundError:
+        md = None                        # no global rule file on this host
+    except OSError:
+        md = None
+        cs_state.log_error("cs_session_start.read_claude_md")
+    if md is not None and "Task Tiering" not in md:
+        notes.append("CLAUDE.md carries NO Task Tiering block — setup.sh likely "
+                     "overwrote it; re-render from the current Core")
 
     if not notes:
         return
@@ -68,5 +79,6 @@ def main():
 try:
     main()
 except Exception:
-    pass
+    # Fail open: never block real work. Logged rather than swallowed (AP-001).
+    cs_state.log_error("cs_session_start")
 sys.exit(0)

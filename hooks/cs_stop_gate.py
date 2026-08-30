@@ -26,7 +26,7 @@ def main():
             f"CoreSentinel T2 gate. This session edited T2 surfaces ({touched}). "
             "Per 02-team-protocol.md those require Phase 6 Security (Argus, Cipher, "
             "Aegis) before the work is done. Either run the security gate now "
-            "(/security-review) and report what it found, or state plainly to Fakrul "
+            "(/security-review) and report what it found, or say plainly to the user "
             "that a T2 surface was changed without it. This gate fires once per "
             "session and will not block you again."),
         "systemMessage": f"CoreSentinel: T2 surface touched ({touched}) — security gate required.",
@@ -36,5 +36,6 @@ def main():
 try:
     main()
 except Exception:
-    pass
+    # Fail open: never block real work. Logged rather than swallowed (AP-001).
+    cs_state.log_error("cs_stop_gate")
 sys.exit(0)
