@@ -1014,3 +1014,50 @@ Track mistakes to never repeat.
   record it as open. Reporting "fixed" on a disappearance trains exactly the wrong reflex, and the
   next person to see it starts from zero.
 - **Status**: still open in larisHQ — see `Planning.md` PH06 notes.
+
+---
+
+## larisHQ — PH07 Catalogue & Pricing (2026-09-02)
+
+### Anti-Pattern: Rebuilding the application inside a test
+- **What I did**: wanted one test to exercise three hierarchy depths, so I looped and called
+  `$this->refreshApplication()` between iterations. The new application opens a **new database
+  connection** while the previous one still holds an open `RefreshDatabase` transaction — and that
+  transaction holds row locks on `permissions`, which every test's `beforeEach` seeds. The next
+  seed blocked for 50 seconds and died with
+  `SQLSTATE[HY000] 1205 Lock wait timeout exceeded`.
+- **Why it matters far beyond that test**: this was the **intermittent failure I had been chasing
+  since PH04** — the one that appeared roughly twice in twenty-five runs, moved between unrelated
+  tests, and survived ten isolated runs and three random-order runs. It was never order-dependent
+  and never a faker pool; it was lock contention on the one table every test writes, surfacing in
+  whichever test happened to seed next.
+- **The rule**: never rebuild the container mid-test. To run one test against several
+  configurations, use a dataset (`->with([1, 3, 8])`) — each case gets a clean transaction.
+- **The wider lesson**: when a flake moves between unrelated tests, stop looking at the tests and
+  look at what they **share**. Here it was a single seeded table and a transaction that outlived
+  its owner.
+
+## Learned Skills — larisHQ PH07
+
+### Skill: Chase a flake to its shared resource, and say "open" until you have reproduced it
+- **Learned from**: larisHQ PH04–PH07
+- **Pattern**: three sightings across three phases, each in a different test. I recorded it as
+  open, wrote down what had been ruled out, and kept going — then reproduced it deliberately two
+  phases later while writing an unrelated test, and the stack trace named the cause in one line.
+- **Why**: had I written "fixed — hardened the factories" at the first disappearance, the real
+  cause would still be there and the next person would start from zero. Recording *what was
+  observed, at what rate, and what was ruled out* is what made the eventual diagnosis a
+  five-minute job instead of a fresh investigation.
+- **Applied to**: any intermittent failure. State the rate, state the exclusions, keep it open.
+
+### Skill: Re-raise an assumed decision at the moment its cost becomes real
+- **Learned from**: larisHQ D043
+- **Pattern**: D043 was recorded in planning as "ASSUMED — CONFIRM" with the note that it must be
+  settled before PH12. I did not chase it for six phases — but the moment PH07 actually created
+  the two columns it describes, I put it in the schema gate as a plain business question with the
+  consequence spelled out.
+- **Why**: asking at planning time competes with thirty other questions and gets a guess. Asking
+  when the code is about to depend on it gets a real answer, because the stakes are visible and
+  concrete.
+- **Applied to**: every assumption logged as "confirm later" — attach it to the phase that first
+  depends on it, and raise it there.
