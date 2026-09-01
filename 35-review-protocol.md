@@ -56,6 +56,11 @@ money, auth, or tenant boundaries. `/code-review ultra` is {USER_NAME}'s to laun
 - [ ] Queries scoped by user/tenant/owner ID
 - [ ] No cross-user data leaks in show/edit/delete routes
 - [ ] Authorization check: user owns the resource before update/delete
+- [ ] Every new tenant-owned model actually carries the scoping trait — nothing enforces it
+- [ ] Reads may fall back unscoped; **writes must fail closed** when no tenant is bound
+- [ ] A foreign record returns **404, not 403** — a 403 confirms it exists
+- [ ] Blast radius: suspending/deleting one tenant leaves the others serving 200
+- [ ] With two or more auth guards, every `$request->user()` and bare `auth` names its guard
 
 ### 4. File Uploads (if applicable)
 - [ ] Using correct upload method for framework

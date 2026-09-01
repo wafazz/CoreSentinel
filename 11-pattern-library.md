@@ -589,6 +589,64 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   Editing an existing role that already exceeds your ceiling correctly fails closed.
 - **First used in**: larisHQ — PH02 (2026-09-01)
 
+### Subdomain Multi-Tenancy on Laravel 12 — the four things that actually bite
+- **Stack**: Laravel 12, Inertia 3, shared-schema tenancy (`tenant_id`), subdomain per tenant
+- **Problem**: `Route::domain('{tenant}.'.$domain)` plus a global scope looks like a twenty-line
+  feature. Four framework behaviours make it not one, and every one of them fails at runtime in a
+  path you will not exercise by reading the code.
+- **Solution**:
+  1. **Resolve the tenant in a middleware *group*, never an alias.** `Authenticate` and
+     `SubstituteBindings` are in the framework's middleware priority list, so route middleware runs
+     *after* them. Resolve later than the guard and `EloquentUserProvider` looks a user up with no
+     tenant bound — the scope has nothing to apply. Prepend to `web`, and no-op when the route has
+     no `{tenant}` parameter.
+  2. **`$route->forgetParameter('tenant')` once bound.** Otherwise Laravel passes the subdomain as
+     the **first argument to every action in the group**, and every controller you ever write has
+     to declare a parameter it never uses. The symptom is
+     `destroy(): Argument #1 ($role) must be of type Role, string given`.
+  3. **`URL::defaults(['tenant' => $slug])`, or `route()` throws.** Any named route inside the
+     domain group needs the domain parameter — including the `route('login')` the unauthenticated
+     handler calls, which turns a redirect into a 500.
+  4. **Set `redirectGuestsTo()` in `bootstrap/app.php`, not a service provider.** The framework
+     registers its own `fn () => route('login')` inside `afterResolving(HttpKernel::class)`, which
+     runs *after* providers boot and silently wins.
+- **Gotchas**: `EloquentUserProvider::retrieveById()` uses `newQuery()`, so global scopes **do**
+  apply to authentication — that is what makes `unique(tenant_id, email)` work, and it means a
+  foreign session simply resolves to no user rather than erroring. A shared `SESSION_DOMAIN=.{domain}`
+  cookie spans every subdomain: do **not** invalidate the session when a user lands on another
+  tenant's host, or visiting a URL signs them out of their own.
+- **First used in**: larisHQ — PH03 (2026-09-01)
+
+### Tenant Scope: read open, write closed
+- **Stack**: any shared-schema multi-tenant ORM with global scopes
+- **Problem**: what should a tenant-owned query do when *no* tenant is bound? Console commands,
+  seeders and a cross-tenant admin console all legitimately run without one, so the scope cannot
+  simply hard-fail. But "no filter" on a write puts a row in the wrong customer's data.
+- **Solution**: give the two directions opposite defaults, and say why in the code.
+  ```php
+  // read: no tenant bound -> no filter
+  public function apply(Builder $builder, Model $model): void
+  {
+      if (! app(Tenancy::class)->has()) { return; }
+      $builder->where($model->qualifyColumn('tenant_id'), app(Tenancy::class)->id());
+  }
+
+  // write: no tenant bound -> refuse
+  static::creating(function (Model $model) {
+      if ($model->getAttribute('tenant_id') !== null) { return; }
+      if (! app(Tenancy::class)->has()) { throw TenantContextMissing::forModel($model); }
+      $model->setAttribute('tenant_id', app(Tenancy::class)->id());
+  });
+  ```
+  An unscoped read shows too much and a test catches it. An unscoped write corrupts data and
+  nothing catches it. Add a `RequireTenant` middleware on tenant route groups so a group added
+  later without the domain constraint is a loud 500, not a quiet cross-tenant read.
+- **Gotchas**: keep `tenant_id` **out of `$fillable`** — and then remember that
+  `updateOrCreate(['tenant_id' => $id, …])` silently drops it from the new instance and your own
+  write-refusal throws. Use `firstOrNew()` and assign explicitly. The lookup half of the attributes
+  still scopes correctly; only the instantiation drops them.
+- **First used in**: larisHQ — PH03 (2026-09-01)
+
 ---
 
 ## How to Add Patterns

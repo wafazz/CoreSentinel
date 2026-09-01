@@ -840,3 +840,64 @@ Track mistakes to never repeat.
   middleware ordering. Those are exactly where an authorization system is deployed, and exactly
   where the harness is silent.
 - **Applied to**: any phase whose acceptance criteria are about who is refused.
+
+---
+
+## larisHQ — PH03 Multi-Tenancy (2026-09-01)
+
+### Anti-Pattern: Reasoning about middleware order instead of running it
+- **What I did**: placed tenant resolution as a route-group alias and reasoned that group
+  middleware runs before route middleware, so the tenant would be bound before the guard resolved
+  a user. Wrong: `Authenticate` and `SubstituteBindings` are in the framework's **middleware
+  priority list**, which reorders them ahead of anything not in that list. The guard was querying
+  users with no tenant bound.
+- **How it surfaced**: not by review. A single test failed with
+  `destroy(): Argument #1 ($role) must be of type Role, string given` — a *different* bug — and the
+  stack trace in that failure showed the real ordering. One failing test paid for two findings.
+- **The rule**: middleware order is a runtime property, not a reading-order property. When
+  correctness depends on it, assert it — a test whose failure prints the stack is worth more than
+  any amount of confidence about the pipeline.
+
+### Anti-Pattern: `$request->user()` after a second guard exists
+- **What I did**: shared `auth.permissions` from `$request->user()?->permissionSlugs()`. Correct
+  with one guard. `Authenticate` calls `shouldUse($guard)`, so `auth:platform` makes `platform` the
+  default guard **for the whole request** — `$request->user()` then returned a `PlatformUser`, and
+  the shared Inertia prop called `permissionSlugs()` on a model that has no such method. A 500 on
+  every page of the console that administers every customer.
+- **The rule**: the moment an application has two guards, `$request->user()` and bare `auth` stop
+  meaning anything specific. Name the guard everywhere — `Auth::guard('web')->user()`,
+  `auth:web`, `auth:platform` — including in shared view/prop data, which is the place it is
+  easiest to forget and the place it breaks every page at once.
+
+### Anti-Pattern: Writing the same fillable no-op twice in two phases
+- **What I did**: kept `tenant_id` out of `$fillable` (correct — it is a privilege column), then
+  used `updateOrCreate(['tenant_id' => $id, 'slug' => $slug], …)` in the provisioner *and* in a
+  seeder. Mass assignment drops the key from the new instance, so the write-refusal I had just
+  written threw on my own code.
+- **Why it matters**: `Privilege Columns Must Not Be Fillable — and the Silent No-Op That Follows`
+  was already in this log from Daily Spend. I wrote the guard and then walked into its far side
+  twice in one phase. Knowing a rule is not the same as recognising the shape at the call site.
+- **The rule**: whenever a column is excluded from `$fillable`, grep the codebase for
+  `updateOrCreate`/`firstOrCreate`/`create` carrying that column in the *attributes* array. The
+  lookup half works; the instantiation half silently does not.
+
+## Learned Skills — larisHQ PH03
+
+### Skill: Let one failing test finish talking before fixing it
+- **Learned from**: larisHQ PH03
+- **Pattern**: when a test fails with an exception, read the whole stack before changing anything.
+  The controller-argument failure was the headline; the middleware ordering bug was visible three
+  frames down and would otherwise have shipped, because nothing else in the suite exercised it.
+- **Why**: a failing test is the cheapest observability the project has. Fixing the headline and
+  re-running discards the rest of what it was telling you.
+- **Applied to**: every red test, not just confusing ones.
+
+### Skill: Prove isolation by suspending one tenant and checking the other
+- **Learned from**: larisHQ PH03
+- **Pattern**: the isolation claim is not "tenant A gets a 404 for tenant B's record" alone. It is
+  also "an action against tenant A leaves tenant B untouched". Suspending one subscriber over real
+  HTTP and confirming **403 on theirs, 200 on the other's** tests the blast radius, which is what
+  the customer actually cares about.
+- **Why**: scope tests prove reads are filtered. They say nothing about whether an administrative
+  action is correctly targeted. Those are different bugs with the same word attached.
+- **Applied to**: any multi-tenant, multi-account or multi-workspace system.
