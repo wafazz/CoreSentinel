@@ -976,3 +976,41 @@ Track mistakes to never repeat.
   The 1-level case caught different things from the 8-level case: one has no parents at all, the
   other exercises the full recursive walk.
 - **Applied to**: any configurable count, depth, tier or limit.
+
+---
+
+## larisHQ — PH06 Marketers & Channels (2026-09-01)
+
+### Anti-Pattern: Repeating a logged anti-pattern in a new costume
+- **What I did**: wrote a guard test grepping the source for `facebook` and `google ads` to prove
+  no channel-specific branch exists. It failed on my own doc comments — the ones explaining why no
+  branch exists. I had hit exactly this in PH02 with the `is_admin` guard, **written the fix
+  (strip comments with `token_get_all`) and logged it as an anti-pattern in this very file**, four
+  phases earlier in the same session.
+- **Why it happened**: I recognised the *rule* ("guards must scan code, not prose") but not the
+  *shape* at the call site, because the subject was different — permissions then, channel names
+  now. Logged lessons are indexed by their example, not by their structure.
+- **The rule**: when writing any source-scanning guard, go and read how the last one was written.
+  The generalisation to hold is "a guard that greps source must strip comments first", and it
+  applies to every future guard regardless of what it forbids.
+
+### Anti-Pattern: A comment that describes intent the code does not implement
+- **What I did**: wrote `syncDefaultChannels()` to walk the config and create anything missing,
+  with the comment *"Only ever adds: a channel an HQ deleted on purpose must not reappear on the
+  next sync."* The code did the exact opposite — a deleted channel was missing, so it was
+  recreated. The comment was a specification I had written and not implemented.
+- **How it surfaced**: the test I wrote from the comment failed. Had I written the test from the
+  code instead, both would have agreed and both would have been wrong.
+- **The rule**: write the test from the **intent**, never from the implementation. When they
+  disagree, that is the test doing its job — and the fix goes in the code, not the comment. A
+  comment stating a guarantee is a claim; if nothing enforces it, delete the claim or enforce it.
+
+### Anti-Pattern: Declaring a flaky test fixed because it stopped failing
+- **What I did**: hit an intermittent failure, could not reproduce it in ten runs, hardened two
+  factories with bounded `fake()->unique()` pools, and was ready to move on. It then failed a
+  second time.
+- **The rule**: a flake that has stopped reproducing is **not** a flake that has been fixed. Say
+  what was observed, at what rate, what was ruled out and what was changed as a precaution — and
+  record it as open. Reporting "fixed" on a disappearance trains exactly the wrong reflex, and the
+  next person to see it starts from zero.
+- **Status**: still open in larisHQ — see `Planning.md` PH06 notes.

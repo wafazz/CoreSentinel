@@ -1,6 +1,6 @@
 # larisHQ — Agent/Stockist + Marketer/Sales Team Management & Ordering SaaS
 
-> **Status**: Active build — PH01–PH05 verified (core §7 hierarchy done), PH06 next
+> **Status**: Active build — PH01–PH06 verified, PH07 next
 > **Last Updated**: 2026-09-01
 
 ## Business Context
@@ -23,7 +23,7 @@
 ## Key Patterns
 - **Dynamic 1–8 level hierarchy** — `network_levels` + `network_members` adjacency list, built PH05. Never `level_1_id..level_8_id` (D003). Cycle/depth by bounded recursive parent walk, no closure table (D004). The 1–8 bound is enforced in the configurator, over HTTP, and by a MariaDB CHECK. Strict adjacency (D027) makes cycles structurally impossible; the walk is defence in depth.
 - **Level pricing as rows, costs as columns** — `product_prices` keyed by `network_level_id`; `hq_cost_price`/`product_cost_price`/`retail_price` on the variant (D013).
-- **Dynamic marketing channels** — `marketing_channels` + `marketer_channel` pivot. FB/Google Ads are seeded rows, never code branches (D012).
+- **Dynamic marketing channels** — `marketing_channels` + `marketer_channel` pivot, built PH06. FB/Google are rows seeded from **config**, never code branches (D012). A guard test greps app/ and resources/js/ for their names and requires zero hits. Seeded once, never re-synced (D068).
 - **Margin, not commission, for the network** — agents/stockists earn the price differential; no override engine exists (D014).
 - **Snapshot everything that can drift** — order lines snapshot price + level (D011); commission entries snapshot rate + base (D017); orders snapshot channel (D039).
 - **Fail closed on pricing** — a product with no price for a member's level is hidden, never falls back (D046).
@@ -44,6 +44,7 @@
 - Never grant a blanket superuser through `Gate::before`; never add an `is_admin` flag (BR-04, guarded by a test).
 - Never add a tenant-owned model without `use BelongsToTenant` — nothing enforces it and the model is silently unscoped.
 - Never put `nullable` before a custom rule that has to decide what *null* means — every rule after `nullable` is skipped and the branch becomes dead code. Use `present`.
+- Never write a source-grep guard test without stripping comments first — the prose explaining the rule contains the words the rule forbids. This bit twice (PH02 `is_admin`, PH06 `facebook`).
 - Never delete a network member with any child, or a populated/non-deepest level (D064, D029).
 - Never `updateOrCreate(['tenant_id' => …])` — `tenant_id` is deliberately not fillable, so it is dropped and the write is refused. `firstOrNew` + explicit assignment.
 - Never `$request->user()` once a second guard exists — name the guard (D058).
@@ -58,7 +59,9 @@
 4. **PH03 Multi-Tenancy** (2026-09-01, `ce3f6e2`) — subdomain tenancy, global scope + write refusal, tenant middleware chain, Platform Owner console on its own guard and table. 78 tests, CS verify 100/100.
 
 ## Remaining
-- PH06 Marketer & Sales Teams → PH18 Production Readiness (13 phases remaining, 5 of 18 complete)
+- PH07 Product & Pricing → PH18 Production Readiness (12 phases remaining, 6 of 18 complete)
+- **Open defect**: intermittent suite failure ~2 in 25 runs (`StaffManagementTest > allows assigning a role whose permissions the actor does hold`). Undiagnosed; capture full output on next sighting.
+- **Owed forward**: PH09 must add `marketer_customer` (PH06-T05); PH10-T01 must snapshot `marketing_channel_id` (PH06-T12).
 - **Pending confirmation**: D043 (HQ Cost vs Product Cost definitions) — needed before PH12-T04.
 
 ## Carried forward
@@ -67,6 +70,7 @@
 - Password reset is unbuilt and now needs the tenant from the reset link — email is unique per tenant, not globally (D056).
 
 ## Work Log
+- **2026-09-01 (e)** — PH06 Marketers/Teams/Channels at T2. Four channel conditions tested literally, condition 4 inventing a channel at runtime inside the test. Two tasks deferred with the phase that owes them named (T05→PH09, T12→PH10) rather than faked. One real bug: default-channel sync resurrected deleted channels while its comment claimed otherwise. D066–D068. 152 tests, CS verify 100/100. An intermittent suite failure remains open.
 - **2026-09-01 (d)** — PH05 Dynamic Hierarchy at T2. Depth is data in the service, validator, tree component and tests; proven at 1, 2 and 8 levels. One real bug: `nullable` before a custom rule made the "parent required below top level" branch dead code, allowing an orphaned member. D062–D065. 132 tests, CS verify 100/100, depth-8 tree rendered over real HTTP.
 - **2026-09-01 (c)** — PH04 HQ Business Setup at T2. Settings built as a declared registry (D060), business profile split from `tenants` (D059), territories flat (D061). One real bug: dotted registry keys collide with Laravel's dot notation, so settings validation checked a path that never existed and saving over HTTP was broken — no test had covered the endpoint, only the repository. 100 tests, CS verify 100/100.
 - **2026-09-01 (b)** — PH03 Multi-Tenancy at T2. Schema gated first. Three defects found by running it, not by reading it: route middleware runs after `Authenticate` (framework priority list), `Route::domain('{tenant}...')` passes the subdomain as every controller's first argument, and `auth:platform` makes `platform` the default guard so `$request->user()` returned a `PlatformUser` into `permissionSlugs()`. D057/D058. 78 tests, CS verify 100/100, E2E across four hosts.

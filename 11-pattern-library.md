@@ -699,6 +699,30 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   can never be deleted or renumbered, and only the *deepest* level may be removed at all.
 - **First used in**: larisHQ — PH05 (2026-09-01)
 
+### Configurable Categories Without Code Branches (channels, tags, sources, types)
+- **Stack**: any; shown in Laravel + a pivot table
+- **Problem**: a requirement lists options by name — "Facebook Ads only", "Google Ads only", "a
+  mix of both", "any channel the customer adds" — and it reads like four features. Built that way
+  it becomes an enum plus `if ($channel === 'facebook')`, and the fourth condition quietly becomes
+  a lie.
+- **Solution**: the named options are **rows**, and the conditions are **states of one pivot**.
+  | Stated condition | How it is represented |
+  |---|---|
+  | A only | one row in the pivot |
+  | B only | one row |
+  | mix of A and B | two rows |
+  | anything the customer adds | customer inserts a row; assignment is unchanged |
+  Ship the named ones as **seed data in config**, not constants in code, and seed them **once** at
+  provisioning. Then prove it with a test that **invents an option inside the test at runtime**,
+  assigns it, and asserts it works — and a second test that greps the application source for the
+  named options and requires zero hits.
+- **Gotchas**: seed once, never re-sync — a "create if missing" walk cannot distinguish "never
+  created" from "deleted on purpose", so it resurrects what the customer removed. Never delete an
+  option that has been used; deactivate, because assignments and (later) snapshots reference it.
+  And **strip comments before running the grep guard** — the comment explaining why no branch
+  exists contains the very words the guard forbids.
+- **First used in**: larisHQ — PH06 (2026-09-01)
+
 ---
 
 ## How to Add Patterns
