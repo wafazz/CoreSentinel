@@ -1269,3 +1269,47 @@ Track mistakes to never repeat.
   three patterns where one would do.
 - **Applied to**: any recurring structural problem. Name the earlier decision in the code, not just
   in the log.
+
+---
+
+## larisHQ — PH14 Reports (2026-09-02)
+
+### Anti-Pattern: Subtracting one unsigned column from another
+- **What I did**: computed a margin as `SUM((retail_price - unit_price) * quantity)` where all
+  three columns are `unsignedInteger`. MySQL and MariaDB do **unsigned** arithmetic there, so the
+  moment `unit_price > retail_price` the expression does not go negative — it raises
+  `SQLSTATE[22003] 1690 BIGINT UNSIGNED value is out of range` and the whole report 500s.
+- **The sharp edge**: casting the subtraction alone was **not enough**. Multiplying the signed
+  result by an unsigned `quantity` promotes the whole expression back to unsigned, and it failed
+  again with the same error. Every operand needs the cast.
+- **How it surfaced**: live data, not the test suite. My test had retail above the level price —
+  the normal case — so the underflow never occurred. The dev database happened to contain a
+  product priced above retail, which D045 explicitly permits, and that is what broke it.
+- **The rule**: if a column can legitimately be subtracted below zero, either store it signed or
+  cast **every** operand in the expression. And when a comment claims a behaviour ("can be
+  negative; reported as it is"), write the test that exercises it — mine claimed exactly that and
+  the code had never done it.
+
+## Learned Skills — larisHQ PH14
+
+### Skill: Read a decision against the schema before building on it
+- **Learned from**: larisHQ D048 → D082
+- **Pattern**: D048 defined a figure as "computed from data the order already holds". Rather than
+  taking that at face value, I checked what the order actually held — and retail was not among the
+  snapshots. Building first would have produced a number that quietly changed whenever a product
+  was repriced, and it would have looked right every day until someone compared two reports.
+- **Why**: a decision written months earlier describes the schema its author *expected*. The
+  cheapest moment to find the gap is before the code depends on it; the most expensive is when
+  someone notices last quarter's report has moved.
+- **Applied to**: any decision that says "computed from" or "derived from" existing data. Go and
+  look at the columns.
+
+### Skill: Test the export separately from the screen
+- **Learned from**: larisHQ PH14
+- **Pattern**: the scoping rule was "a marketer's report covers only their assigned scope", and it
+  is easy to satisfy on the screen and miss on the CSV — the export is a second code path to the
+  same data, and it is the one that leaves the building.
+- **Why**: an export that ignores a scoping rule is the obvious way around it, and nobody notices
+  because the screen looks correct. Assert the narrowing on the downloaded bytes, not just on the
+  rendered props.
+- **Applied to**: any download, API endpoint, or print view that mirrors a scoped screen.

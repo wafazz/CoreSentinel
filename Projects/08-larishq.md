@@ -1,6 +1,6 @@
 # larisHQ — Agent/Stockist + Marketer/Sales Team Management & Ordering SaaS
 
-> **Status**: Active build — PH01–PH13 verified, PH14 Reports next. Zero open questions.
+> **Status**: Active build — PH01–PH14 verified, PH15 Portals next. Zero open questions.
 > **Last Updated**: 2026-09-01
 
 ## Business Context
@@ -49,6 +49,7 @@
 - Never add a tenant-owned model without `use BelongsToTenant` — nothing enforces it and the model is silently unscoped.
 - Never put `nullable` before a custom rule that has to decide what *null* means — every rule after `nullable` is skipped and the branch becomes dead code. Use `present`.
 - Never enforce a SUM constraint with a single-row guard — lock the parent and sum under the lock (PH11), unlike the single-row `WHERE quantity >= ?` that works for stock (PH08).
+- Never subtract one unsigned column from another in SQL — it underflows with "BIGINT UNSIGNED out of range" instead of going negative. Cast every operand, including any multiplier.
 - Never let a factory generate data the schema can reject — `fake()->jobTitle()` overflows a varchar(64) slug and produces an intermittent failure.
 - Never trust `belongsToMany`'s pivot-name guess when the schema names the table differently — it guesses alphabetically. (Cost two debugging rounds: PH06 and PH09.)
 - Never write `$defaults + $overrides` in PHP — `+` keeps the left operand's keys and silently drops the overrides.
@@ -69,7 +70,8 @@
 4. **PH03 Multi-Tenancy** (2026-09-01, `ce3f6e2`) — subdomain tenancy, global scope + write refusal, tenant middleware chain, Platform Owner console on its own guard and table. 78 tests, CS verify 100/100.
 
 ## Remaining
-- PH14 Reports → PH18 Production Readiness (5 phases remaining, 13 of 18 complete)
+- PH15 Portals → PH18 Production Readiness (4 phases remaining, 14 of 18 complete)
+- **PH15 owes**: portal shells for network members and marketers; the scoping they need is already built and tested (`Customer::scopeVisibleTo`, `CommissionEntry::scopeVisibleTo`, `ReportScope`), plus portal-originated orders (PH10-T04), a member's own stock view (D071) and the BR-25 assertion against real portal endpoints.
 - **Owed forward**: PH09 `marketer_customer` (PH06-T05) · PH10-T01 `marketing_channel_id` snapshot (PH06-T12) · PH10 must refuse deleting a variant an open order references · PH15 must assert BR-25 against real portal endpoints · PH18 needs `storage:link`.
 - **Pending confirmation**: D043 (HQ Cost vs Product Cost definitions) — needed before PH12-T04.
 
@@ -79,6 +81,7 @@
 - Password reset is unbuilt and now needs the tenant from the reset link — email is unique per tenant, not globally (D056).
 
 ## Work Log
+- **2026-09-02 (m)** — PH14 Reports at T2. Paid D014's debt via D048 Indicative Margin. Found D048 assumed data the schema lacked (D082 adds the retail snapshot), then live data found an unsigned-underflow bug the tests had missed. Scoping applied once and asserted on the export as well as the screen. 345 tests, CS verify 100/100.
 - **2026-09-02 (l)** — PH13 Targets at T2. Boundary correctness in the configured timezone tested at every edge; D041 enforced by a generated-column unique index on the *computed* period, proven live. Achievement computed not stored (D080), counted by placed_at (D081). Defines the period concept D078 deferred. 331 tests, CS verify 100/100.
 - **2026-09-02 (k)** — PH12 Commission at T2, the most intricate phase. Five-step precedence tested step by step; snapshotted ledger proven by changing the rule afterwards; clawback covering cancel, return and return-after-payout. Two recorded departures from the accepted proposal (D078 per-order override, D079 base floored at zero), both with reasons. 304 tests, CS verify 100/100.
 - **2026-09-02 (j)** — PH11 Payments at T2. Honoured D031's dangling pointer to this phase by making refunds negative payments (D077). One invariant at both ends; sum constraint enforced by locking the parent, not by a single-row guard. Refusals name the real outstanding figure. 270 tests, CS verify 100/100.
