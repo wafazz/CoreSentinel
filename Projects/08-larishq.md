@@ -1,6 +1,6 @@
 # larisHQ — Agent/Stockist + Marketer/Sales Team Management & Ordering SaaS
 
-> **Status**: Active build — PH01–PH03 verified, PH04 next
+> **Status**: Active build — PH01–PH04 verified, PH05 next
 > **Last Updated**: 2026-09-01
 
 ## Business Context
@@ -32,6 +32,7 @@
 - **One permission source for server and UI** — `auth.permissions` is a flat slug list; nav and buttons both filter through `usePermissions` (D054).
 - **Reads fall back open, writes fail closed** — `TenantScope` adds no filter with no tenant bound (console, platform console), but `BelongsToTenant` throws on create. An unscoped read is caught by a test; an unscoped write is caught by nobody.
 - **Roles are replayed per tenant** by `TenantProvisioner`, never seeded once globally (D051).
+- **Declared registries over free-form stores** — permissions (D051) and settings (D060) both live in `App\Support`, with the table holding only what an HQ has changed. An undeclared key throws rather than reading as null.
 
 ## Anti-Patterns (This Project)
 - Never hardcode hierarchy depth, level names, or FB/Google as columns or enums.
@@ -44,6 +45,8 @@
 - Never add a tenant-owned model without `use BelongsToTenant` — nothing enforces it and the model is silently unscoped.
 - Never `updateOrCreate(['tenant_id' => …])` — `tenant_id` is deliberately not fillable, so it is dropped and the write is refused. `firstOrNew` + explicit assignment.
 - Never `$request->user()` once a second guard exists — name the guard (D058).
+- Never use a dotted key in a validation rule path without escaping the dots — the rule silently validates a nested path that does not exist.
+- Never run `RoleSeeder` without `PermissionSeeder` after adding permissions — new slugs are skipped and roles keep the old set.
 - No Tailwind, ever (§42).
 
 ## Completed
@@ -53,7 +56,7 @@
 4. **PH03 Multi-Tenancy** (2026-09-01, `ce3f6e2`) — subdomain tenancy, global scope + write refusal, tenant middleware chain, Platform Owner console on its own guard and table. 78 tests, CS verify 100/100.
 
 ## Remaining
-- PH04 HQ Business Setup → PH18 Production Readiness (15 phases remaining, 3 of 18 complete)
+- PH05 Dynamic Agent/Stockist Hierarchy → PH18 Production Readiness (14 phases remaining, 4 of 18 complete)
 - **Pending confirmation**: D043 (HQ Cost vs Product Cost definitions) — needed before PH12-T04.
 
 ## Carried forward
@@ -62,6 +65,7 @@
 - Password reset is unbuilt and now needs the tenant from the reset link — email is unique per tenant, not globally (D056).
 
 ## Work Log
+- **2026-09-01 (c)** — PH04 HQ Business Setup at T2. Settings built as a declared registry (D060), business profile split from `tenants` (D059), territories flat (D061). One real bug: dotted registry keys collide with Laravel's dot notation, so settings validation checked a path that never existed and saving over HTTP was broken — no test had covered the endpoint, only the repository. 100 tests, CS verify 100/100.
 - **2026-09-01 (b)** — PH03 Multi-Tenancy at T2. Schema gated first. Three defects found by running it, not by reading it: route middleware runs after `Authenticate` (framework priority list), `Route::domain('{tenant}...')` passes the subdomain as every controller's first argument, and `auth:platform` makes `platform` the default guard so `$request->user()` returned a `PlatformUser` into `permissionSlugs()`. D057/D058. 78 tests, CS verify 100/100, E2E across four hosts.
 - **2026-09-01 (a)** — PH02 Authentication & RBAC, run at T2. Schema gated with Fakrul before any code. Review found and closed a real privilege escalation (`staff.create` alone could mint an HQ Owner and set its password) — D053. 48 tests / 136 assertions, pint and build clean, CS verify 100/100, E2E over real HTTP confirming Sales Staff 403 / HQ Owner 200.
 - **2026-08-31** — CS init. Environment verified (PHP 8.4.10, MariaDB, Redis 8.4, Node 24). Full spec review surfaced 37 unspecified decisions. `Planning.md` created as the single traceable roadmap. Commission design resolved: margin-only for network (P1b override rejected), rate×base with five-step precedence for marketers (P2/P3/P4 accepted). Fakrul delegated the remaining 34 questions to IRIS; 33 answered and recorded as D018–D050. Laravel 13 recommended and declined — Fakrul reaffirmed Laravel 12; consequences recorded in D019.

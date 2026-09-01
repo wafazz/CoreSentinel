@@ -901,3 +901,40 @@ Track mistakes to never repeat.
 - **Why**: scope tests prove reads are filtered. They say nothing about whether an administrative
   action is correctly targeted. Those are different bugs with the same word attached.
 - **Applied to**: any multi-tenant, multi-account or multi-workspace system.
+
+---
+
+## larisHQ — PH04 HQ Business Setup (2026-09-01)
+
+### Anti-Pattern: A dotted data key inside a dot-notation path
+- **What I did**: named settings `commission.clawback_days` — readable, groupable, and idiomatic
+  — then generated validation rules as `settings.commission.clawback_days`. Laravel reads dots as
+  nesting, so that rule addressed `$data['settings']['commission']['clawback_days']`, a path that
+  never exists. `required` failed, an error appeared under exactly the key I was asserting, and my
+  test went green. The posted value — `400`, well outside the declared `max:365` — was never
+  checked at all, and `validated()` returned a nested array the controller could not consume, so
+  **saving a setting over HTTP was broken**.
+- **How it surfaced**: an Inertia assertion could not address the prop, for the same reason. The
+  failure I was annoyed by was the only thing pointing at the real one.
+- **The rule**: any key containing the framework's path separator must be escaped at every path
+  boundary — validation rules (`settings.commission\.clawback_days`), `data_get`, `old()`,
+  Inertia's `where()`. And a green test that asserts *an error exists* proves nothing about
+  **which** rule produced it; assert the valid case too, or the failure mode hides inside the
+  success.
+- **Caught by**: my own test run, before commit.
+
+### Anti-Pattern: Testing a store through its repository and never through its endpoint
+- **What I did**: covered the settings repository directly (`set()` then `get()` — green) and
+  covered the endpoint only for rejection (403, 422). Nothing ever posted a *valid* value through
+  the controller, which is precisely the path that was broken.
+- **The rule**: for every store or service with an HTTP surface, at least one test must travel the
+  whole route — request, validation, controller, persistence, read-back. Unit-testing the service
+  and permission-testing the endpoint can both pass while the seam between them is broken.
+
+### Anti-Pattern: Reseeding roles without reseeding permissions
+- **What I did**: added ten permissions to the registry, then ran only `RoleSeeder` to refresh the
+  templates. It maps slugs to ids from the table, so the ten new slugs — absent from the table —
+  were silently skipped, and the HQ Owner got a 403 on the screens the phase had just built.
+- **The rule**: a seeder that resolves foreign keys by natural key fails **silently** when the
+  target row is missing. Run the whole seeder chain in order, and prefer a seeder that reports what
+  it could not resolve over one that quietly syncs fewer rows.

@@ -647,6 +647,33 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   still scopes correctly; only the instantiation drops them.
 - **First used in**: larisHQ — PH03 (2026-09-01)
 
+### Declared Settings Registry — code owns the keys, the table owns the overrides
+- **Stack**: Laravel (any), applies to any per-account settings store
+- **Problem**: "add a settings table" produces a free-form key/value store with no type, no
+  default and no validation. A misspelled key then reads as *unset* and the caller falls back
+  silently, and the settings screen can offer a field nothing in the codebase reads.
+- **Solution**: declare the settings in code, exactly as you would permissions.
+  ```php
+  final class Settings
+  {
+      public const REGISTRY = [
+          'commission.clawback_days' => [
+              'type' => 'int', 'default' => 14, 'group' => 'Commission',
+              'label' => 'Clawback window (days)', 'min' => 0, 'max' => 365,
+          ],
+      ];
+  }
+  ```
+  The table stores overrides only. `get()` casts to the declared type and falls back to the
+  declared default. An undeclared key **throws** rather than returning null. The UI renders from
+  the registry and the FormRequest generates its rules from it, so the screen cannot show a field
+  the validator would reject, and the validator cannot accept a key nothing reads.
+- **Gotchas**: **memoise per account, not globally** — a queue worker handles several tenants in
+  one process and a flat cache serves one customer's settings to another. Starting with a single
+  entry is correct and honest: a phase adds a key when it has something to read, and the phase
+  that needs the value adds a key instead of building a store.
+- **First used in**: larisHQ — PH04 (2026-09-01)
+
 ---
 
 ## How to Add Patterns
