@@ -1,6 +1,6 @@
 # larisHQ — Agent/Stockist + Marketer/Sales Team Management & Ordering SaaS
 
-> **Status**: Active build — PH01–PH11 verified, PH12 Commission next. Zero open questions.
+> **Status**: Active build — PH01–PH12 verified, PH13 Targets next. Zero open questions.
 > **Last Updated**: 2026-09-01
 
 ## Business Context
@@ -25,7 +25,8 @@
 - **Level pricing as rows, costs as columns** — `product_prices` keyed by `network_level_id`; `hq_cost_price`/`product_cost_price`/`retail_price` on the variant (D013). Built PH07. Costs are `$hidden` on the model so BR-25 fails closed; `withCosts()` reveals them and makes every exposure greppable.
 - **D043 confirmed**: product cost = supplier/manufacturing; HQ cost = landed (freight, duty, packaging). D044 pays commission on the landed margin.
 - **Dynamic marketing channels** — `marketing_channels` + `marketer_channel` pivot, built PH06. FB/Google are rows seeded from **config**, never code branches (D012). A guard test greps app/ and resources/js/ for their names and requires zero hits. Seeded once, never re-synced (D068).
-- **Margin, not commission, for the network** — agents/stockists earn the price differential; no override engine exists (D014).
+- **Margin, not commission, for the network** — agents/stockists earn the price differential; no override engine exists (D014). Built PH12: `commission_entries` has no column that could hold a network member, so the rule is structural rather than remembered.
+- **Commission precedence is five steps, one scope per rule** — product → category → marketer → team → HQ default (BR-27), with a CHECK forbidding two scopes and a generated `scope_key` carrying uniqueness.
 - **Stock: one ledger, guarded decrements** — `StockLedger` is the only thing that changes a quantity, and every change writes a movement in the same transaction. Decrements are `WHERE quantity >= ?` inside the UPDATE, so overselling is impossible rather than unlikely (D030). Locations are warehouses *and* network members (D071).
 - **Snapshot everything that can drift** — order lines snapshot price + level (D011) **and landed cost** (D076); commission entries snapshot rate + base (D017); orders snapshot channel (D039) and the marketer's team. Built in PH10 and verified by changing the source values afterwards.
 - **Fail closed on pricing** — a product with no price for a member's level is hidden, never falls back (D046).
@@ -67,7 +68,7 @@
 4. **PH03 Multi-Tenancy** (2026-09-01, `ce3f6e2`) — subdomain tenancy, global scope + write refusal, tenant middleware chain, Platform Owner console on its own guard and table. 78 tests, CS verify 100/100.
 
 ## Remaining
-- PH12 Commission → PH18 Production Readiness (7 phases remaining, 11 of 18 complete)
+- PH13 Targets → PH18 Production Readiness (6 phases remaining, 12 of 18 complete)
 - **Owed forward**: PH09 `marketer_customer` (PH06-T05) · PH10-T01 `marketing_channel_id` snapshot (PH06-T12) · PH10 must refuse deleting a variant an open order references · PH15 must assert BR-25 against real portal endpoints · PH18 needs `storage:link`.
 - **Pending confirmation**: D043 (HQ Cost vs Product Cost definitions) — needed before PH12-T04.
 
@@ -77,6 +78,7 @@
 - Password reset is unbuilt and now needs the tenant from the reset link — email is unique per tenant, not globally (D056).
 
 ## Work Log
+- **2026-09-02 (k)** — PH12 Commission at T2, the most intricate phase. Five-step precedence tested step by step; snapshotted ledger proven by changing the rule afterwards; clawback covering cancel, return and return-after-payout. Two recorded departures from the accepted proposal (D078 per-order override, D079 base floored at zero), both with reasons. 304 tests, CS verify 100/100.
 - **2026-09-02 (j)** — PH11 Payments at T2. Honoured D031's dangling pointer to this phase by making refunds negative payments (D077). One invariant at both ends; sum constraint enforced by locking the parent, not by a single-row guard. Refusals name the real outstanding figure. 270 tests, CS verify 100/100.
 - **2026-09-02 (i)** — PH10 Ordering at T2. The convergence phase: D011 + D076 snapshots, D030 stock at Confirmed, D031's eight statuses each gated by its own §6 permission, D039 channel. Verified immutability by changing prices afterwards, in a test and live. Paid off PH06-T12, PH07's variant guard and PH09's isReferenced. T04 partial (portals are PH15). Second intermittent test failure found and fixed. D075–D076. 250 tests, CS verify 100/100.
 - **2026-09-02 (h)** — PH09 Customers at T2. Data minimisation enforced by a column-list guard test rather than by intention. D074 removal (delete if unused, anonymise if referenced) chosen by Fakrul at the gate. Marketer scoping proven live. 221 tests, CS verify 100/100.

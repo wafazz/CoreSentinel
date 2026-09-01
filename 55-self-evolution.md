@@ -1204,3 +1204,38 @@ Track mistakes to never repeat.
   aggregate under the lock. State which one applies and why, in the code.
 - **Applied to**: credit limits, quotas, capacity checks, anything phrased as "the total must not
   exceed".
+
+---
+
+## larisHQ — PH12 Commission (2026-09-02)
+
+### Anti-Pattern: Comparing ids from two different tables
+- **What I did**: wrote a test asserting D014 — that no commission entry belongs to a network
+  member — as
+  `CommissionEntry::whereIn('marketer_id', NetworkMember::pluck('id'))->count() === 0`.
+  It failed, and the code was right: marketer ids and network member ids are separate sequences,
+  so marketer 1 and member 1 collide numerically. The assertion was a category error that would
+  have passed or failed by coincidence either way.
+- **The rule**: an id is only meaningful against its own table. To prove a foreign key cannot hold
+  the wrong kind of thing, assert it **structurally** (the column does not exist) and
+  **referentially** (every value resolves to the intended model) — never by comparing raw ids
+  across tables.
+- **Caught by**: the test failing on correct code, which is the useful direction for a test to be
+  wrong in.
+
+## Learned Skills — larisHQ PH12
+
+### Skill: Depart from an accepted proposal when implementing reveals what it costs
+- **Learned from**: larisHQ D078, D079
+- **Pattern**: P2 had been accepted months earlier and specified the manager override as a period
+  lump sum. Implementing the clawback lifecycle made the cost visible — a lump sum has no per-order
+  entry to cancel when one order in the period is returned. Rather than build it as written or
+  quietly change it, I put the trade-off at the gate with both shapes priced, and recorded the
+  outcome as a decision that *refines* P2 rather than contradicting it.
+- **The second case** was smaller and I decided it myself: D045 permits loss-leader pricing, so a
+  negative commission base is a real state, and a negative commission would make the HQ's own
+  pricing decision into a debt the marketer owes. Floored at zero, recorded, reason stated.
+- **Why**: an accepted proposal is a decision made with less information than you have while
+  building it. Neither silently following it nor silently changing it is right — surface what
+  implementation revealed, and let the record show why the answer moved.
+- **Applied to**: any spec written before the thing it specifies existed.

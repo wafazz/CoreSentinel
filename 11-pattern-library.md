@@ -826,6 +826,37 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   the user as **positive plus a direction** — a typed minus sign is an expensive typo.
 - **First used in**: larisHQ — PH11 (2026-09-02)
 
+### First-Match Rule Chains (commission rates, pricing tiers, discount policies)
+- **Stack**: any; shown in Laravel + MariaDB
+- **Problem**: "the product rate wins, else the category rate, else the customer's own, else the
+  default" is usually built as one table with several nullable scope columns — and then two
+  things go wrong. A row sets *two* scopes and nobody knows which step it belongs to; and a plain
+  `UNIQUE(tenant, product_id, category_id, …)` silently permits two defaults, because SQL treats
+  NULLs as distinct.
+- **Solution**: make both impossible in the schema.
+  ```sql
+  -- exactly one scope, or none for the default
+  CHECK ((product_id IS NOT NULL) + (category_id IS NOT NULL)
+       + (customer_id IS NOT NULL) + (team_id IS NOT NULL) <= 1)
+
+  -- one rule per target, and exactly one default
+  ADD COLUMN scope_key VARCHAR(40) AS (CASE
+      WHEN product_id  IS NOT NULL THEN CONCAT('product:',  product_id)
+      WHEN category_id IS NOT NULL THEN CONCAT('category:', category_id)
+      … ELSE 'default' END) STORED;
+  UNIQUE (tenant_id, scope_key)
+  ```
+  The generated column has one source — the scope columns — so it cannot drift. Resolve by
+  fetching every candidate in one query and ranking in PHP by a `specificity()` derived from
+  which column is set; ranking in SQL means a CASE expression that must be kept in step with the
+  code's ordering.
+- **Gotchas**: build the test as the **whole chain, then dismantle it** — one test per step,
+  deleting the more specific rule each time, plus the empty case. `where('col', null)` compiles to
+  `= NULL` and matches nothing, so add each `orWhere` only when there is a value. And snapshot the
+  resolved rate **and its type** onto whatever the rule produced: the point of a rule chain is
+  that it changes, and history must not change with it.
+- **First used in**: larisHQ — PH12 (2026-09-02)
+
 ---
 
 ## How to Add Patterns
