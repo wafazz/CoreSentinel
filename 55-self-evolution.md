@@ -1061,3 +1061,44 @@ Track mistakes to never repeat.
   concrete.
 - **Applied to**: every assumption logged as "confirm later" — attach it to the phase that first
   depends on it, and raise it there.
+
+---
+
+## larisHQ — PH08 Inventory (2026-09-02)
+
+### Anti-Pattern: A unique index that includes a nullable column
+- **What I nearly did**: put `warehouse_id` and `network_member_id` on `stocks` as nullable
+  columns with `UNIQUE(tenant_id, warehouse_id, network_member_id, variant_id)`. In MySQL and
+  MariaDB, **NULLs are distinct in a unique index**, so two rows for the same network member —
+  both with `warehouse_id IS NULL` — would both be accepted. The constraint reads as if it works
+  and enforces nothing on exactly the rows it was written for.
+- **The rule**: when a row holds *one of two things*, give that choice its own table with a
+  `CHECK` that exactly one side is set, and reference it by a single non-nullable key. Then the
+  uniqueness lives somewhere it can actually be expressed, and both sides keep real foreign keys.
+- **Caught by**: thinking through the constraint before writing it, prompted by having to justify
+  the shape at the schema gate.
+
+### Anti-Pattern: Writing a heredoc into a directory that does not exist — again
+- **What I did**: `cat > app/Http/Requests/Concerns/ResolvesStockHolder.php` without creating
+  `Concerns/` first. The shell reported the failure, but the same command chain's *later* steps
+  had already patched two other files to import the trait — so the codebase referenced a file
+  that did not exist.
+- **Why it matters**: this exact anti-pattern is already in this log from a previous project. The
+  new detail is the failure mode: when a compound command writes a file **and** patches its
+  dependents, a partial failure leaves the dependents pointing at nothing.
+- **The rule**: `mkdir -p` before any heredoc into a new path, and when one command both creates
+  and wires something, check the create succeeded before trusting the wiring.
+
+## Learned Skills — larisHQ PH08
+
+### Skill: Name a scope extension as an extension, and price it before it is chosen
+- **Learned from**: larisHQ D071
+- **Pattern**: §13 described warehouse-only stock. Tracking what each stockist holds is a
+  reasonable thing for the owner to want and an easy thing to slide in as "obviously implied" —
+  so I put it at the gate as an explicit choice, with what it costs spelled out: every member
+  becomes an inventory location, transfers gain a downstream leg, reconciliation spans the
+  network, and the portals owe each member a view. Fakrul chose it knowingly.
+- **Why**: the failure mode is not refusing scope, it is *absorbing* it silently — the work
+  happens, the specification no longer describes the system, and nobody decided anything. Naming
+  it makes it a decision with an owner and a recorded cost.
+- **Applied to**: every requirement that is reasonable, unstated, and larger than it looks.

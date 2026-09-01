@@ -723,6 +723,30 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   exists contains the very words the guard forbids.
 - **First used in**: larisHQ — PH06 (2026-09-01)
 
+### Stock Ledger — one writer, guarded decrements, reconcilable history
+- **Stack**: any SQL database; shown in Laravel + MariaDB
+- **Problem**: inventory goes wrong in two ways that both look fine in testing — a stock change
+  that leaves no history, and two concurrent orders that each check availability, each see
+  enough, and both take it.
+- **Solution**: one service is the *only* thing that changes a quantity, and every change writes
+  its movement in the same transaction. The decrement is a **guarded conditional update**:
+  ```php
+  $updated = Stock::whereKey($id)->where('quantity', '>=', $qty)->decrement('quantity', $qty);
+  if ($updated === 0) { throw InsufficientStock::…; }   // someone got there first
+  ```
+  The check and the write are one statement, evaluated by the database, so two callers cannot
+  both pass it. Back it with a `CHECK (quantity >= 0)` for anything that ever bypasses the
+  service. Movements carry a **signed** quantity and no running balance, so "level == sum of
+  movements" stays a real assertion rather than a comparison of two copies of one number.
+- **Gotchas**: a transfer must be one transaction wrapping a guarded decrement and an increment —
+  then a short source throws and *neither* side moves, which is the only honest meaning of
+  "atomic". Keep the level as a stored column rather than summing history on read: availability
+  has to be checked inside the guarded update, and summing under a lock is a different and much
+  slower thing. And note what you have *not* tested: a transactional test harness cannot exercise
+  true parallelism, because a second connection blocks on row locks instead of racing — say so
+  rather than implying the concurrency is proven.
+- **First used in**: larisHQ — PH08 (2026-09-02)
+
 ---
 
 ## How to Add Patterns

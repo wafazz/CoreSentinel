@@ -1,6 +1,6 @@
 # larisHQ — Agent/Stockist + Marketer/Sales Team Management & Ordering SaaS
 
-> **Status**: Active build — PH01–PH07 verified, PH08 next. Zero open questions.
+> **Status**: Active build — PH01–PH08 verified, PH09 next. Zero open questions.
 > **Last Updated**: 2026-09-01
 
 ## Business Context
@@ -26,6 +26,7 @@
 - **D043 confirmed**: product cost = supplier/manufacturing; HQ cost = landed (freight, duty, packaging). D044 pays commission on the landed margin.
 - **Dynamic marketing channels** — `marketing_channels` + `marketer_channel` pivot, built PH06. FB/Google are rows seeded from **config**, never code branches (D012). A guard test greps app/ and resources/js/ for their names and requires zero hits. Seeded once, never re-synced (D068).
 - **Margin, not commission, for the network** — agents/stockists earn the price differential; no override engine exists (D014).
+- **Stock: one ledger, guarded decrements** — `StockLedger` is the only thing that changes a quantity, and every change writes a movement in the same transaction. Decrements are `WHERE quantity >= ?` inside the UPDATE, so overselling is impossible rather than unlikely (D030). Locations are warehouses *and* network members (D071).
 - **Snapshot everything that can drift** — order lines snapshot price + level (D011); commission entries snapshot rate + base (D017); orders snapshot channel (D039).
 - **Fail closed on pricing** — a product with no price for a member's level is hidden, never falls back (D046).
 - **`Gate::before` never answers a model-bound check** (D052) — it resolves bare ability names from the registry and returns null the moment a model is passed, so policies (and PH03's tenant check) can never be short-circuited.
@@ -45,6 +46,7 @@
 - Never grant a blanket superuser through `Gate::before`; never add an `is_admin` flag (BR-04, guarded by a test).
 - Never add a tenant-owned model without `use BelongsToTenant` — nothing enforces it and the model is silently unscoped.
 - Never put `nullable` before a custom rule that has to decide what *null* means — every rule after `nullable` is skipped and the branch becomes dead code. Use `present`.
+- Never rely on a multi-column unique index that includes a nullable column in MariaDB — NULLs are distinct, so duplicates pass. Give the either/or its own table.
 - Never call `refreshApplication()` inside a test — it leaves a `RefreshDatabase` transaction open and the next `PermissionSeeder` upsert dies on a 1205 lock-wait. Use a Pest dataset.
 - Never write a source-grep guard test without stripping comments first — the prose explaining the rule contains the words the rule forbids. This bit twice (PH02 `is_admin`, PH06 `facebook`).
 - Never delete a network member with any child, or a populated/non-deepest level (D064, D029).
@@ -61,7 +63,7 @@
 4. **PH03 Multi-Tenancy** (2026-09-01, `ce3f6e2`) — subdomain tenancy, global scope + write refusal, tenant middleware chain, Platform Owner console on its own guard and table. 78 tests, CS verify 100/100.
 
 ## Remaining
-- PH08 Inventory → PH18 Production Readiness (11 phases remaining, 7 of 18 complete)
+- PH09 Customers → PH18 Production Readiness (10 phases remaining, 8 of 18 complete)
 - **Owed forward**: PH09 `marketer_customer` (PH06-T05) · PH10-T01 `marketing_channel_id` snapshot (PH06-T12) · PH10 must refuse deleting a variant an open order references · PH15 must assert BR-25 against real portal endpoints · PH18 needs `storage:link`.
 - **Pending confirmation**: D043 (HQ Cost vs Product Cost definitions) — needed before PH12-T04.
 
@@ -71,6 +73,7 @@
 - Password reset is unbuilt and now needs the tenant from the reset link — email is unique per tenant, not globally (D056).
 
 ## Work Log
+- **2026-09-02 (g)** — PH08 Inventory at T2. Flagged member-held stock as beyond §13 at the gate; Fakrul chose the wider scope, recorded as a deliberate extension (D071). Guarded conditional decrements make overselling impossible; reconciliation verified in tests and live. D071–D073. 211 tests, CS verify 100/100.
 - **2026-09-02 (f)** — PH07 Catalogue and Level Pricing at T2. D043 confirmed at the gate, closing the project's last open question. Pricing verified at 1/3/8 levels and live with an 8-column grid. D045 and D046 both confirmed over real HTTP. Diagnosed the intermittent suite failure that had been open since PH04: a 1205 lock-wait on the `permissions` upsert caused by an in-test `refreshApplication()`. D069–D070. 188 tests, CS verify 100/100.
 - **2026-09-01 (e)** — PH06 Marketers/Teams/Channels at T2. Four channel conditions tested literally, condition 4 inventing a channel at runtime inside the test. Two tasks deferred with the phase that owes them named (T05→PH09, T12→PH10) rather than faked. One real bug: default-channel sync resurrected deleted channels while its comment claimed otherwise. D066–D068. 152 tests, CS verify 100/100. An intermittent suite failure remains open.
 - **2026-09-01 (d)** — PH05 Dynamic Hierarchy at T2. Depth is data in the service, validator, tree component and tests; proven at 1, 2 and 8 levels. One real bug: `nullable` before a custom rule made the "parent required below top level" branch dead code, allowing an orphaned member. D062–D065. 132 tests, CS verify 100/100, depth-8 tree rendered over real HTTP.
