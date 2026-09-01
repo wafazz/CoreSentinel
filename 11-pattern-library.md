@@ -771,6 +771,32 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   record rather than a person.
 - **First used in**: larisHQ — PH09 (2026-09-02)
 
+### Snapshot Every Input a Money Record Depends On
+- **Stack**: any transactional system — orders, invoices, payroll, commission
+- **Problem**: an order is written today and read in two years. If it *joins* to the product's
+  price, the customer's tier, the salesperson's team or the item's cost, then every one of those
+  changing quietly rewrites history — and the rewrite is invisible, because the query still
+  returns a number that looks right.
+- **Solution**: at the moment the record is created, **copy** every input into it. Not just the
+  obvious one:
+  ```
+  order_lines: unit_price          <- the price charged
+               network_level_id    <- the tier that produced it
+               hq_cost_price       <- the cost the margin/commission is computed from
+               product_name, sku   <- so the line stays readable after a rename
+  orders:      sales_team_id       <- the salesperson's team at the time
+               marketing_channel_id
+  ```
+  The test that proves it is not "the order has a price" but **"change the price afterwards and
+  assert the order does not move"** — plus the same for every other copied input.
+- **Gotchas**: the cost snapshot is the one people miss, because nothing on the order screen shows
+  it — it surfaces a phase later when commission is computed from *today's* cost and quietly
+  overpays or underpays. Keep the cart free of prices entirely so the line is created exactly
+  once; a draft carrying snapshots has to rewrite its own lines whenever the buyer changes. And
+  make every attribution foreign key `restrict` on delete: the record must never lose the answer
+  to a question it was designed to answer.
+- **First used in**: larisHQ — PH10 (2026-09-02)
+
 ---
 
 ## How to Add Patterns

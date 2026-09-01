@@ -1141,3 +1141,36 @@ Track mistakes to never repeat.
 - **Applied to**: any "must not" requirement — no unnecessary data, no cost prices in a payload,
   no admin shortcut, no vendor-specific branch. Each of those became a guard test in this project,
   and each has since caught something.
+
+---
+
+## larisHQ — PH10 Ordering (2026-09-02)
+
+### Anti-Pattern: A factory that can generate data the schema rejects
+- **What I did**: `RoleFactory` used `fake()->unique()->jobTitle()` for the name and slugged it
+  into a `varchar(64)` column. Most job titles fit. "First-Line Supervisor-Manager of Landscaping,
+  Lawn Service, and Groundskeeping Worker" does not — so roughly one run in fifteen died with
+  `1406 Data too long`, in whichever test happened to draw it.
+- **Why it mattered more than it looks**: this was a **second** intermittent failure with the same
+  symptom class as the PH07 lock-wait — random-looking, moving between unrelated tests. Having
+  diagnosed one, it was tempting to assume any recurrence was the same thing. It was not.
+- **The rule**: every generated string must be bounded against the column it lands in. Faker's
+  word-based generators have no length contract, and `unique()` does not add one. Assert it once:
+  draw a few hundred and check the longest against the column width.
+- **The wider lesson**: after fixing one flaky cause, do not assume the next occurrence is the same
+  cause. Read the new stack trace as if the first diagnosis had never happened.
+
+## Learned Skills — larisHQ PH10
+
+### Skill: Prove immutability by changing the source, not by reading the copy
+- **Learned from**: larisHQ PH10 (D011, D076)
+- **Pattern**: a snapshot test that asserts `line.unit_price === 2000` proves the copy happened
+  once. It says nothing about whether the value is a copy or a join, because both return 2000
+  today. The test that means something is: place the order, **change the price to something
+  else**, and assert the order still reads 2000. Do it for every snapshotted input — price, tier,
+  cost, names.
+- **Why**: the whole point of a snapshot is behaviour under change, so the test has to contain a
+  change. Applied here it also caught what would have been a real bug a phase later — the landed
+  cost was not originally in my schema, and writing this test is what surfaced that D044's
+  commission base had no stable input.
+- **Applied to**: any denormalised copy, cached total, or "as at" record.
