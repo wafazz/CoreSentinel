@@ -747,6 +747,30 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   rather than implying the concurrency is proven.
 - **First used in**: larisHQ — PH08 (2026-09-02)
 
+### Data Minimisation You Can Actually Enforce
+- **Stack**: any; shown in Laravel + Pest
+- **Problem**: "collect only what is necessary" is a sentence in a specification. Six months
+  later the table has a date of birth, an identity number and a free-text notes field that
+  someone has been pasting medical details into — each added reasonably, none decided.
+- **Solution**: make the *absence* of columns testable.
+  ```php
+  it('collects only the fields the specification lists', function () {
+      expect(Schema::getColumnListing('customers'))->toBe([
+          'id', 'tenant_id', 'code', 'name', 'email', 'phone', /* … */ 'created_at', 'updated_at',
+      ]);
+  });
+  ```
+  Adding a field now fails the suite, so it has to be argued for in a pull request rather than
+  slipped in. Pair it with a **removal path that actually erases**: delete the row when nothing
+  references it, and when history depends on it, anonymise in place — clear every personal field,
+  keep the row and its internal code so totals still reconcile.
+- **Gotchas**: name the personal fields **once**, as a constant on the model, and have both the
+  anonymiser and the guard read it — otherwise the two drift and a field added to one is missed
+  by the other. "Deactivate" is not erasure and should not be described as it. And keep an
+  internal handle (a code) out of the personal list: orders are read by it, and it identifies a
+  record rather than a person.
+- **First used in**: larisHQ — PH09 (2026-09-02)
+
 ---
 
 ## How to Add Patterns

@@ -1102,3 +1102,42 @@ Track mistakes to never repeat.
   happens, the specification no longer describes the system, and nobody decided anything. Naming
   it makes it a decision with an owner and a recorded cost.
 - **Applied to**: every requirement that is reasonable, unstated, and larger than it looks.
+
+---
+
+## larisHQ — PH09 Customers (2026-09-02)
+
+### Anti-Pattern: `$defaults + $overrides` in PHP
+- **What I did**: built an anonymiser as
+  `forceFill(array_fill_keys($personalFields, null) + ['name' => 'Removed customer', …])`.
+  PHP's `+` on arrays keeps the **left** operand's keys, so the `name` override was silently
+  discarded and the code tried to write NULL into a NOT NULL column.
+- **The rule**: `+` is not `array_merge`. When combining defaults with overrides, the overrides go
+  on the **left** — or use `array_merge`, where the right wins. The failure is silent whenever the
+  column happens to be nullable, which is most of the time: here it only surfaced because `name`
+  is NOT NULL.
+
+### Anti-Pattern: Trusting a framework's name guess after being burned by it
+- **What I did**: named a pivot `marketer_customer`, matching the domain and the planning
+  document. Laravel's `belongsToMany` guesses alphabetically — `customer_marketer` — and failed
+  at runtime. I had hit exactly this in PH06 with `marketer_channel`, fixed it the same way, and
+  **written the lesson into session memory** three phases earlier.
+- **Why it keeps happening**: the note said "state the table explicitly when the schema names it
+  otherwise", which requires noticing that this *is* such a case. The alphabetical rule is easy to
+  check and I did not check it.
+- **The rule**: whenever a pivot's two model names are not already in alphabetical order, pass the
+  table name. Do not evaluate whether it is needed — pass it.
+
+## Learned Skills — larisHQ PH09
+
+### Skill: Turn a policy sentence into a failing test
+- **Learned from**: larisHQ PH09 (§18 "no unnecessary personal data")
+- **Pattern**: requirements about what a system must *not* do have no natural home in code — there
+  is nothing to point at. Make the absence assertable: a test on the exact column list turns
+  "collect only what is necessary" from an intention into something that breaks the build when
+  violated.
+- **Why**: intentions decay silently and nobody is ever the person who decided to erode them. A
+  test makes the erosion a visible choice with an author.
+- **Applied to**: any "must not" requirement — no unnecessary data, no cost prices in a payload,
+  no admin shortcut, no vendor-specific branch. Each of those became a guard test in this project,
+  and each has since caught something.
