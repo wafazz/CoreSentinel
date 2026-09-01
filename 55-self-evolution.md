@@ -1239,3 +1239,33 @@ Track mistakes to never repeat.
   building it. Neither silently following it nor silently changing it is right — surface what
   implementation revealed, and let the record show why the answer moved.
 - **Applied to**: any spec written before the thing it specifies existed.
+
+---
+
+## Learned Skills — larisHQ PH13 (2026-09-02)
+
+### Skill: Write the timezone test as the scenario, not as the assertion
+- **Learned from**: larisHQ PH13
+- **Pattern**: "period boundaries are computed in the configured timezone" is easy to assert
+  trivially — `expect(config('app.timezone'))->toBe(...)` — and that proves almost nothing. The
+  test that earns its place names the **scenario**: an order placed at 00:30 on the 1st in Kuala
+  Lumpur is 16:30 on the last day of the previous month in UTC, so a UTC boundary silently files
+  that sale under the wrong period.
+- **Why**: timezone bugs produce numbers that are wrong and look completely ordinary. Nobody
+  audits a monthly total that is plausible. Writing the failing scenario into the test is what
+  makes the bug *findable* rather than merely *prevented today*.
+- **Applied to**: any date bucketing — reporting periods, billing cycles, cut-off times, "today's"
+  anything.
+
+### Skill: Reuse the schema shape you already proved, and say that you are
+- **Learned from**: larisHQ PH08 → PH12 → PH13
+- **Pattern**: three phases hit the same problem — a row that must reference exactly one of
+  several things, with uniqueness over that choice. The first (stock locations) cost real thought
+  and a separate table. The second (commission rules) and third (targets) used a CHECK plus a
+  STORED generated key, in minutes, with a comment naming the earlier decision.
+- **Why**: a solved shape recognised early is the cheapest thing in a codebase, and the comment
+  pointing back is what makes it recognisable to the next person instead of looking like
+  coincidence. The failure mode is the opposite one — solving it a third distinct way, and leaving
+  three patterns where one would do.
+- **Applied to**: any recurring structural problem. Name the earlier decision in the code, not just
+  in the log.

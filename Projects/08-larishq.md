@@ -1,6 +1,6 @@
 # larisHQ — Agent/Stockist + Marketer/Sales Team Management & Ordering SaaS
 
-> **Status**: Active build — PH01–PH12 verified, PH13 Targets next. Zero open questions.
+> **Status**: Active build — PH01–PH13 verified, PH14 Reports next. Zero open questions.
 > **Last Updated**: 2026-09-01
 
 ## Business Context
@@ -41,6 +41,7 @@
 - Never hardcode hierarchy depth, level names, or FB/Google as columns or enums.
 - Never pay margin *and* an upline override on the same order — that pays the network twice (D014).
 - Never expose `hq_cost_price` or `product_cost_price` to any portal payload (BR-25).
+- Period boundaries must be computed in `config('app.timezone')`, never UTC — 00:30 on the 1st in KL is the previous month in UTC, and a sale silently lands in the wrong target period.
 - `APP_TIMEZONE` is silently ignored on Laravel 12 — set the timezone in `config/app.php` and test it (D019, D034).
 - `authorizeResource()` is dead on Laravel 12 — it calls `$this->middleware()`, which the base controller no longer has. Use `HasMiddleware`.
 - The login route must be **named** `login` — `Authenticate::redirectTo()` returns null on Laravel 12 and the redirect comes from the handler's `route('login')` fallback.
@@ -68,7 +69,7 @@
 4. **PH03 Multi-Tenancy** (2026-09-01, `ce3f6e2`) — subdomain tenancy, global scope + write refusal, tenant middleware chain, Platform Owner console on its own guard and table. 78 tests, CS verify 100/100.
 
 ## Remaining
-- PH13 Targets → PH18 Production Readiness (6 phases remaining, 12 of 18 complete)
+- PH14 Reports → PH18 Production Readiness (5 phases remaining, 13 of 18 complete)
 - **Owed forward**: PH09 `marketer_customer` (PH06-T05) · PH10-T01 `marketing_channel_id` snapshot (PH06-T12) · PH10 must refuse deleting a variant an open order references · PH15 must assert BR-25 against real portal endpoints · PH18 needs `storage:link`.
 - **Pending confirmation**: D043 (HQ Cost vs Product Cost definitions) — needed before PH12-T04.
 
@@ -78,6 +79,7 @@
 - Password reset is unbuilt and now needs the tenant from the reset link — email is unique per tenant, not globally (D056).
 
 ## Work Log
+- **2026-09-02 (l)** — PH13 Targets at T2. Boundary correctness in the configured timezone tested at every edge; D041 enforced by a generated-column unique index on the *computed* period, proven live. Achievement computed not stored (D080), counted by placed_at (D081). Defines the period concept D078 deferred. 331 tests, CS verify 100/100.
 - **2026-09-02 (k)** — PH12 Commission at T2, the most intricate phase. Five-step precedence tested step by step; snapshotted ledger proven by changing the rule afterwards; clawback covering cancel, return and return-after-payout. Two recorded departures from the accepted proposal (D078 per-order override, D079 base floored at zero), both with reasons. 304 tests, CS verify 100/100.
 - **2026-09-02 (j)** — PH11 Payments at T2. Honoured D031's dangling pointer to this phase by making refunds negative payments (D077). One invariant at both ends; sum constraint enforced by locking the parent, not by a single-row guard. Refusals name the real outstanding figure. 270 tests, CS verify 100/100.
 - **2026-09-02 (i)** — PH10 Ordering at T2. The convergence phase: D011 + D076 snapshots, D030 stock at Confirmed, D031's eight statuses each gated by its own §6 permission, D039 channel. Verified immutability by changing prices afterwards, in a test and live. Paid off PH06-T12, PH07's variant guard and PH09's isReferenced. T04 partial (portals are PH15). Second intermittent test failure found and fixed. D075–D076. 250 tests, CS verify 100/100.
