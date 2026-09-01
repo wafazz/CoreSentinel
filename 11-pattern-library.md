@@ -674,6 +674,31 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   that needs the value adds a key instead of building a store.
 - **First used in**: larisHQ — PH04 (2026-09-01)
 
+### Configurable-Depth Hierarchy — adjacency list, strict adjacency, no closure table
+- **Stack**: Laravel + MySQL/MariaDB; any ORM with a self-referencing table
+- **Problem**: "1 to 8 configurable levels, names chosen by the customer" is repeatedly built as
+  `level_1_id … level_8_id`, which hardcodes the maximum, wastes seven columns on a two-level
+  customer, and makes "who is above this person" a different query per depth.
+- **Solution**: `levels` (number, customer-chosen name) + `members` (`parent_id`, `level_id`),
+  and **strict adjacency** — a member's parent must sit on exactly the level above. That single
+  rule buys three things:
+  1. Cycles become *structurally impossible*: level numbers strictly decrease going up. Keep the
+     bounded parent walk anyway as defence in depth, but do not describe it as the guard.
+  2. The tree renders from one query — group by `parent_id`, nest recursively. A closure table is
+     maintenance for a depth-bounded problem that does not have it.
+  3. A customer wanting a flatter network configures fewer levels, which is what the range is for.
+  Enforce the maximum in **three** places: the service (so the customer gets a sentence), the HTTP
+  layer, and a database `CHECK` constraint (so a forgotten code path cannot write row nine).
+  ```php
+  DB::statement('ALTER TABLE network_levels ADD CONSTRAINT levels_range CHECK (level_number BETWEEN 1 AND 8)');
+  ```
+- **Gotchas**: deletion is the sharp edge. Refuse while a member has **any** child, not just an
+  active one — detaching an inactive child leaves it below the top level with no parent, which
+  adjacency says cannot exist. Make routine removal a status change instead. Levels may be added
+  at the bottom and renamed freely (the id is the key, the name is a label), but a populated level
+  can never be deleted or renumbered, and only the *deepest* level may be removed at all.
+- **First used in**: larisHQ — PH05 (2026-09-01)
+
 ---
 
 ## How to Add Patterns

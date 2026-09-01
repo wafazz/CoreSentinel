@@ -938,3 +938,41 @@ Track mistakes to never repeat.
 - **The rule**: a seeder that resolves foreign keys by natural key fails **silently** when the
   target row is missing. Run the whole seeder chain in order, and prefer a seeder that reports what
   it could not resolve over one that quietly syncs fewer rows.
+
+---
+
+## larisHQ — PH05 Dynamic Hierarchy (2026-09-01)
+
+### Anti-Pattern: `nullable` in front of a rule that has to decide what null means
+- **What I did**: wrote `'parent_id' => ['nullable', new ValidNetworkParent($level, $member)]`.
+  The rule's first branch says "a member below the top level must have a parent" — and Laravel
+  skips **every rule after `nullable`** when the value is null, so that branch never ran. A member
+  could be created orphaned below the top level, which is precisely the structural invariant the
+  rule exists to protect.
+- **How it surfaced**: the test that asserted the refusal failed with "Session is missing expected
+  key [errors]" — the one test I nearly did not write, because the rule so obviously handled it.
+- **The rule**: `nullable` means *"null is acceptable, stop checking"*. A custom rule that must
+  interpret null cannot sit behind it. Use `present` (key must exist, may be null) and let the
+  rule decide — `validatePresent` returns true for a present-null key, so the rule runs.
+- **Caught by**: my own test run, before commit.
+
+### Anti-Pattern: Ordering an audit trail by a one-second timestamp
+- **What I did**: `->latest('created_at')` on the audits relation. Three events written in one
+  request share a second, so they came back in arbitrary order and the assertion failed against a
+  trail that read differently each time.
+- **The rule**: any "history" ordering needs a tiebreaker the database guarantees —
+  `ORDER BY created_at DESC, id DESC`. A log that reorders itself between reads is worse than no
+  log, because it looks authoritative.
+
+## Learned Skills — larisHQ PH05
+
+### Skill: Prove a configurable dimension at both ends and the boundary, not in the middle
+- **Learned from**: larisHQ PH05 (1–8 configurable levels)
+- **Pattern**: for anything the customer configures, write the same end-to-end test at the
+  **minimum**, at a **typical** value, at the **maximum**, and at **maximum + 1** rejected. Here
+  that was 1 level, 2 levels, 8 levels, and a 9th refused — and the 9th refused separately by the
+  service, the HTTP layer and a database constraint.
+- **Why**: a single mid-range test passes on code that has a hardcoded assumption at either end.
+  The 1-level case caught different things from the 8-level case: one has no parents at all, the
+  other exercises the full recursive walk.
+- **Applied to**: any configurable count, depth, tier or limit.

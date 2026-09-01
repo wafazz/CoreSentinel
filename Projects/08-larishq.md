@@ -1,6 +1,6 @@
 # larisHQ — Agent/Stockist + Marketer/Sales Team Management & Ordering SaaS
 
-> **Status**: Active build — PH01–PH04 verified, PH05 next
+> **Status**: Active build — PH01–PH05 verified (core §7 hierarchy done), PH06 next
 > **Last Updated**: 2026-09-01
 
 ## Business Context
@@ -21,7 +21,7 @@
 - **Tenancy**: subdomain per HQ, shared schema + `tenant_id` (D002, D026). Built PH03: `TenantScope` on reads, `BelongsToTenant` refuses tenant-less writes, Platform Owner on `admin.` with its own guard.
 
 ## Key Patterns
-- **Dynamic 1–8 level hierarchy** — `network_levels` + `network_members` adjacency list. Never `level_1_id..level_8_id` (D003). Cycle/depth by bounded recursive parent walk, no closure table (D004).
+- **Dynamic 1–8 level hierarchy** — `network_levels` + `network_members` adjacency list, built PH05. Never `level_1_id..level_8_id` (D003). Cycle/depth by bounded recursive parent walk, no closure table (D004). The 1–8 bound is enforced in the configurator, over HTTP, and by a MariaDB CHECK. Strict adjacency (D027) makes cycles structurally impossible; the walk is defence in depth.
 - **Level pricing as rows, costs as columns** — `product_prices` keyed by `network_level_id`; `hq_cost_price`/`product_cost_price`/`retail_price` on the variant (D013).
 - **Dynamic marketing channels** — `marketing_channels` + `marketer_channel` pivot. FB/Google Ads are seeded rows, never code branches (D012).
 - **Margin, not commission, for the network** — agents/stockists earn the price differential; no override engine exists (D014).
@@ -43,6 +43,8 @@
 - The login route must be **named** `login` — `Authenticate::redirectTo()` returns null on Laravel 12 and the redirect comes from the handler's `route('login')` fallback.
 - Never grant a blanket superuser through `Gate::before`; never add an `is_admin` flag (BR-04, guarded by a test).
 - Never add a tenant-owned model without `use BelongsToTenant` — nothing enforces it and the model is silently unscoped.
+- Never put `nullable` before a custom rule that has to decide what *null* means — every rule after `nullable` is skipped and the branch becomes dead code. Use `present`.
+- Never delete a network member with any child, or a populated/non-deepest level (D064, D029).
 - Never `updateOrCreate(['tenant_id' => …])` — `tenant_id` is deliberately not fillable, so it is dropped and the write is refused. `firstOrNew` + explicit assignment.
 - Never `$request->user()` once a second guard exists — name the guard (D058).
 - Never use a dotted key in a validation rule path without escaping the dots — the rule silently validates a nested path that does not exist.
@@ -56,7 +58,7 @@
 4. **PH03 Multi-Tenancy** (2026-09-01, `ce3f6e2`) — subdomain tenancy, global scope + write refusal, tenant middleware chain, Platform Owner console on its own guard and table. 78 tests, CS verify 100/100.
 
 ## Remaining
-- PH05 Dynamic Agent/Stockist Hierarchy → PH18 Production Readiness (14 phases remaining, 4 of 18 complete)
+- PH06 Marketer & Sales Teams → PH18 Production Readiness (13 phases remaining, 5 of 18 complete)
 - **Pending confirmation**: D043 (HQ Cost vs Product Cost definitions) — needed before PH12-T04.
 
 ## Carried forward
@@ -65,6 +67,7 @@
 - Password reset is unbuilt and now needs the tenant from the reset link — email is unique per tenant, not globally (D056).
 
 ## Work Log
+- **2026-09-01 (d)** — PH05 Dynamic Hierarchy at T2. Depth is data in the service, validator, tree component and tests; proven at 1, 2 and 8 levels. One real bug: `nullable` before a custom rule made the "parent required below top level" branch dead code, allowing an orphaned member. D062–D065. 132 tests, CS verify 100/100, depth-8 tree rendered over real HTTP.
 - **2026-09-01 (c)** — PH04 HQ Business Setup at T2. Settings built as a declared registry (D060), business profile split from `tenants` (D059), territories flat (D061). One real bug: dotted registry keys collide with Laravel's dot notation, so settings validation checked a path that never existed and saving over HTTP was broken — no test had covered the endpoint, only the repository. 100 tests, CS verify 100/100.
 - **2026-09-01 (b)** — PH03 Multi-Tenancy at T2. Schema gated first. Three defects found by running it, not by reading it: route middleware runs after `Authenticate` (framework priority list), `Route::domain('{tenant}...')` passes the subdomain as every controller's first argument, and `auth:platform` makes `platform` the default guard so `$request->user()` returned a `PlatformUser` into `permissionSlugs()`. D057/D058. 78 tests, CS verify 100/100, E2E across four hosts.
 - **2026-09-01 (a)** — PH02 Authentication & RBAC, run at T2. Schema gated with Fakrul before any code. Review found and closed a real privilege escalation (`staff.create` alone could mint an HQ Owner and set its password) — D053. 48 tests / 136 assertions, pint and build clean, CS verify 100/100, E2E over real HTTP confirming Sales Staff 403 / HQ Owner 200.
