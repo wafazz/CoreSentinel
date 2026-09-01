@@ -775,3 +775,68 @@ Track mistakes to never repeat.
   gone to a client. Confidence about your own recent work is precisely where verification feels
   least necessary and is most needed.
 - **Applied to**: All handoffs, status reports and completion claims
+
+---
+
+## larisHQ — PH02 Authentication & RBAC (2026-09-01)
+
+### Anti-Pattern: Shipping a permission system whose smallest permission is the biggest one
+- **What I did**: wrote staff CRUD where the role list validated only as `exists:roles,id`. A
+  user holding nothing but `staff.create` could create a user, attach the HQ Owner role, choose
+  its password, and log in as it. Every route had a `can:` check; every check passed; the system
+  was wide open anyway.
+- **Why it happened**: I checked authorization *per endpoint* and never asked what the endpoints
+  compose into. "Can this user reach this action?" was answered correctly nine times. "What can
+  this user become?" was never asked at all.
+- **The rule**: in any RBAC build, the review question is not only *is each route guarded* but
+  **what is the maximum privilege reachable from each individual permission**. Wherever one user
+  can hand another user access — role assignment, role authoring, invitations, API tokens —
+  a grant ceiling is mandatory: `array_diff($granted, $granter->permissions) === []`.
+- **Caught by**: my own Phase 5 review, before commit. Reproduced first, then fixed, then
+  regression-tested in both directions.
+
+### Anti-Pattern: A guard test that trips on the prose explaining the guard
+- **What I did**: wrote a test forbidding `is_admin`-style checks by grepping `app/` for the
+  token. It failed immediately — on the comment in `RoleTemplates.php` explaining why no
+  `is_admin` flag exists.
+- **The rule**: a source-scanning guard must scan **code**, not text. In PHP, strip
+  `T_COMMENT`/`T_DOC_COMMENT` with `token_get_all()` before matching. Otherwise the honest thing
+  — documenting the rule where it matters — is what breaks the build, and the fix pressure is to
+  delete the explanation.
+- **Applied to**: every anti-pattern guard test, in any language.
+
+### Anti-Pattern: Assuming a framework helper still does what its name says
+- **What I did**: nearly wired unauthenticated redirects assuming `Authenticate::redirectTo()`
+  finds the login route. On Laravel 12 it returns **null** unless `redirectUsing()` was called;
+  the redirect actually comes from the exception handler's `route('login')` fallback — so the
+  route *must* be named `login` or every guest hits an exception instead of a login screen.
+  Same session, same shape: `authorizeResource()` still exists and still calls
+  `$this->middleware()`, which Laravel 12 controllers no longer have — it is a fatal error, not
+  a deprecation.
+- **The rule**: for auth, authorization and routing internals, read the installed vendor source
+  before writing against it. Both of these read as working code and fail only at runtime, in the
+  path you are least likely to exercise by hand.
+
+## Learned Skills — larisHQ
+
+### Skill: Gate the schema before writing the code, in writing
+- **Learned from**: larisHQ PH02
+- **Pattern**: present the migrations, the design calls behind them and the one genuinely open
+  fork *before* Phase 3, and get an explicit approval. Four decisions (permissions global vs
+  tenant-scoped, the `Gate::before` contract, `users.status` early, the frontend permission
+  payload) were settled in one exchange and never revisited.
+- **Why**: schema is the most expensive thing to change after code exists, and the decisions that
+  look like implementation detail — where `tenant_id` goes, what `before` may answer — are the
+  ones that decide whether the *next* phase is safe.
+- **Applied to**: every T2 phase with a migration.
+
+### Skill: Prove the authorization claim over real HTTP, not only in the harness
+- **Learned from**: larisHQ PH02
+- **Pattern**: after the suite is green, log in as a genuinely limited role against the running
+  app and confirm the 403s — GET and POST both — and that no record was written. The feature
+  tests said the same thing, but the HTTP pass also caught that sessions only work on a
+  `*.larishq.test` host (`SESSION_DOMAIN`), which no test would ever have shown.
+- **Why**: the harness bypasses the cookie, the host, the CSRF token rotation and the real
+  middleware ordering. Those are exactly where an authorization system is deployed, and exactly
+  where the harness is silent.
+- **Applied to**: any phase whose acceptance criteria are about who is refused.

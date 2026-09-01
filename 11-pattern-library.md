@@ -539,6 +539,56 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
 - **Gotchas**: **Horizon is confirmed broken** on native Windows — needs `ext-pcntl` *and* `ext-posix`, neither of which PHP-on-Windows has; Herd's maintainers say it's not solvable. `php artisan dev` is degraded: the tabbed `@laravel/multiplex` UI is macOS/Linux only and Pail needs `pcntl_fork`, so you get 3 of 4 processes. Queue workers: Supervisor is Linux-only, use NSSM. You do **not** need Vite `usePolling` on native Windows — every documented case is WSL2/VM/Docker. `resolve.tsconfigPaths` fails on Windows during the **SSR** build (Vite 8 + Rolldown, rolldown#8732). `Cannot find module '../rolldown-binding.win32-x64-msvc.node'` → delete `node_modules` **and** `package-lock.json`, reinstall. Avoid project paths that are deep or contain spaces. NTFS case-insensitivity lets `import './button'` resolve `Button.tsx` locally and break on Linux CI.
 - **First used in**: E-Commerce Catalog System (planned)
 
+### Registry-Backed RBAC — `Gate::before` That Cannot Become a Bypass
+- **Stack**: Laravel 12 (any version with `Gate::before`), Inertia + Vue frontend
+- **Problem**: a granular permission system needs `$user->can('staff.create')` to work without
+  defining a Gate per slug — but the obvious `Gate::before` that grants it also short-circuits
+  every model-bound policy, including tenant scoping. That turns a convenience into an IDOR
+  generator the moment multi-tenancy lands.
+- **Solution**: `before` answers **only** argument-free abilities, and returns `null` on a miss.
+  ```php
+  Gate::before(function (User $user, string $ability, array $arguments = []) {
+      if ($arguments !== []) {
+          return null;              // model-bound -> must reach the policy
+      }
+
+      return $user->hasPermission($ability) ?: null;   // null, never false
+  });
+  ```
+  Verified in the framework source: `Gate::callBeforeCallbacks()` calls
+  `$before($user, $ability, $arguments)` — the third argument is real, not assumed.
+  Pair it with a `BasePolicy` whose every ability routes through one `allows()` method, so the
+  tenant check has exactly one place to be added later.
+- **Gotchas**: returning `false` instead of `null` on a miss silently kills every non-registry
+  gate. The permission registry belongs in **code** (a `Permissions` class) with the table as its
+  projection — validating `permissions.*` against the code list is what stops a crafted payload
+  attaching an arbitrary string as a grant. And a superuser must hold every permission as
+  **explicit rows**, never a wildcard or an `is_admin` flag: the moment a bypass exists, the
+  granular registry is decoration.
+- **First used in**: larisHQ — PH02 (2026-09-01)
+
+### The Grant Ceiling — a user may never hand out what they do not hold
+- **Stack**: any role/permission system with user-management permissions
+- **Problem**: `staff.create` looks like a modest permission. With role assignment unguarded it
+  is **full compromise**: create a user, attach the all-powerful role, choose its password, log
+  in as it. The same hole exists one door along — if `roles.create` can author a role out of
+  permissions its author lacks, role creation becomes the escalation path instead.
+- **Solution**: one predicate, enforced on both doors.
+  ```php
+  public function canGrant(array $slugs): bool
+  {
+      return array_diff($slugs, $this->permissionSlugs()) === [];
+  }
+  ```
+  Validate role **assignment** against the union of the selected roles' permissions, and role
+  **authoring** against the posted permission list. Then narrow the forms to the same set, so the
+  UI never offers a checkbox the validator will refuse.
+- **Gotchas**: this is invisible in a fresh install, because the seeded superuser holds
+  everything and passes trivially — it only bites the first real custom role. Test it in both
+  directions: a rejection *and* an acceptance, or a too-strict ceiling ships unnoticed.
+  Editing an existing role that already exceeds your ceiling correctly fails closed.
+- **First used in**: larisHQ — PH02 (2026-09-01)
+
 ---
 
 ## How to Add Patterns

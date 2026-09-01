@@ -44,6 +44,14 @@ money, auth, or tenant boundaries. `/code-review ultra` is {USER_NAME}'s to laun
 - [ ] No sensitive data exposed to frontend (passwords, secrets, tokens)
 - [ ] Auth middleware on all protected routes
 
+### 2b. Privilege Escalation (any RBAC / user-management surface)
+- [ ] No blanket superuser bypass — no `is_admin` flag, no wildcard grant, no `Gate::before` that returns true for everything
+- [ ] `Gate::before` (or equivalent) never answers a **model-bound** check — those must reach the policy, or ownership/tenant scoping is bypassable
+- [ ] **Grant ceiling**: a user cannot assign a role, or author a role, carrying permissions they do not hold themselves
+- [ ] Ask per permission: *what is the maximum privilege reachable from this one alone?* — `staff.create` plus unguarded role assignment is full compromise
+- [ ] Permission lists validated against a code-side registry, not just "exists in table"
+- [ ] Privilege columns (`status`, `is_system`, role ids) not mass-assignable from request data
+
 ### 3. Data Isolation (Multi-User / Multi-Tenant)
 - [ ] Queries scoped by user/tenant/owner ID
 - [ ] No cross-user data leaks in show/edit/delete routes
