@@ -797,6 +797,35 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   to a question it was designed to answer.
 - **First used in**: larisHQ — PH10 (2026-09-02)
 
+### Enforcing a Constraint on a SUM (payments, credit limits, quotas)
+- **Stack**: any SQL database; shown in Laravel + MariaDB
+- **Problem**: "recorded payments must never exceed the order total" reads like the stock problem
+  and is not. Stock lives in **one row**, so `UPDATE … WHERE quantity >= ?` decides atomically. A
+  payment total is a **sum across rows**, and no single-row condition can express it — so the
+  obvious `if (sum + amount > total) reject;` is a read-then-write race, and two concurrent
+  payments can both pass it.
+- **Solution**: lock the **parent** for the duration, then take the sum under that lock.
+  ```php
+  DB::transaction(function () use ($order, $amount) {
+      $locked = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+      $paid   = Payment::where('order_id', $locked->id)->sum('amount');
+
+      if ($paid + $amount > $locked->total) { throw PaymentRefused::exceedsTotal(...); }
+      if ($paid + $amount < 0)              { throw PaymentRefused::exceedsPaid(...); }
+
+      Payment::create([...]);
+  });
+  ```
+  Concurrent writers against the same parent queue instead of racing, and writers against
+  *different* parents are unaffected.
+- **Gotchas**: pick the tool from the **shape of the constraint**, not from what worked last time
+  — a single-row guard and a parent lock are both correct, for different shapes. Use **signed
+  amounts** so payments and refunds are one table and one invariant (`0 ≤ sum ≤ total`) covers
+  both ends. Never store the running balance: the whole requirement is that it reconciles, and a
+  stored copy turns that into a comparison of two copies of one number. And take the amount from
+  the user as **positive plus a direction** — a typed minus sign is an expensive typo.
+- **First used in**: larisHQ — PH11 (2026-09-02)
+
 ---
 
 ## How to Add Patterns

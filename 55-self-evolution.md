@@ -1174,3 +1174,33 @@ Track mistakes to never repeat.
   cost was not originally in my schema, and writing this test is what surfaced that D044's
   commission base had no stable input.
 - **Applied to**: any denormalised copy, cached total, or "as at" record.
+
+---
+
+## larisHQ — PH11 Payments (2026-09-02)
+
+### Skill: Chase a dangling cross-reference when you reach the phase it points at
+- **Learned from**: larisHQ D031 → PH11
+- **Pattern**: D031 dropped "Refunded" as an order status six phases earlier, with the note that
+  it *"belongs to PH11"*. PH11's own task list said nothing about refunds. Building only the task
+  list would have left a documented pointer unhonoured and a returned order with no way to be
+  settled — and nobody would have noticed for months.
+- **Why**: decisions written in one phase routinely defer work into another, and the receiving
+  phase's task list is usually written before that deferral exists. Re-read the decisions that
+  name the phase you are starting, not just the phase's own tasks.
+- **How it played out**: raised as an explicit scope question rather than absorbed silently, so
+  the extension has an owner and a decision record (D077).
+- **Applied to**: any phase whose predecessors deferred something into it. Grep the decision log
+  for the phase name before writing the first line of code.
+
+### Skill: Let the shape of a constraint choose the concurrency tool
+- **Learned from**: larisHQ PH08 → PH11
+- **Pattern**: PH08 made overselling impossible with a guarded conditional update, and that
+  pattern was fresh and successful. PH11's constraint looks identical in English — "never exceed
+  the total" — but the quantity being constrained is a **sum across rows**, which no single-row
+  `WHERE` can express. It needed a parent lock instead.
+- **Why**: reaching for the tool that worked last time is exactly how a read-then-write race gets
+  shipped with confidence. One row → conditional update. Sum across rows → lock the parent and
+  aggregate under the lock. State which one applies and why, in the code.
+- **Applied to**: credit limits, quotas, capacity checks, anything phrased as "the total must not
+  exceed".

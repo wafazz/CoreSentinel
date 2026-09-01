@@ -1,6 +1,6 @@
 # larisHQ — Agent/Stockist + Marketer/Sales Team Management & Ordering SaaS
 
-> **Status**: Active build — PH01–PH10 verified, PH11 Payments next. Zero open questions.
+> **Status**: Active build — PH01–PH11 verified, PH12 Commission next. Zero open questions.
 > **Last Updated**: 2026-09-01
 
 ## Business Context
@@ -16,7 +16,7 @@
 - **Type**: Multi-tenant SaaS (agent/stockist network, marketers, ordering)
 - **Auth**: Laravel first-party session auth, built PH02. Separate `platform_users` table + guard for Platform Owner (D024, PH03); one tenant-scoped `users` table for HQ staff, agents, stockists, marketers (D025)
 - **Currency**: MYR, integer sen (D010, D034)
-- **Payment**: manual recording only, no gateway (D032)
+- **Payment**: manual recording only, no gateway (D032). Built PH11: refunds are negative amounts in the same table (D077), one invariant `0 <= sum <= order.total`, outstanding always computed
 - **Database**: `larishq` on MariaDB :3306, `mariadb` driver (D018)
 - **Tenancy**: subdomain per HQ, shared schema + `tenant_id` (D002, D026). Built PH03: `TenantScope` on reads, `BelongsToTenant` refuses tenant-less writes, Platform Owner on `admin.` with its own guard.
 
@@ -46,6 +46,7 @@
 - Never grant a blanket superuser through `Gate::before`; never add an `is_admin` flag (BR-04, guarded by a test).
 - Never add a tenant-owned model without `use BelongsToTenant` — nothing enforces it and the model is silently unscoped.
 - Never put `nullable` before a custom rule that has to decide what *null* means — every rule after `nullable` is skipped and the branch becomes dead code. Use `present`.
+- Never enforce a SUM constraint with a single-row guard — lock the parent and sum under the lock (PH11), unlike the single-row `WHERE quantity >= ?` that works for stock (PH08).
 - Never let a factory generate data the schema can reject — `fake()->jobTitle()` overflows a varchar(64) slug and produces an intermittent failure.
 - Never trust `belongsToMany`'s pivot-name guess when the schema names the table differently — it guesses alphabetically. (Cost two debugging rounds: PH06 and PH09.)
 - Never write `$defaults + $overrides` in PHP — `+` keeps the left operand's keys and silently drops the overrides.
@@ -66,7 +67,7 @@
 4. **PH03 Multi-Tenancy** (2026-09-01, `ce3f6e2`) — subdomain tenancy, global scope + write refusal, tenant middleware chain, Platform Owner console on its own guard and table. 78 tests, CS verify 100/100.
 
 ## Remaining
-- PH11 Payments → PH18 Production Readiness (8 phases remaining, 10 of 18 complete)
+- PH12 Commission → PH18 Production Readiness (7 phases remaining, 11 of 18 complete)
 - **Owed forward**: PH09 `marketer_customer` (PH06-T05) · PH10-T01 `marketing_channel_id` snapshot (PH06-T12) · PH10 must refuse deleting a variant an open order references · PH15 must assert BR-25 against real portal endpoints · PH18 needs `storage:link`.
 - **Pending confirmation**: D043 (HQ Cost vs Product Cost definitions) — needed before PH12-T04.
 
@@ -76,6 +77,7 @@
 - Password reset is unbuilt and now needs the tenant from the reset link — email is unique per tenant, not globally (D056).
 
 ## Work Log
+- **2026-09-02 (j)** — PH11 Payments at T2. Honoured D031's dangling pointer to this phase by making refunds negative payments (D077). One invariant at both ends; sum constraint enforced by locking the parent, not by a single-row guard. Refusals name the real outstanding figure. 270 tests, CS verify 100/100.
 - **2026-09-02 (i)** — PH10 Ordering at T2. The convergence phase: D011 + D076 snapshots, D030 stock at Confirmed, D031's eight statuses each gated by its own §6 permission, D039 channel. Verified immutability by changing prices afterwards, in a test and live. Paid off PH06-T12, PH07's variant guard and PH09's isReferenced. T04 partial (portals are PH15). Second intermittent test failure found and fixed. D075–D076. 250 tests, CS verify 100/100.
 - **2026-09-02 (h)** — PH09 Customers at T2. Data minimisation enforced by a column-list guard test rather than by intention. D074 removal (delete if unused, anonymise if referenced) chosen by Fakrul at the gate. Marketer scoping proven live. 221 tests, CS verify 100/100.
 - **2026-09-02 (g)** — PH08 Inventory at T2. Flagged member-held stock as beyond §13 at the gate; Fakrul chose the wider scope, recorded as a deliberate extension (D071). Guarded conditional decrements make overselling impossible; reconciliation verified in tests and live. D071–D073. 211 tests, CS verify 100/100.
