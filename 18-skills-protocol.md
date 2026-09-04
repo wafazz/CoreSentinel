@@ -45,12 +45,25 @@ Checked against the live skill listing. Nothing below is aspirational.
 | `artifact-diagramming` | [52-handoff-protocol.md](./52-handoff-protocol.md) | 8 — Ship | Iris |
 | `artifact-capabilities` | [52-handoff-protocol.md](./52-handoff-protocol.md) | 8 — Ship | Iris |
 | `dataviz` | [12-health-score-protocol.md](./12-health-score-protocol.md) | any reporting | Ledger |
-| `design` | [52-handoff-protocol.md](./52-handoff-protocol.md) | 8 — Ship (mockups, UI/flow canvases) | Luna, Vera |
+| `design` | [20-design-protocol.md](./20-design-protocol.md) | **2 — Design** (Screen Brief reference, UI/flow canvases), 8 — Ship | Vera, Luna |
+| `claude-in-chrome` | [20-design-protocol.md](./20-design-protocol.md) | 4 — Test (screenshot every changed screen, 1280 + 390) | Probe, Vera |
 
-**Not on this host:** `claude-in-chrome` is absent from the 2026-08-20 darwin listing.
-Phase 4 E2E falls back to `run`; do not plan a browser journey around a skill that
-is not there. [02-team-protocol.md](./02-team-protocol.md) Phase 4 still names it —
-treat that as conditional on the host listing, not as a guarantee.
+**Host availability — tested 2026-09-04:** `claude-in-chrome` is now **listed** on darwin
+(it was absent 2026-08-20), but listed is not the same as working. Tested this session:
+
+| Layer | State |
+|---|---|
+| Skill + `mcp__claude-in-chrome__*` tools | Present |
+| Chrome extension connection | **Not connected** — every call fails |
+| `file://` URLs | Refused outright, even when connected |
+
+So Phase 4's screenshot step is **conditional on the extension being connected**, not on the
+skill appearing in the listing. Check by calling `tabs_context_mcp` once; if it reports the
+extension is not connected, say so and fall back — `run` for E2E, {USER_NAME}'s own eyes for
+the design pass. Never report a screenshot that was not taken.
+
+**To screenshot a local file at all**, serve it over HTTP first
+(`python3 -m http.server <port>` in its directory) — `file://` is rejected by the extension.
 
 ### Harness maintenance (run when the condition fires, not on a schedule)
 

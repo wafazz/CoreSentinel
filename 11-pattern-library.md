@@ -977,3 +977,82 @@ Format:
 - **Gotchas**: [What to watch out for]
 - **First used in**: [Project name]
 ```
+
+---
+
+## Admin Template Design Language (AdminLTE 4 — Blade and Inertia alike)
+
+> The mechanics of AdminLTE live above (*Safe/Unsafe Split*, *`loadPaths` Is Mandatory*,
+> *AdminLTE 4 in a Blade App Without Node*). This section is the **visual** layer — the
+> decisions that were being re-made, differently, on every project.
+> Process rules and the Screen Brief live in [20-design-protocol.md](./20-design-protocol.md).
+>
+> **Confidence:** the component map is read from AdminLTE 4's own demo pages and docs.
+> Verify a component against the installed version's demo before leaning on it — the
+> markup is stable across v3→v4 but the class list is not a contract.
+
+### 1. Reach for the template's component before writing markup
+- **Stack**: AdminLTE 4.3+, Bootstrap 5.3
+- **Problem**: every project hand-rolls a stat tile, a panel and a page header in slightly
+  different utility classes. The result is inconsistent within itself, which is exactly what
+  makes a UI read as generated — a person reuses, a generator re-invents.
+- **Solution**: map the need to the component that already exists, and only then consider markup.
+
+  | Need | Component | Use when |
+  |---|---|---|
+  | Headline number, one per KPI | `small-box` | Dashboard, glance density, has a drill-through link |
+  | Number with a label and icon, in a row | `info-box` | Secondary metrics, tighter than `small-box` |
+  | Any titled container | `card` + `card-header` / `card-body` | The default. `card-outline` for a lighter frame |
+  | Actions belonging to a container | `card-tools` in the header | Never a loose button floating above the card |
+  | Page title + breadcrumb | `content-header` | Every page, identically. Do not re-style per page |
+  | Inline warning tied to content | `callout` | Not a toast, not a modal |
+  | Nav with children | `sidebar-menu` + `nav-treeview` | Keep depth ≤ 2; deeper belongs in-page |
+
+- **Gotchas**: `small-box` is *loud* by design — four of them side by side is the single most
+  recognisable generated-dashboard shape. Use at most two, for numbers someone actually acts
+  on, and demote the rest to `info-box` or a plain table. If a screen needs a component the
+  template lacks, build it **once**, in the shared component directory, in the template's own
+  class vocabulary — never inline on the page that needed it first.
+- **First used in**: larisHQ (Inertia+Vue), Basic Custom E-Commerce (Blade)
+
+### 2. Override centrally, never per page
+- **Problem**: a screen carrying both AdminLTE classes and a pile of ad-hoc utility classes
+  reads as two people arguing. It is instantly visible and it is why "fix the spacing" notes
+  keep coming back — the spacing was never systematic to begin with.
+- **Solution**: one SCSS entry point. Override Bootstrap's variables (colour, spacing scale,
+  border radius, font stack) at the documented insertion point — **after functions, before the
+  AdminLTE import**, per *Bootstrap + AdminLTE 4 through Vite* above. Every page then inherits.
+- **Gotchas**: the moment a page needs a one-off override, that is evidence the variable is
+  wrong or a shared component is missing. Fix it centrally; a per-page exception becomes the
+  next project's inconsistency.
+
+### 3. Density is a per-screen class, not a global padding
+- **Problem**: an operator's daily order table and a twice-a-month settings form get the same
+  roomy padding, so the table wastes half the screen and the form feels cramped and unloved.
+- **Solution**: pick the density in the Screen Brief and apply the matching pattern:
+  `dense-table` → `table-sm`, no card padding around the table, sticky header, right-aligned
+  numerics · `roomy-form` → standard card padding, one column, generous label spacing ·
+  `glance-dashboard` → ≤2 `small-box`, everything else demoted.
+- **Gotchas**: density follows **usage frequency**, not screen importance. The most important
+  screen in the product is often the one used twice a year, and it should be roomy.
+
+### 4. Tabular data has its own rules and they are not negotiable
+- **Problem**: currency left-aligned next to a name column, IDs in a proportional font, three
+  date formats on one page. Individually trivial; together they are the reason a table looks
+  amateur even when every value is correct.
+- **Solution**: numerics right-aligned with `font-variant-numeric: tabular-nums` and a fixed
+  decimal count; currency symbol once in the column header, not per cell; IDs, codes and hashes
+  in the monospace stack; one date format defined centrally and used everywhere.
+- **Gotchas**: set `tabular-nums` on the column, not the page — proportional figures are correct
+  in prose. And decide truncation per column *before* the first long value arrives: `text-truncate`
+  with a `title`, never a layout that grows sideways.
+- **First used in**: larisHQ — agent ledger and commission tables
+
+### 5. The four states are part of the screen, not a follow-up ticket
+- **Problem**: screens ship with the happy path only, so empty, loading, error and
+  permission-denied are discovered by {USER_NAME} in review — every time.
+- **Solution**: build empty (carrying the primary action that fills it), loading, error, and
+  permission-denied alongside the populated state. An empty state without its call to action is
+  a dead end, and it is the state a new tenant sees **first**.
+- **Gotchas**: write empty-state copy in the domain's voice — "No stockists under this agent yet"
+  beats "No data available". This is the most-read and least-written copy in any admin panel.
