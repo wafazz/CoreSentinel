@@ -53,5 +53,33 @@
     "impact": "High",
     "status": "Accepted",
     "created_at": "2026-08-12 17:26:30"
+  },
+  {
+    "id": "ADR-005",
+    "decision": "Standing Rule 7 resolves the shell from the host OS instead of assuming Windows",
+    "reason": "The rule was wrong for 100 percent of commands in the 2026-08-15 darwin session: python is absent, zsh is the shell, && is required. A rule agents must ignore to function is worse than no rule, because it also teaches them the rulebook is optional. Deleting it loses the genuine Windows constraints.",
+    "chosen": "Rule 7 is now platform-conditional: resolve the host OS at session start, then take the Windows branch (PowerShell 5.1, python, no &&) or the macOS/Linux branch (zsh/bash, python3, && permitted). The Windows constraints are preserved verbatim.",
+    "alternatives": [
+      "Leave the rule unconditional and let agents silently ignore it on Unix; delete the rule entirely"
+    ],
+    "problem": "Standing Rule 7 mandated PowerShell 5.1, 'python never python3', and no && for all agents on all projects, unconditionally.",
+    "context": null,
+    "evidence": "EVO-004; darwin 24.6.0 session 2026-08-15; corroborated by the 2026-08-10 OneDrive HOME/Desktop and sed Windows-path anti-patterns in 55-self-evolution.md",
+    "author": "Fakrul",
+    "agent": "Iris",
+    "confidence": 0.95,
+    "impact": "High",
+    "status": "Accepted",
+    "created_at": "2026-08-16 08:23:49",
+    "related_files": [
+      "02-team-protocol.md"
+    ],
+    "related_incidents": [],
+    "related_decisions": [],
+    "supersedes": null,
+    "superseded_by": null,
+    "project": null,
+    "scope": "core",
+    "title": "Standing Rule 7 resolves the shell from the host OS instead of assuming Windows"
   }
 ]

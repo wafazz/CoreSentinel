@@ -1,10 +1,11 @@
 {
   "gates": {
     "Requirement": {
-      "status": "UNKNOWN",
-      "code": "REQUIREMENT_MISSING",
-      "reason": "no objective given and no requirement artifact found \u2014 pass one with: coresentinel gate run --objective \"...\"",
-      "basis": null,
+      "status": "PASS",
+      "code": "REQUIREMENT_STATED",
+      "reason": "objective stated: Reporting basis toggles across marketer/HQ/report dashboards, ad-spend summary, one Net Profit across Finance Summary + P&L + report-dashboard, platform card reconciliation, CI on PHP 8.3, docs",
+      "basis": "--objective",
+      "timestamp": "2026-08-25 05:21:17",
       "waived_reason": null
     },
     "Plan": {
@@ -12,6 +13,7 @@
       "code": "NO_AUTOMATED_CHECK",
       "reason": "no automated check for requirement completeness \u2014 waive with: coresentinel gate waive --gate Plan --reason \"...\"",
       "basis": null,
+      "timestamp": "2026-08-25 05:21:17",
       "waived_reason": null
     },
     "Architecture": {
@@ -19,48 +21,55 @@
       "code": "NO_AUTOMATED_CHECK",
       "reason": "no automated check for design adequacy \u2014 waive with: coresentinel gate waive --gate Architecture --reason \"...\"",
       "basis": null,
+      "timestamp": "2026-08-25 05:21:17",
       "waived_reason": null
     },
     "Security": {
-      "status": "UNKNOWN",
-      "code": "NO_AUTOMATED_CHECK",
-      "reason": "not a git repository \u2014 the scanner has no change set to read",
-      "basis": "git rev-parse --git-dir",
+      "status": "PASS",
+      "code": "SCANNER_CLEAN",
+      "reason": "scanner reported zero violations",
+      "basis": "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3 /Users/wafazztechnology/Desktop/CS/sentinel-validator.py --base 05d6113",
+      "timestamp": "2026-08-25 05:21:17",
       "waived_reason": null
     },
     "Implementation": {
-      "status": "UNKNOWN",
-      "code": "NO_REPOSITORY",
-      "reason": "not a git repository \u2014 no implementation to inspect",
-      "basis": null,
+      "status": "PASS",
+      "code": "IMPLEMENTATION_PRESENT",
+      "reason": "24 file(s) changed in 05d6113...HEAD",
+      "basis": "git diff --name-only 05d6113...HEAD",
+      "timestamp": "2026-08-25 05:21:17",
       "waived_reason": null
     },
     "Test": {
-      "status": "UNKNOWN",
-      "code": "NO_TEST_RUNNER",
-      "reason": "no test runner detected for this project",
-      "basis": "no command available",
+      "status": "PASS",
+      "code": "TESTS_PASSED",
+      "reason": "test suite exited 0 in 1930 ms",
+      "basis": "vendor/bin/phpunit --no-coverage",
+      "timestamp": "2026-08-25 05:21:19",
       "waived_reason": null
     },
     "Review": {
-      "status": "UNKNOWN",
-      "code": "NO_CHANGES",
-      "reason": "not a git repository \u2014 there is no diff to inspect",
+      "status": "PASS",
+      "code": "REVIEW_CLEAN",
+      "reason": "24 file(s) inspected, no blocking findings",
       "basis": "coresentinel review \u2014 static pass over added lines",
+      "timestamp": "2026-08-25 05:21:19",
       "waived_reason": null
     },
     "Verification": {
-      "status": "UNKNOWN",
-      "code": "EVIDENCE_INSUFFICIENT",
-      "reason": "only 0/100 of the evidence budget could be executed; 50 is the minimum for any verdict",
-      "basis": "coresentinel verify \u2014 0/100 evidence coverage",
+      "status": "PASS",
+      "code": "EVIDENCE_SUFFICIENT",
+      "reason": "evidence score 85/100",
+      "basis": "coresentinel verify \u2014 100/100 evidence coverage",
+      "timestamp": "2026-08-25 05:21:25",
       "waived_reason": null
     },
     "Documentation": {
-      "status": "UNKNOWN",
-      "code": "NO_REPOSITORY",
-      "reason": "not a git repository \u2014 nothing to compare",
-      "basis": null,
+      "status": "PASS",
+      "code": "DOCS_UPDATED",
+      "reason": "2 documentation file(s) changed alongside 21 source file(s)",
+      "basis": "git diff --name-only 05d6113...HEAD",
+      "timestamp": "2026-08-25 05:21:25",
       "waived_reason": null
     },
     "Deployment": {
@@ -68,8 +77,10 @@
       "code": "NO_AUTOMATED_CHECK",
       "reason": "no automated check without a deployment target \u2014 waive with: coresentinel gate waive --gate Deployment --reason \"...\"",
       "basis": null,
+      "timestamp": "2026-08-25 05:21:25",
       "waived_reason": null
     }
   },
-  "last_updated": "2026-08-14 04:23:59"
+  "last_updated": "2026-08-25 05:21:25",
+  "change_source": "05d6113...HEAD"
 }

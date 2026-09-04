@@ -42,6 +42,21 @@ Push each test as far down as it will go. If a rule can be proven at the API lay
 prove it by driving a browser. E2E is the most expensive and most fragile layer — spend it on
 journeys that lose money when broken.
 
+### Skill Bindings
+
+| Skill | Layer | Use for |
+|---|---|---|
+| `run` | any | Launching the real app to confirm a change works — not a substitute for a test |
+| `claude-in-chrome` | E2E only | Driving a browser journey, reading console/network on a live page |
+
+Two rules on `claude-in-chrome`, both learned the expensive way elsewhere:
+**never trigger a JS `alert`/`confirm`** — a modal blocks every subsequent command and
+the session is dead until {USER_NAME} clicks it by hand; and **stop after 2–3 failed
+attempts** and ask, rather than looping on a page that will not respond.
+
+A manual pass driven by `run` is a manual pass. It is reported as one, and it never
+appears in a suite count.
+
 ---
 
 ## Naming

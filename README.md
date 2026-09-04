@@ -883,6 +883,7 @@ flowchart TD
 | `<Agent> migrate` | [`15`](./15-migration-protocol.md) | Idempotent schema migrations |
 | `<Agent> api` | [`16`](./16-api-protocol.md) | Webhook idempotency & signatures |
 | `<Agent> ai` | [`17`](./17-ai-protocol.md) | Multi-provider failover & prompt defense |
+| `<Agent> skills` | [`18`](./18-skills-protocol.md) | Host skill inventory bound to the phase gates |
 | `<Agent> perf` | [`45`](./45-performance-protocol.md) | N+1 & runtime profiling |
 | `<Agent> ci` | [`50`](./50-ci-cd-protocol.md) | Pipeline setup & build guards |
 | `<Agent> handoff` | [`52`](./52-handoff-protocol.md) | Client delivery report |
@@ -892,13 +893,14 @@ flowchart TD
 </details>
 
 <details>
-<summary><b>📚 Protocol directory (39 documents)</b></summary>
+<summary><b>📚 Protocol directory (40 documents)</b></summary>
+
 
 **Core memory & strategy (00–08)**
 [`00-identity`](./00-identity.md) · [`01-sentinel-identity`](./01-sentinel-identity.md) · [`02-team`](./02-team-protocol.md) · [`02-quality-gates`](./02-quality-gates-protocol.md) · [`02-squad-contracts`](./02-squad-contracts-protocol.md) · [`03-workflow-guide`](./03-workflow-guide.md) · [`04-layered-memory`](./04-layered-memory-protocol.md) · [`04-memory-ecosystem`](./04-memory-ecosystem-protocol.md) · [`04-session-memory-format`](./04-session-memory-format.md) · [`05-init`](./05-init-protocol.md) · [`06-mimic`](./06-mimic-protocol.md) · [`07-git-workflow`](./07-git-workflow.md) · [`08-decision-ledger`](./08-decision-ledger-protocol.md)
 
-**Build, integration & platform (09–17)**
-[`09-audit-trail`](./09-audit-trail-protocol.md) · [`10-learn`](./10-learn-protocol.md) · [`11-pattern-library`](./11-pattern-library.md) · [`12-health-score`](./12-health-score-protocol.md) · [`13-adapter`](./13-adapter-protocol.md) · [`14-cli`](./14-cli-protocol.md) · [`15-migration`](./15-migration-protocol.md) · [`15-migration-guide`](./15-migration-guide.md) · [`16-api`](./16-api-protocol.md) · [`17-ai`](./17-ai-protocol.md)
+**Build, integration & platform (09–18)**
+[`09-audit-trail`](./09-audit-trail-protocol.md) · [`10-learn`](./10-learn-protocol.md) · [`11-pattern-library`](./11-pattern-library.md) · [`12-health-score`](./12-health-score-protocol.md) · [`13-adapter`](./13-adapter-protocol.md) · [`14-cli`](./14-cli-protocol.md) · [`15-migration`](./15-migration-protocol.md) · [`15-migration-guide`](./15-migration-guide.md) · [`16-api`](./16-api-protocol.md) · [`17-ai`](./17-ai-protocol.md) · [`18-skills`](./18-skills-protocol.md)
 
 **Testing & QA (25–30)**
 [`25-test`](./25-test-protocol.md) · [`26-test-data`](./26-test-data-protocol.md) · [`27-test-pattern-library`](./27-test-pattern-library.md) · [`28-flaky`](./28-flaky-protocol.md) · [`29-test-review`](./29-test-review-protocol.md) · [`30-selftest`](./30-selftest-protocol.md)

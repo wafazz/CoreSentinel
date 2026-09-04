@@ -14,11 +14,13 @@ actually ran.
 """
 
 import json
+from pathlib import Path
 
 import pytest
 
 import coresentinel as cli
 import coresentinel_evidence as evidence
+import coresentinel_exec as execution
 import coresentinel_score as score
 import coresentinel_gates as gates
 
@@ -136,6 +138,94 @@ class TestEvidenceIntegrity:
         report = evidence.verify(str(empty_dir), "claim")
         assert report["evidence_coverage"] < evidence.MIN_EVIDENCE_WEIGHT
         assert report["verdict"] == evidence.INDETERMINATE
+
+
+class TestPhpToolchainSelection:
+    """Regression, Brand New ERP 2026-08-16.
+
+    `verify` reported the Laravel suite as FAIL in 352 ms against a suite that
+    takes 155 seconds and passes 1770 tests. Pest ships PHPUnit as a dependency,
+    so vendor/bin/phpunit exists but refuses to run — "Please run
+    [./vendor/bin/pest] instead" — and exits 1. The engine read that exit code as
+    a failing test suite.
+
+    A fabricated FAIL is the same class of defect as the fabricated PASS this
+    module was rewritten to remove, and it is worse in one respect: it accuses
+    working code. The same session found PHP had no linter branch at all, so a
+    project with Pint installed and wired into its own composer gate script
+    reported "no linter is configured for this project".
+
+    These tests capture argv rather than executing, so they assert which tool the
+    engine reaches for on every platform, not just where a shell fixture runs.
+    """
+
+    @pytest.fixture
+    def php_project(self, tmp_path, write_file):
+        def _make(*binaries):
+            target = tmp_path / "php-app"
+            write_file(target / "composer.json", "{}")
+            for name in binaries:
+                write_file(target / "vendor" / "bin" / name, "#!/bin/sh\n")
+            return target
+        return _make
+
+    @pytest.fixture
+    def captured_run(self, monkeypatch):
+        """Replace execution.run, recording argv and returning a chosen exit code."""
+        calls = []
+
+        def _install(exit_codes=None):
+            codes = exit_codes or {}
+
+            def fake_run(argv, cwd=None, timeout=None):
+                calls.append([str(a) for a in argv])
+                return execution.Execution(argv, cwd=cwd, duration_ms=1,
+                                           exit_code=codes.get(Path(argv[0]).name, 0))
+
+            monkeypatch.setattr(evidence.execution, "run", fake_run)
+            return calls
+        return _install
+
+    def test_pest_is_preferred_over_the_phpunit_shim(self, php_project, captured_run):
+        calls = captured_run()
+        evidence.check_tests(str(php_project("pest", "phpunit")))
+        assert len(calls) == 1
+        assert Path(calls[0][0]).name == "pest", \
+            "the engine reached for the PHPUnit shim on a Pest project"
+
+    def test_a_pest_suite_is_not_failed_by_the_shim_exit_code(self, php_project, captured_run):
+        """The defect itself: phpunit exits 1 without running a single test."""
+        captured_run({"phpunit": 1, "pest": 0})
+        finding = evidence.check_tests(str(php_project("pest", "phpunit")))
+        assert finding["status"] == evidence.PASS
+
+    def test_a_real_pest_failure_is_still_reported(self, php_project, captured_run):
+        """Preferring pest must not make the check unable to fail."""
+        captured_run({"pest": 1})
+        finding = evidence.check_tests(str(php_project("pest", "phpunit")))
+        assert finding["status"] == evidence.FAIL
+
+    def test_a_plain_phpunit_project_still_uses_phpunit(self, php_project, captured_run):
+        calls = captured_run()
+        evidence.check_tests(str(php_project("phpunit")))
+        assert Path(calls[0][0]).name == "phpunit"
+
+    def test_pint_is_detected_as_the_php_linter(self, php_project, captured_run):
+        calls = captured_run()
+        finding = evidence.check_lint(str(php_project("pint")))
+        assert finding["status"] == evidence.PASS
+        assert Path(calls[0][0]).name == "pint" and "--test" in calls[0], \
+            "pint must run in check mode, never rewriting the tree it is evidencing"
+
+    def test_pint_violations_fail_the_lint_check(self, php_project, captured_run):
+        captured_run({"pint": 1})
+        finding = evidence.check_lint(str(php_project("pint")))
+        assert finding["status"] == evidence.FAIL
+
+    def test_php_without_a_linter_is_unknown_not_pass(self, php_project, captured_run):
+        captured_run()
+        finding = evidence.check_lint(str(php_project("pest")))
+        assert finding["status"] == evidence.UNKNOWN
 
 
 class TestVerificationReporting:

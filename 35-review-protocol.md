@@ -10,6 +10,25 @@
 
 ---
 
+## Skill Bindings
+
+| Skill | Covers | Owner |
+|---|---|---|
+| `code-review` | §1 Variables, §10 Edge cases, general correctness | Cato |
+| `simplify` | Duplication, over-engineering, reuse — quality only, finds no bugs | Sage |
+| `security-review` | §2 Security, §3 Data isolation — see [40](./40-security-protocol.md) | Cipher |
+
+Run the skills first, then walk the checklist below for what they cannot know:
+the **stack-specific** items — payment callbacks (§5), framework upload methods (§4),
+controller→view contracts (§8), route group conventions (§9). A generic reviewer has
+no idea that this project CSRF-exempts exactly one route on purpose.
+
+Every skill finding is confirmed in the code before it reaches {USER_NAME}.
+Effort levels: `low`/`medium` for a routine diff, `high`+ when the change touches
+money, auth, or tenant boundaries. `/code-review ultra` is {USER_NAME}'s to launch.
+
+---
+
 ## Checklist
 
 ### 1. Variables & Types
@@ -25,10 +44,23 @@
 - [ ] No sensitive data exposed to frontend (passwords, secrets, tokens)
 - [ ] Auth middleware on all protected routes
 
+### 2b. Privilege Escalation (any RBAC / user-management surface)
+- [ ] No blanket superuser bypass — no `is_admin` flag, no wildcard grant, no `Gate::before` that returns true for everything
+- [ ] `Gate::before` (or equivalent) never answers a **model-bound** check — those must reach the policy, or ownership/tenant scoping is bypassable
+- [ ] **Grant ceiling**: a user cannot assign a role, or author a role, carrying permissions they do not hold themselves
+- [ ] Ask per permission: *what is the maximum privilege reachable from this one alone?* — `staff.create` plus unguarded role assignment is full compromise
+- [ ] Permission lists validated against a code-side registry, not just "exists in table"
+- [ ] Privilege columns (`status`, `is_system`, role ids) not mass-assignable from request data
+
 ### 3. Data Isolation (Multi-User / Multi-Tenant)
 - [ ] Queries scoped by user/tenant/owner ID
 - [ ] No cross-user data leaks in show/edit/delete routes
 - [ ] Authorization check: user owns the resource before update/delete
+- [ ] Every new tenant-owned model actually carries the scoping trait — nothing enforces it
+- [ ] Reads may fall back unscoped; **writes must fail closed** when no tenant is bound
+- [ ] A foreign record returns **404, not 403** — a 403 confirms it exists
+- [ ] Blast radius: suspending/deleting one tenant leaves the others serving 200
+- [ ] With two or more auth guards, every `$request->user()` and bare `auth` names its guard
 
 ### 4. File Uploads (if applicable)
 - [ ] Using correct upload method for framework
@@ -84,15 +116,33 @@ For small changes, at minimum verify:
 ---
 
 ## Stack-Specific Extras
-<!-- Add your own stack-specific checks as you discover them -->
-<!-- Example:
-### Laravel + Blade
-- [ ] @csrf in forms
-- [ ] @method('PUT') for update forms
-- [ ] old() values in form inputs
 
-### React + Inertia
-- [ ] router.post with _method for file upload updates
-- [ ] preserveScroll on delete actions
-- [ ] Error display from page props
--->
+### Laravel + Blade
+Walked in full on *Basic Custom E-Commerce* (2026-08-27); every item below caught something
+real or guards something that did.
+
+- [ ] `@csrf` in every form; `@method('PUT'|'PATCH'|'DELETE')` on non-POST submits
+- [ ] `old()` on every input, so a validation bounce does not wipe the form
+- [ ] **No `env()` outside `config/`** — after `config:cache` it returns null, in production only
+- [ ] `$fillable` on every model; **never `$guarded = []`**. Money, totals and statuses stay out
+      of `$fillable` and are set explicitly in code
+- [ ] Any request field that is validated but is *not* a model attribute is excluded before
+      `new Model($request->validated())` — otherwise strict mode throws
+- [ ] No `{!! !!}` outside a reviewed allow-list
+- [ ] `Model::shouldBeStrict()` enabled outside production
+- [ ] Guarded writes use the query builder and check the affected row count; **never**
+      `$model->decrement()` on a loaded instance
+- [ ] `getRouteKeyName()` overrides pinned per-route (`{model:id}`) wherever a slug would leak
+      into admin URLs
+- [ ] Nested route params named after the **relation** (`{variant}` → `variants()`), since a
+      custom key enables scoped bindings
+- [ ] View composers registered for every namespace that renders the shared variable, not just
+      `layouts.*`
+- [ ] Components used by error views tolerate a missing `$errors` — an unmatched URL never
+      passes through the `web` group, so a naive component turns every 404 into a 500
+- [ ] Closures in `DB::transaction()` capture every variable they use in `use (...)`
+- [ ] CSRF exclusion list asserted **exactly**, not by "contains". Laravel 11+ keeps
+      `validateCsrfTokens(except:)` in the static `$neverVerify`, not the instance `$except`
+- [ ] `Http::fake()` called once per URL pattern per test; closure stubs where the response
+      depends on state created later
+- [ ] Guard suites re-run against the real DB engine, not only SQLite

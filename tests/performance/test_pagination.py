@@ -44,6 +44,10 @@ UNPAGED_BY_DESIGN = {
                     "the gate pipeline is a fixed, ordered list of stage names"),
     "health.get": ("unknown_dimensions", 20,
                    "one entry per health dimension; there are seven"),
+    "memory.brief": ("established", 50,
+                     "a temporal digest bounded by the briefing window and layer limits"),
+    "context.assemble": ("memory_facts", 100,
+                         "a task-relevant context pack bounded by the token budget"),
 }
 
 

@@ -88,6 +88,26 @@ Include server requirements and step-by-step commands.
 
 ## Phase 5: Delivery Package
 
+### Skill Bindings — the handoff document
+
+A handoff is read by someone who is not in this terminal. Publish it as an Artifact,
+not as scrollback:
+
+| Skill | Use for |
+|---|---|
+| `artifact-design` | **Read before writing the file** — including Markdown. Sets how much design the deliverable warrants. |
+| `artifact-diagramming` | Architecture, data flow, and deploy topology diagrams |
+| `artifact-capabilities` | Only if the page needs live data or saved state — rare for a handoff |
+
+Artifacts start **private**; {USER_NAME} decides when to share. Publishing a handoff
+proactively is correct — it hands over a link instead of a wall of text.
+
+**Do not publish** anything carrying a client's branding, letterhead, or byline as
+though the client produced it. Build it as a file and let {USER_NAME} decide.
+Credentials never go in an artifact — secure channel only, per the list below.
+
+---
+
 ```
 project/
 ├── Source code (git repo or zip)
