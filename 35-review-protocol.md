@@ -17,6 +17,7 @@
 | `code-review` | §1 Variables, §10 Edge cases, general correctness | Cato |
 | `simplify` | Duplication, over-engineering, reuse — quality only, finds no bugs | Sage |
 | `security-review` | §2 Security, §3 Data isolation — see [40](./40-security-protocol.md) | Cipher |
+| *(none — by hand)* | §7b Design — see [20](./20-design-protocol.md) | Vera |
 
 Run the skills first, then walk the checklist below for what they cannot know:
 the **stack-specific** items — payment callbacks (§5), framework upload methods (§4),
@@ -82,11 +83,42 @@ money, auth, or tenant boundaries. `/code-review ultra` is {USER_NAME}'s to laun
 - [ ] New columns have defaults or are nullable
 - [ ] Migration is reversible
 
-### 7. Frontend (if applicable)
+### 7. Frontend — Function (if applicable)
 - [ ] Forms work for both create AND edit
 - [ ] Flash/toast messages display (success + error)
 - [ ] Loading states on submit buttons
 - [ ] Mobile responsive (no overflow, no hidden content)
+
+### 7b. Frontend — Design (any user-facing screen) — owner: Vera
+Full rules in [20](./20-design-protocol.md). Walk this whenever a screen changed.
+
+**Against intent**
+- [ ] Screen matches its approved Screen Brief — density class, primary action, states
+- [ ] Any deviation was raised with {USER_NAME}, not absorbed silently
+- [ ] Screenshot taken at 1280 and 390 and actually looked at
+
+**The tells** (§2 of [20](./20-design-protocol.md) — the short form)
+- [ ] Not everything is a card; separation is borders/hairlines, shadow only on things that float
+- [ ] One accent colour on the primary action only; red/amber/green mean state, not decoration
+- [ ] No untouched default palette, no gradient, no glassmorphism, no hero padding in a console
+- [ ] No placeholder content survived — no John Doe, no lorem, no invented chart values
+- [ ] No ▲ +12.5% badge on a number nobody computed
+- [ ] Labels use the **domain's own nouns** from the schema, not generic ones (the loudest tell)
+- [ ] Copy sounds like the person doing the job — "No orders yet this month", not "No data available"
+- [ ] No emoji as icons; one icon set only
+
+**Real data**
+- [ ] Empty, loading, error and permission-denied states exist and are reachable
+- [ ] Tested with the widest realistic value — longest name, biggest amount, deepest level
+- [ ] Numbers right-aligned, tabular, fixed decimals; currency in the header not every cell; IDs monospace
+- [ ] Dates use one format across the page
+
+**Template fidelity**
+- [ ] Uses the template's own components and SCSS variables — nothing hand-rolled that it already provides
+- [ ] Overrides are central, not per-page utility classes fighting the template
+
+**Keyboard**
+- [ ] Visible focus ring, tab order matches visual order, Enter submits
 
 ### 8. Controller → View Data
 - [ ] Controller passes ALL data the view/component uses

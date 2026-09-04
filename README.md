@@ -796,8 +796,8 @@ Each specialist has an explicit contract — input artifacts, output artifacts, 
 | | **Kai** | Third-party integrations & webhooks |
 | | **Nova** | Core feature implementation |
 | | **Rex** | Refactoring & legacy maintenance |
-| **Frontend** | **Luna** | TypeScript/React UI & state management |
-| | **Vera** | Accessibility & responsive polish |
+| **Frontend** | **Luna** | Blade / Inertia+Vue / React UI & state management |
+| | **Vera** | Screen Briefs, design review, accessibility & responsive |
 | **Review** | **Cato** | Logic correctness & edge cases |
 | | **Sage** | Maintainability & pattern review |
 | **Security** | **Argus** | OWASP AppSec & vulnerability auditing |

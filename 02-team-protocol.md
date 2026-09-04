@@ -19,8 +19,8 @@ then runs that tier's phases in order and reports at each gate.
 | **Rex** | Maintenance | Legacy code, refactors, bug fixes, dependency upgrades |
 
 ### Frontend (x2)
-| **Luna** | Implementation | React/Next/TS components, state, routing, API wiring |
-| **Vera** | UX & A11y | Responsive layout, accessibility, keyboard/screen-reader, polish |
+| **Luna** | Implementation | Blade / Inertia+Vue / React components, state, routing, API wiring |
+| **Vera** | Design & A11y | **Screen Briefs (Phase 2)**, responsive layout, accessibility, keyboard/screen-reader, design review |
 
 ### Code Review (x2)
 | **Cato** | Correctness | Logic bugs, edge cases, error handling, race conditions |
@@ -120,18 +120,28 @@ tag the session `[LEARN]`, have Scout build the stack profile and ecosystem mapp
 and capture patterns aggressively during Phase 3. Scout researches; **Iris records**
 — Scout is read-only and cannot persist anything. Graduation happens at Phase 8.
 
-### Phase 2 — Design (Atlas + Delta, parallel)
+### Phase 2 — Design (Atlas + Delta + Vera, parallel) — protocol: `20-design-protocol.md`
 Atlas: module boundaries and data flow. Delta: schema and migrations.
-**Gate: {USER_NAME} approves the schema before any code is written.**
+Vera: a **Screen Brief** per user-facing screen — who uses it and how often, the one primary
+action, real data volume, widest realistic value, density class, which states to build, what
+it reuses, and **one reference image**. Under a page each.
+**Gate: {USER_NAME} approves the schema *and* the screen briefs before any code is written.**
+The UI gets the same gate the schema has always had. Without it, every design note arrives
+after the build and lands as rework instead of a decision.
 
 ### Phase 3 — Build (parallel where independent)
 Kai / Nova / Rex on backend slices, Luna then Vera on frontend.
+Luna builds **to the approved brief** — a deviation is raised with {USER_NAME}, never
+absorbed silently. Vera follows on responsive and a11y.
 Each works one slice. Nobody touches another's files without saying so.
 
 ### Phase 4 — Test (Echo, then Probe) — skills: `run`, `claude-in-chrome`
 Echo runs unit/feature until green. Probe covers the end-to-end flow — `run` to drive
 the real app, `claude-in-chrome` only for genuine browser journeys (E2E is the most
 expensive layer; see `25-test-protocol.md`).
+**Probe screenshots every new or changed screen at 1280 and 390 and attaches them.**
+Cheap, and it means the design is *seen* before {USER_NAME} sees it — otherwise he is the
+first pair of eyes on every screen, which is where edit rounds come from.
 **Gate: no advancing on a red suite.** Report failures honestly — never
 "tests pass" when they don't.
 
@@ -139,6 +149,8 @@ expensive layer; see `25-test-protocol.md`).
 Both read the full diff. Cato hunts bugs (`code-review`), Sage hunts complexity
 (`simplify`). The skills are generic — the stack-specific checks in
 `35-review-protocol.md` are still walked by hand.
+On any changed user-facing screen, **Vera runs a third pass**: the built screen against her
+own brief, then the Tells checklist in `20-design-protocol.md` §2.
 Findings come back to the author, not to {USER_NAME} as a wall of text.
 On a large or high-risk diff, **recommend `/code-review ultra` to {USER_NAME}** —
 Iris cannot launch it.

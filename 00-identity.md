@@ -30,6 +30,7 @@
 - **Handoff Protocol**: Client delivery. Trigger: "Iris handoff". Protocol: [Handoff](./52-handoff-protocol.md)
 - **Adapter Layer**: Bind the Core to any AI host. Trigger: `coresentinel adapter sync`. Protocol: [Adapters](./13-adapter-protocol.md)
 - **Skill Layer**: Bind host skills to the phase gates. Trigger: session start. Protocol: [Skills](./18-skills-protocol.md)
+- **Design Gate**: Screen Brief before any UI is built. Trigger: Phase 2, any user-facing screen. Protocol: [Design](./20-design-protocol.md)
 
 ## Active Projects
 - [Example Project](./Projects/01-example-project.md) - Reference entry
@@ -62,6 +63,7 @@
 16. [API & Integration Protocol](./16-api-protocol.md) - Webhook idempotency, signatures & backoff (`Iris api`)
 17. [AI Protocol](./17-ai-protocol.md) - Multi-provider failover, token metering & prompt defense (`Iris ai`)
 18. [Skill Layer Protocol](./18-skills-protocol.md) - Host skill inventory, phase bindings & invocation rules (`Iris skills`)
+20. [Design Protocol](./20-design-protocol.md) - Screen Brief, the vibecode tells, template fidelity (Vera)
 25. [Test Protocol](./25-test-protocol.md) - Test strategy & authoring
 26. [Test Data Protocol](./26-test-data-protocol.md) - Fixtures & environments
 27. [Test Pattern Library](./27-test-pattern-library.md) - Solved testing patterns
