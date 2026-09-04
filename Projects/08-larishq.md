@@ -1,7 +1,7 @@
 # larisHQ — Agent/Stockist + Marketer/Sales Team Management & Ordering SaaS
 
-> **Status**: Active build — PH01–PH14 verified, PH15 Portals next. Zero open questions.
-> **Last Updated**: 2026-09-01
+> **Status**: Active build — PH01–PH16 verified (421 tests), PH17 QA & Security next. Zero open questions.
+> **Last Updated**: 2026-09-04
 
 ## Business Context
 - **Client**: personal project (own SaaS)
@@ -34,7 +34,13 @@
 - **A grant can never exceed the granter** (D053) — `User::canGrant()` gates role assignment and role authoring alike. Without it `staff.create` alone was full compromise.
 - **One permission source for server and UI** — `auth.permissions` is a flat slug list; nav and buttons both filter through `usePermissions` (D054).
 - **Reads fall back open, writes fail closed** — `TenantScope` adds no filter with no tenant bound (console, platform console), but `BelongsToTenant` throws on create. An unscoped read is caught by a test; an unscoped write is caught by nobody.
-- **Roles are replayed per tenant** by `TenantProvisioner`, never seeded once globally (D051).
+- **Roles are replayed per tenant** by `TenantProvisioner`, never seeded once globally (D051). That method rewrites *every* template's name, description and permissions, so it is safe only at provisioning time — a runtime call to heal one missing role would revert an HQ's customised roles.
+- **Console and portal are two surfaces, one login table** (D086) — `Permissions::consoleSlugs()`/`portalSlugs()` split the registry; a user is one or the other, never both. Most of the enforcement was free: D053's `canGrant` already filters the role editor and the staff role picker, and no console user holds a portal slug.
+- **A portal user's subject never appears in a URL** (D083) — `PortalContext` is bound by middleware from the session, so a portal route takes no member, marketer or location parameter and IDOR is unrepresentable rather than guarded against.
+- **§22 is proven by enumerating the route table** (D085), not a hand-written list, plus a non-empty assertion — the failure mode of an enumerated guard is that it silently enumerates zero. It caught a real regression in the very next phase.
+- **Declared registries, now four** — permissions (D051), settings (D060), audited actions (D087), notified events (D089). Each is data a test can walk, and each throws on an undeclared key rather than silently doing nothing.
+- **An audit is not a notification** (D089) — one records what an administrator may need to reconstruct, the other interrupts somebody. Deriving one list from the other produces an inbox nobody reads.
+- **A platform act belongs to no subscriber** (D090) — nullable `tenant_id` scopes it correctly for free: invisible to every HQ, visible on the console that binds no tenant.
 - **Declared registries over free-form stores** — permissions (D051) and settings (D060) both live in `App\Support`, with the table holding only what an HQ has changed. An undeclared key throws rather than reading as null.
 
 ## Anti-Patterns (This Project)
@@ -61,6 +67,18 @@
 - Never `$request->user()` once a second guard exists — name the guard (D058).
 - Never use a dotted key in a validation rule path without escaping the dots — the rule silently validates a nested path that does not exist.
 - Never run `RoleSeeder` without `PermissionSeeder` after adding permissions — new slugs are skipped and roles keep the old set.
+- Never write a revoke without its restore — keeping the linkage on purpose (D063) makes the grant path refuse to run again, so revoke becomes permanent unless something explicitly undoes it.
+- Never notify before the write commits — `changeStatus` and `Checkout::place` each commit their own transaction, so a notify placed before them can announce something that then fails.
+- Never leave a request-scoped singleton with no reset — bind it to the user or tenant it was resolved for; `PortalContext` is filled only on portal routes, so nothing cleared it on the way out.
+- Never let one surface total money differently from another — put the definition on the model (`earned()`), not in each screen.
+- Never re-run `RoleSeeder` on a live tenant to deliver a new permission — it rewrites every template and reverts HQ customisations. `OwnerPermissionSeeder` (D091) syncs only HQ Owner, where a full sync is definitionally correct.
+- Never let a source-grep guard match a substring — `expo` matched `export` in four files. Word boundaries, and comments stripped. Third instance in this project after `is_admin` and `facebook`.
+- Never order a list by `created_at` alone — it has one-second resolution, and a UUID primary key gives no tiebreak, so the list reshuffles on every load. PH05 solved this for audits; PH16 hit it again for notifications.
+- Never narrow a *list* and think you have narrowed a *resource* — `StaffController::index` got `console()` while the route binding still resolved any user, which was a full privilege escalation. The list query and the model binding are two separate doors.
+- Never write `where($column, $model?->getKey())` — `?->` yields null, Laravel compiles `where(col, null)` to `IS NULL`, and a nullable FK column (D063) then matches. It is a null *value*, not a null *guard*.
+- Never repeat another method's docblock as your justification for calling it — read what it does. `syncRoles()` says it leaves customisations alone; it does not.
+- Never split one intent across two transactions — `Checkout::place()` commits its own, so a failing follow-up transition leaves a persisted draft the caller promised would not exist.
+- Never let one login carry two portal identities — the shared prop and the controller disagreed on precedence, so the nav and the page rendered different people.
 - No Tailwind, ever (§42).
 
 ## Completed
@@ -70,10 +88,8 @@
 4. **PH03 Multi-Tenancy** (2026-09-01, `ce3f6e2`) — subdomain tenancy, global scope + write refusal, tenant middleware chain, Platform Owner console on its own guard and table. 78 tests, CS verify 100/100.
 
 ## Remaining
-- PH15 Portals → PH18 Production Readiness (4 phases remaining, 14 of 18 complete)
-- **PH15 owes**: portal shells for network members and marketers; the scoping they need is already built and tested (`Customer::scopeVisibleTo`, `CommissionEntry::scopeVisibleTo`, `ReportScope`), plus portal-originated orders (PH10-T04), a member's own stock view (D071) and the BR-25 assertion against real portal endpoints.
-- **Owed forward**: PH09 `marketer_customer` (PH06-T05) · PH10-T01 `marketing_channel_id` snapshot (PH06-T12) · PH10 must refuse deleting a variant an open order references · PH15 must assert BR-25 against real portal endpoints · PH18 needs `storage:link`.
-- **Pending confirmation**: D043 (HQ Cost vs Product Cost definitions) — needed before PH12-T04.
+- PH17 QA & Security → PH18 Production Readiness (2 phases remaining, 16 of 18 complete)
+- **Owed forward**: PH15-T04's visual mobile/tablet browser check was never run (extension not connected) — carry into PH17 · `DevTenantSeeder` does not create the two portal logins · PH18 needs `storage:link` · `app.js` eagerly globs every page, so console users download the portal bundle too · **`audit_logs` and `notifications` have no retention policy** and PH16 adds a row per sign-in — PH18 owes a window · password reset is still unbuilt, which is why D036's second email does not exist · the deploy runbook must name `OwnerPermissionSeeder` (D091).
 
 ## Carried forward
 - Every new tenant-owned model must `use BelongsToTenant`; each phase's isolation test is the only thing that catches a model that forgets.
@@ -81,6 +97,8 @@
 - Password reset is unbuilt and now needs the tenant from the reset link — email is unique per tenant, not globally (D056).
 
 ## Work Log
+- **2026-09-04 (o)** — PH16 Notifications & Audit at T2. Found `audit_logs` had been written to since PH05 with **no screen that could open it**, and that Platform Owner actions were **entirely unauditable** — `user_id` points at `users`, and the platform console binds no tenant, so `BelongsToTenant` refused the write. Both fixed (D090), which required teaching that trait to tell "unset" from "explicitly null". Two more registries declared (D087 audited actions, D089 notified events), both derived because §24 and §25 did not survive planning — D087 taken to the gate rather than guessed, since PH17 reviews against it. Three defects found by running it: an HQ Owner 403 on their own audit screen (D091), a 500 on publish, and a non-deterministic inbox order. PH15's route guard caught a §22 regression in this phase, exactly as designed. Then `/code-review` returned **11 findings across PH15 and PH16** on a tree that was already green and verified — two severe, including a revoke that could never be undone and which a PH15 test had blessed. 421 tests, CS verify 100/100. D087–D091.
+- **2026-09-03/04 (n)** — PH15 Portals at T2. The first phase needing **no migration**: PH05–PH14 had already built every column. Built two portals on one `/portal` prefix, with the subject bound from the session and absent from every URL (D083) — proven live by a checkout carrying another member's id that booked to the right member at the right price. §22 enforced by enumerating the route table (D085) rather than listing routes by hand. Paid PH10-T04, PH12-T10, BR-25 and D071. **Four defects the green suite did not catch**: the portal's "Place order" produced an invisible draft; `ReportScope` narrowed only for marketers, so a member would have seen every member's margin; six `v-html` sinks reintroduced after the console deliberately removed them; and — found by `/code-review` after everything looked finished — a privilege escalation letting the HQ staff screen hand a network member the whole console, plus a self-healing call that would have reverted customised roles, plus `?->` inside a query builder silently returning nothing. The phase also shipped portals **no HQ could open** until grant/revoke were added: `issueLogin()` had had no caller since PH05. 390 tests, CS verify 100/100. D083–D086.
 - **2026-09-02 (m)** — PH14 Reports at T2. Paid D014's debt via D048 Indicative Margin. Found D048 assumed data the schema lacked (D082 adds the retail snapshot), then live data found an unsigned-underflow bug the tests had missed. Scoping applied once and asserted on the export as well as the screen. 345 tests, CS verify 100/100.
 - **2026-09-02 (l)** — PH13 Targets at T2. Boundary correctness in the configured timezone tested at every edge; D041 enforced by a generated-column unique index on the *computed* period, proven live. Achievement computed not stored (D080), counted by placed_at (D081). Defines the period concept D078 deferred. 331 tests, CS verify 100/100.
 - **2026-09-02 (k)** — PH12 Commission at T2, the most intricate phase. Five-step precedence tested step by step; snapshotted ledger proven by changing the rule afterwards; clawback covering cancel, return and return-after-payout. Two recorded departures from the accepted proposal (D078 per-order override, D079 base floored at zero), both with reasons. 304 tests, CS verify 100/100.

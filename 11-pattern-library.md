@@ -859,6 +859,104 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
 
 ---
 
+## Multi-surface Laravel: one app, two audiences, one login table
+
+*Stack: Laravel 12 + Inertia 3 + Vue 3.5. First used: larisHQ PH15 (2026-09-04).*
+
+An admin console and a customer/partner portal in one application, sharing authentication and a
+tenant but nothing else. Four patterns that made the boundary structural rather than remembered.
+
+### 1. The subject is bound from the session, never present in a URL
+**Problem:** a portal user must act only as themselves, and every `{id}` in a route is something
+they can change.
+**Solution:** a request-scoped singleton (`PortalContext`) that middleware fills from the
+authenticated user's linkage. No portal route takes the subject as a parameter, so the controller
+has no identifier to validate and IDOR is unrepresentable rather than defended against. Mirrors the
+tenancy pattern of reading the subdomain and nothing else.
+**Gotcha:** re-assert the subject on *every* request that touches shared state. A per-user cart
+carried over from console use will still point wherever the console last set it.
+
+### 2. Split the permission registry by surface, then let the existing grant ceiling do the work
+**Problem:** keeping portal grants away from console users.
+**Solution:** tag permission *groups* with a surface and derive `consoleSlugs()`/`portalSlugs()`;
+give the widest console role `consoleSlugs()`, not everything.
+**Payoff:** if the codebase already has a "a grant can never exceed the granter" rule filtering the
+role editor and the role picker, the split enforces itself — no console user holds a portal slug,
+so those pickers never offer one. State the rule explicitly as well, so a future template that
+carried the wrong slug cannot quietly reopen it.
+
+### 3. Prove a cross-surface boundary by enumerating the router
+**Problem:** "no admin route is reachable from the portal" is a claim about routes that do not exist
+yet.
+**Solution:** walk `Route::getRoutes()`, reject the portal's own name prefix and shared auth, and
+assert the portal user is refused on each. **Add a third test asserting the enumeration is
+non-empty** — the failure mode of an enumerated guard is that it silently enumerates zero and
+passes forever.
+
+### 4. Crossing between two root-view shells needs a full page visit
+**Problem:** two surfaces with different stylesheets, chosen once per full page load.
+**Solution:** `Inertia::location()` on login, logout and any redirect that crosses. An ordinary
+Inertia redirect swaps the page component inside the shell it started in, so the user lands on the
+right page wearing the wrong CSS. It degrades to a normal redirect for non-Inertia callers, so tests
+hitting the endpoint directly still work.
+**Gotcha:** the framework's `redirectUsersTo` needs a branch per surface too, or an authenticated
+portal user visiting `/login` is bounced to an admin route they cannot open.
+
+### 5. Ship the grant path, or the surface is unreachable
+A portal is not delivered until an admin can *open* it. A service method that mints a login is not a
+feature until a route and a control call it — grep for a production caller before calling the phase
+done. This shipped as two complete portals that nobody could sign in to, because the login-issuing
+service had had no caller since the phase that wrote it.
+
+---
+
+## Audit trails and notifications in a multi-tenant Laravel app
+
+*Stack: Laravel 12 + Inertia. First used: larisHQ PH16 (2026-09-04).*
+
+### 1. Declare the audited actions; do not scatter them
+A registry class holding event => label, with `assertDeclared()` called from the recording helper.
+The list becomes data: one test walks every `recordAudit('literal')` in `app/` and asserts each is
+declared, so a misspelt event fails the suite instead of writing a row nothing will ever query.
+Same shape as a permission or settings registry.
+
+### 2. Derive the tenant from the audited record, never from the request
+`tenant_id = $model->tenant_id ?? ($model instanceof Tenant ? $model->id : null)`. No read of
+request state at all, which is what makes one audit helper work identically in a tenant request, an
+admin-console request that binds no tenant, a queued job and a console command. The alternative —
+filling it from the bound tenant — breaks on every surface that has none.
+
+### 3. Two actor columns beat one polymorphic pair
+When a system has exactly two identity tables (tenant users and platform operators) and a
+deliberate boundary saying there will not be a third, two nullable foreign keys keep referential
+integrity that a morph would trade away for generality nothing needs. At most one is set; both null
+means a console command.
+
+### 4. A null tenant scopes correctly for free
+A platform-level audit row with `tenant_id = null` is invisible to every tenant (the global scope
+filters `tenant_id = X`) and visible on the console that binds no tenant (the scope adds nothing).
+The isolation you already built answers the new question without a special case.
+
+**Gotcha:** a "refuse writes with no tenant" guard will reject that row. Make the guard ask
+`array_key_exists`, not `!== null` — it exists to catch *forgetting*, and an explicit null is an
+answer. The NOT NULL constraint on genuinely tenant-owned tables is the real backstop.
+
+### 5. Never deliver a new permission by re-running the role provisioner
+A provisioning routine that replays role templates rewrites names, descriptions and permission sets.
+Safe at creation, destructive afterwards. To give existing tenants a newly added permission, sync
+only the "holds everything" role — where a full sync is definitionally correct and the policy
+already forbids editing it — and leave every customised role alone.
+
+### 6. Order any list whose timestamp has one-second resolution by a tiebreak
+`ORDER BY created_at DESC, id DESC`. With a UUID key the tiebreak is arbitrary but *stable*, which
+is what a reader needs — an unstable chronological order reshuffles the page on every load.
+
+### 7. Auditing anonymisation
+The one place where recording carelessly undoes the operation. Record the internal handle and the
+event; never the values you just cleared.
+
+---
+
 ## How to Add Patterns
 
 After completing a significant feature, ask yourself:

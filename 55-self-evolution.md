@@ -1313,3 +1313,183 @@ Track mistakes to never repeat.
   because the screen looks correct. Assert the narrowing on the downloaded bytes, not just on the
   rendered props.
 - **Applied to**: any download, API endpoint, or print view that mirrors a scoped screen.
+
+
+## larisHQ — PH15 Portals (2026-09-04)
+
+Run at T2. Suite green, CS verify 100/100 and a live E2E pass **before** four of these were known —
+three were found by the review and security gates, and the worst by `/code-review high` after the
+phase already looked finished. The gates earned their cost this phase more clearly than in any
+previous one.
+
+### Anti-patterns
+
+**AP — Narrowing a list is not narrowing a resource.**
+A staff list got a `console()` scope so portal users would not appear on it. The resource route
+binding still resolved any user of the tenant, and the policy had no check, so `PUT /staff/{id}`
+with an admin role attached handed a portal user the entire console — and the role `sync()` revoked
+their portal access in the same request. **The list query and the route model binding are two
+separate doors. Closing the visible one feels like the work.** Put the rule on the policy, where
+model-bound authorization actually passes.
+
+**AP — Repeating a docblock as the justification for calling the method.**
+`syncRoles()` documents itself as "adds what is missing and leaves what an HQ has customised alone".
+It does not: it rewrites the name, description and permissions of every template. That claim was
+copied into a new caller's comment and would have silently reverted customised production roles on
+an unrelated action. **A docblock is a claim about code, not evidence. Read the body of anything you
+newly call from a runtime path — especially something previously only ever run at setup time.**
+
+**AP — `?->` inside a query-builder argument is a null value, not a null guard.**
+`where('user_id', $user?->getKey())` compiles to `user_id IS NULL` when the user is null. On a
+nullable FK — which was the *normal* state in this schema — it matched, and two visibility scopes
+returned nothing instead of everything, contradicting their own documented contract. The sibling
+scope written the same day guarded with `$user === null` and was correct. **Guard the branch; do not
+let the query builder interpret your null.**
+
+**AP — One intent split across two transactions.**
+A checkout service commits its own transaction and returns a draft; the caller then transitioned it
+to "placed". A failure in the second step left exactly the persisted, invisible draft the caller
+existed to prevent, while showing the user an error. **If step two is what makes step one correct,
+they are one transaction.**
+
+**AP — Shipping a surface with no way in.**
+Two complete portals, tested and verified live, that no administrator could grant access to: the
+service that mints a login had had no caller since the phase that wrote it three phases earlier.
+Nothing failed, because nothing exercised the missing path. **Before declaring a user-facing surface
+done, grep for a production caller of the thing that lets a real user reach it.**
+
+**AP — Re-introducing a sink the codebase deliberately removed.**
+Six `v-html` bindings added for paginator labels, in a project whose console carries a comment
+explaining why `v-html` was taken out. **When adding a second surface, read what the first one
+decided — the new surface inherits the codebase's rules, not a blank slate.**
+
+**AP — Writing a test and then skipping it.**
+A skipped test with a plausible-sounding reason is worse than no test: it reads as coverage. It was
+skipped because a factory password was uncertain — thirty seconds of checking, not a reason.
+
+### Learned Skills — larisHQ PH15
+
+- **Enumerating the router as a boundary test.** Turning "no admin route is reachable" from a
+  hand-written list into a walk over `Route::getRoutes()`, with a non-empty assertion guarding the
+  vacuous-pass failure mode. Later phases inherit the guard for free.
+- **Making IDOR unrepresentable.** Binding the acting subject from the session into a request-scoped
+  singleton and keeping it out of every URL, so there is no identifier to tamper with. Proven by a
+  live request carrying a forged id that produced the correct order at the correct price.
+- **Reading a phase's inherited debts before designing it.** PH15's design started from the four
+  debts earlier phases had recorded against it, which is why they were paid rather than rediscovered.
+- **Deriving a boundary from machinery already present.** The console/portal split needed almost no
+  new enforcement because an existing "a grant can never exceed the granter" rule already filtered
+  both pickers. Look for the invariant that already holds before writing a new one.
+- **Reporting an unmet acceptance criterion as unmet.** The mobile/tablet visual check could not run;
+  static evidence about the markup was gathered and labelled as *not* that check, and the criterion
+  was carried forward rather than ticked.
+
+
+## larisHQ — PH16 Notifications & Audit (2026-09-04)
+
+Run at T2. The phase's defining discovery was archaeological rather than technical: a table written
+to since PH05 that nothing could read, and a whole class of actor the schema could not record.
+
+### Anti-patterns
+
+**AP — A write path with no read path is not a feature.**
+`audit_logs` had thirteen call sites and had been recording faithfully for eleven phases. No route,
+no controller, no screen. Every phase gate passed because the tests asserted rows were *written*.
+**When a phase builds a store, check in the same phase that something can open it** — otherwise it
+is a table that costs writes and returns nothing.
+
+**AP — A second identity table the audit schema cannot hold.**
+Platform Owner actions were unauditable because `user_id` was a foreign key to `users` and a
+Platform Owner lives in `platform_users`. The gap was invisible for eleven phases because nothing
+ever asked the audit log about a platform act. **When a system grows a second kind of actor, every
+table that records "who" needs revisiting — the FK will not complain, it will just never be set.**
+
+**AP — A null that means "decided" read as a null that means "forgot".**
+A tenant-scoping trait refused any write with a null `tenant_id`, which was right while every
+audited record belonged to a subscriber. The moment one legitimately did not, the guard fired on a
+correct write — and it fired *after* the side effects, so a publish notified everybody and then
+returned 500. `array_key_exists` asks the question the guard actually meant: did the caller set
+this at all? **A "fail closed" guard needs to distinguish absence from an explicit answer, or it
+eventually blocks the correct case.**
+
+**AP — Delivering a new permission by re-running the seeder that rewrites everything.**
+Adding a permission left existing tenants' roles behind, and the obvious remedy — re-run the role
+seeder — would have reverted every role those tenants had customised. **A provisioning routine and
+a migration routine are different things even when they share code.** The fix narrowed the blast
+radius to the one role where a full sync is definitionally correct.
+
+**AP — A source-grep guard matching a substring.** `expo` matched `export` in four files. Third
+instance in this project, after `is_admin` and `facebook` — the first two were comments, this one
+was a prefix. **Word boundaries, comments stripped, every time.** A guard that cries wolf gets
+deleted rather than fixed, which loses the rule it was protecting.
+
+**AP — Ordering a list by a one-second timestamp when the primary key is a UUID.**
+The notification inbox reshuffled on every load. The same project had already solved this for its
+audit relation with an id tiebreak and had written down why — and the lesson did not transfer
+because the new table's key was random rather than sequential. **A stable arbitrary order beats an
+unstable chronological one; the reader needs the list to stay still.**
+
+### Learned Skills — larisHQ PH16
+
+- **Taking an unrecoverable requirement to the gate instead of guessing.** Two spec sections were
+  gone. Deriving a list and asking for confirmation cost one question and gave the *next* phase
+  something stated to review against, instead of an assumption dressed as a requirement.
+- **Distinguishing an audit from a notification.** One reconstructs, the other interrupts. They look
+  like the same list and are not; deriving one from the other produces an inbox nobody reads.
+- **Letting a previous phase's guard do its job.** An enumerated route guard written in PH15 failed
+  the moment PH16 added a shared route, and the right response was to fix the boundary rather than
+  widen the guard's exclusion list.
+- **Auditing without becoming the leak.** The one place where recording carelessly undoes the thing
+  being recorded is anonymisation. Record the handle, never the cleared values.
+- **Reading the body of a method before trusting its docblock** — carried over from PH15's finding
+  and applied deliberately this phase.
+
+
+## larisHQ — PH15/PH16 review round (2026-09-04)
+
+`/code-review high` on the combined working tree returned **eleven findings** after both phases had
+a green suite, CS verify 100/100 and a live end-to-end pass. The two severe ones are the entry that
+matters.
+
+**AP — A test that documents a dead end instead of catching it.**
+Revoking portal access kept the account linkage on purpose, which made the grant path refuse to run
+again — so revoke was permanent and the UI offered no way back. A test asserted the linkage
+survived and stopped there. It described the behaviour accurately and asked nothing about whether
+the behaviour was usable. **A test that only asserts the mechanism did what it was told is not
+coverage of the feature.** After writing one, ask what the user does next; if there is no answer,
+that is the bug.
+
+**AP — An undo with no redo.** More generally: any operation that deliberately preserves state in
+order to be reversible needs the reversing action shipped in the same change. Preserving the
+linkage was the *right* call; leaving it unreachable made it worse than deleting.
+
+**AP — Notifying before the write commits.** A notification placed before a service call that
+commits its own transaction can announce something that then fails — here, an email telling a
+member they were approved and could sign in, while the record stayed pending and the middleware
+would refuse them. Every other call site in the same system was already ordered correctly, which is
+what made the inverted one easy to write and hard to see.
+
+**AP — A request-scoped singleton with no reset.** A context object filled only on *some* routes has
+nothing to clear it on the way out, so it leaks into later requests under Octane and inside tests.
+Binding it to the identity it was resolved for removes the dependency on container lifetime
+entirely — a stale context simply stops matching. Compare a context set by middleware on *every*
+request, which does not have this problem and therefore does not suggest the fix.
+
+**AP — Loosening a guard without noticing which backstop it relied on.** A "refuse writes with no
+tenant" check was relaxed to allow a deliberate null, with a comment reasoning that the NOT NULL
+column constraint was the real safety net — in the same change that made that very column nullable.
+**When you justify weakening a check by pointing at another check, verify the other check still
+exists.**
+
+**AP — Two surfaces totalling the same money differently.** One screen filtered cancelled rows out
+of a commission total; a new screen summed everything. Both were defensible in isolation, and
+together they told one marketer two numbers. Put the definition on the model, once.
+
+### Learned Skills
+
+- **Reading a review's findings as claims to verify, not instructions to apply.** Each of the eleven
+  was checked against the code before acting; the two severe ones reproduced exactly as described,
+  and the reasoning in the report was sound enough to adopt wholesale. Some reviews are not.
+- **Running the review on the combined tree.** Two phases reviewed together surfaced the
+  interaction bugs — an announcement link broken by a middleware added in the *other* phase — that
+  neither phase's own review would have found.
