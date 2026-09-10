@@ -1493,3 +1493,68 @@ together they told one marketer two numbers. Put the definition on the model, on
 - **Running the review on the combined tree.** Two phases reviewed together surfaced the
   interaction bugs — an announcement link broken by a middleware added in the *other* phase — that
   neither phase's own review would have found.
+
+---
+
+## Social Media Listening Tool — Phase 1 Foundation (2026-09-08)
+
+Greenfield, T2 Full. Laravel 13 + Inertia 3 + Vue 3.5 + Bootstrap/AdminLTE, MySQL target.
+Planning + interactive UI foundation. CS verify 100/100, 15 tests / 345 assertions.
+
+### Anti-Patterns
+
+**AP-SML-01 — Answering a third-party pricing question from memory.**
+At session start my understanding of X's API was "Free / Basic $200 / Pro $5,000 / Enterprise"
+— fixed monthly subscription tiers. Scout's live check found X **replaced that entire model
+with pay-per-use credits in February 2026**, closed the legacy tiers to new signups, and
+discontinued the free tier. Not a stale number: a stale *model*. Had I written the plan from
+memory, the client would have been quoted a pricing structure that no longer exists, and the
+architecture would have missed that every X mention now carries a marginal cost — which is a
+schema and scheduler consequence, not a footnote.
+**Rule**: third-party pricing, quotas, and permission names are the fastest-decaying facts
+in any integration plan. Verify every one before it enters a document, and mark the
+confidence of each source — first-party docs vs third-party summaries — *in the document*,
+so the reader knows which rows are load-bearing. Three of the six platforms in this project
+had a constraint that materially changed the design and that I would have got wrong or
+vague from memory (X's model, Threads' 500-query allowance, YouTube's 100-units-per-search).
+
+**AP-SML-02 — Reusing a vendor template's own layout class names for a hand-rolled shell.**
+Built the console shell on `.app-wrapper` / `.app-sidebar` / `.app-main` — AdminLTE 4's own
+class names — while hand-rolling the sidebar. The mobile sidebar then never appeared: right
+class, `transform: none`, still at `x: -250`, because AdminLTE's stylesheet was setting its
+own width and offset on the same selectors. Cost a debugging round that a namespace prefix
+would have prevented.
+**Rule**: when hand-rolling something a vendored template also provides, namespace it. The
+diagnostic tell is **a computed width that is not the width you authored** — check that
+first and the collision identifies itself immediately.
+
+**AP-SML-03 — Verifying against the dev server and believing it was the build.**
+Ran the browser verification while a stray Vite dev server held `public/hot`, so every
+screenshot exercised HMR-served assets rather than `public/build`. The production build was
+fine, but that was luck, not evidence — the claim "the built app renders" was not actually
+tested until the dev server was killed and the pass repeated.
+**Rule**: before claiming a browser check verifies the shipped build, confirm `public/hot`
+is absent. A dev server can be running that this session did not start.
+
+### Learned Skills
+
+1. **Split acquisition modes before designing a listening system.** "Social listening"
+   implies keyword search across the open platform. Only three of six target platforms offer
+   anything of the kind, and **Facebook and LinkedIn offer none at any tier** — those are
+   owned-channel monitoring only. Naming the two modes (Discovery vs Owned-channel) early
+   kept the schema, the provider interfaces and the UI honest; designing as if all six do
+   Discovery is the single most likely way that class of product fails.
+2. **A capability is a type plus a declaration with a reason string.** See the pattern
+   library entry. The reason string is what turns a greyed-out button into an answer.
+3. **A "silent success" is more dangerous than a loud failure.** Threads' keyword search
+   quietly narrows to the caller's own posts when `threads_keyword_search` is not granted —
+   HTTP 200, structurally valid, near-empty. No exception ever fires. Providers must assert
+   their granted scopes at connect time rather than trust a successful-looking response.
+   Worth looking for this shape in every third-party integration.
+4. **Record what a table is NOT for, and why.** `social_authors` and a time-series
+   `engagement_metrics` were both designed and then deliberately deferred with the trigger
+   condition that would revive them. That is cheaper than either building them early or
+   rediscovering the argument in six months.
+5. **Ordering integrations by external lead time, not by importance.** LinkedIn is last to
+   build and first to apply for, because its partner approval is the longest pole and it is
+   entirely outside our control.
