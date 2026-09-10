@@ -21,7 +21,7 @@
 | | `decision` | Architecture Decision Record ledger, with contradiction checking |
 | **Verification & Review** | `verify` | Evidence-Based Verification Suite |
 | | `review` | Static review pass over the working diff |
-| | `gate` | Drive the 8-stage Quality Gates pipeline |
+| | `gate` | Drive the 10-stage Quality Gates pipeline |
 | | `check` | Anti-pattern & secret scanner |
 | **Squad & Governance** | `agent` | Inspect, permission-check and run the 17 specialist contracts |
 | | `task` | Plan and run an objective across the specialist pipeline |

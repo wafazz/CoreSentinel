@@ -40,6 +40,13 @@ RULE_PROPOSED = "RuleProposed"
 DEPLOYMENT_COMPLETED = "DeploymentCompleted"
 CONFIGURATION_CHANGED = "ConfigurationChanged"
 
+# Learning. Every automatic step announces itself, so "why does CoreSentinel
+# believe this?" has an answer in the audit trail and not only in a report
+# somebody has to think to run.
+KNOWLEDGE_TRUSTED = "KnowledgeTrusted"
+CONTRADICTION_DETECTED = "ContradictionDetected"
+SKILL_CANDIDATE_CREATED = "SkillCandidateCreated"
+
 KNOWN_EVENTS = [
     PROJECT_INITIALIZED, MEMORY_CREATED, MEMORY_UPDATED,
     DECISION_CREATED, DECISION_CHANGED,
@@ -48,6 +55,7 @@ KNOWN_EVENTS = [
     QUALITY_GATE_PASSED, QUALITY_GATE_FAILED,
     INCIDENT_CREATED, PATTERN_DETECTED, RULE_PROPOSED,
     DEPLOYMENT_COMPLETED, CONFIGURATION_CHANGED,
+    KNOWLEDGE_TRUSTED, CONTRADICTION_DETECTED, SKILL_CANDIDATE_CREATED,
 ]
 
 WILDCARD = "*"

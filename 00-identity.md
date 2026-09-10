@@ -30,7 +30,8 @@
 - **Handoff Protocol**: Client delivery. Trigger: "Iris handoff". Protocol: [Handoff](./52-handoff-protocol.md)
 - **Adapter Layer**: Bind the Core to any AI host. Trigger: `coresentinel adapter sync`. Protocol: [Adapters](./13-adapter-protocol.md)
 - **Skill Layer**: Bind host skills to the phase gates. Trigger: session start. Protocol: [Skills](./18-skills-protocol.md)
-- **Design Gate**: Screen Brief before any UI is built. Trigger: Phase 2, any user-facing screen. Protocol: [Design](./20-design-protocol.md)
+- **Design Gate**: Screen Brief before any UI is built. Trigger: Phase 2, any authenticated screen. Protocol: [Design](./20-design-protocol.md)
+- **Landing Gate**: Read the system, then a Landing Brief before any public section is built. Trigger: Phase 2, any public URL. Skill: `landing-design`. Protocol: [Landing](./21-landing-protocol.md)
 
 ## Active Projects
 - [Example Project](./Projects/01-example-project.md) - Reference entry
@@ -42,8 +43,10 @@
 - [Basic Custom E-Commerce](./Projects/06-basic-ecom.md) - Small-business storefront, ToyyibPay + EasyParcel rates (Laravel 12 + PHP 8.3 + Blade + MySQL 8.0) - `Desktop/Codex Lure/project/basic-ecom` - **client project, RM1,000** - **DELIVERED 2026-08-27**, 11/11 phases, 199 tests; blocked on OQ-11 (payments) + OQ-13 (booking)
 - [Daily Spend](./Projects/07-daily-spend.md) - Simple daily spending SaaS, PWA wallet portal + AdminLTE owner console (Laravel 12 + Inertia 3 + Vue 3.5 + TS + MariaDB) - `Desktop/Codex Lure/project/Daily Spend` - **own SaaS** - **BUILT 2026-08-29**, 25/25 requirements, 137 tests; pending mail provider + deploy
 - [larisHQ](./Projects/08-larishq.md) - Agent/Stockist + Marketer/Sales Team management & ordering SaaS, dynamic 1-8 level network hierarchy (Laravel 12 + Inertia 3 + Vue 3.5 + AdminLTE 4 + MariaDB) - `Desktop/Codex Lure/project/SaaS - New Version AMS` - **own SaaS** - PH01–PH16 verified 2026-09-04, 16/18 phases; 421 tests; zero open questions; next PH17 QA & Security
-- [Restaurant POS](./Projects/09-restaurant-pos.md) - Multi-branch QR ordering, waiter POS, KDS, prepaid pick-up, reservations, stock-to-ingredient & Bayarcash/Billplz gateways (Laravel 12 + Inertia 3 + Vue 3.5 + TS + Bootstrap 5 + PostgreSQL 16 + Reverb) - `Desktop/Codex Lure/project/Restaurant Ordering System V2` - **[LEARN]** approved 2026-09-07; **PH-00–PH-06 delivered** (47 tables, 399 tests green), 7/15 phases; next PH-07 Billing + payments (blocked on OQ-02 tax)
-- [Social Media Listening Tool](./Projects/10-social-listening.md) - Centralised keyword monitoring, mentions, sentiment & reply across Facebook/Instagram/Threads/X/LinkedIn/YouTube (Laravel 13 + Inertia 3 + Vue 3.5 + Bootstrap 5.3 + AdminLTE 4.9 + MySQL) - `Desktop/Codex Lure/project/RND DayThree/Social Media Listening Tools` - **R&D** - **Phase 1 Foundation VERIFIED 2026-09-08** (CS verify 100/100, 15 tests); only 3 of 6 platforms support public keyword search - next Phase 0 access applications + Phase 2 schema
+- [Basic Custom E-Commerce (vanilla PHP build)](./Projects/09-basic-ecommerce-php.md) - Storefront + admin, ToyyibPay + EasyParcel (vanilla PHP 8.0 hand-rolled MVC + MySQL/MariaDB + PDO) - `Downloads/SE` - **client project, RM1,000** - MVP built 2026-08-26, blocked on external API verification before real payments - separate codebase from [06-basic-ecom](./Projects/06-basic-ecom.md)
+- [RezekiHUB](./Projects/10-rezekihub.md) - Income & profit clarity SaaS for Malaysian microentrepreneurs (Laravel 13.10.1 + PHP 8.3.30 + Inertia 3.7 + Vue 3.5.42 + Bootstrap 5.3.8 + MySQL 8.4.3 + Redis + PWA) - `Downloads/RH` - **own SaaS** - Laragon toolchain (XAMPP PHP caps at 8.2.12, below the SPEC §2 floor) - Phase 1 complete 2026-09-02; next Phase 2 Business Core
+- [Restaurant POS](./Projects/11-restaurant-pos.md) - Multi-branch QR ordering, waiter POS, KDS, prepaid pick-up, reservations, stock-to-ingredient & Bayarcash/Billplz gateways (Laravel 12 + Inertia 3 + Vue 3.5 + TS + Bootstrap 5 + PostgreSQL 16 + Reverb) - `Desktop/Codex Lure/project/Restaurant Ordering System V2` - **[LEARN]** approved 2026-09-07; **PH-00–PH-06 delivered** (47 tables, 399 tests green), 7/15 phases; next PH-07 Billing + payments (blocked on OQ-02 tax)
+- [Social Media Listening Tool](./Projects/12-social-listening.md) - Centralised keyword monitoring, mentions, sentiment & reply across Facebook/Instagram/Threads/X/LinkedIn/YouTube (Laravel 13 + Inertia 3 + Vue 3.5 + Bootstrap 5.3 + AdminLTE 4.9 + MySQL) - `Desktop/Codex Lure/project/RND DayThree/Social Media Listening Tools` - **R&D** - **Phase 1 Foundation VERIFIED 2026-09-08** (CS verify 100/100, 15 tests); only 3 of 6 platforms support public keyword search - next Phase 0 access applications + Phase 2 schema
 <!-- Copy ./Projects/_template.md to ./Projects/<nn>-<name>.md, then link it above -->
 
 ## Protocols & References (Arranged in Process Order: 00 to 61)
@@ -66,6 +69,7 @@
 17. [AI Protocol](./17-ai-protocol.md) - Multi-provider failover, token metering & prompt defense (`Iris ai`)
 18. [Skill Layer Protocol](./18-skills-protocol.md) - Host skill inventory, phase bindings & invocation rules (`Iris skills`)
 20. [Design Protocol](./20-design-protocol.md) - Screen Brief, the vibecode tells, template fidelity (Vera)
+21. [Landing Protocol](./21-landing-protocol.md) - Read-the-system-first, Landing Brief, section order, conversion & Core Web Vitals (Vera)
 25. [Test Protocol](./25-test-protocol.md) - Test strategy & authoring
 26. [Test Data Protocol](./26-test-data-protocol.md) - Fixtures & environments
 27. [Test Pattern Library](./27-test-pattern-library.md) - Solved testing patterns

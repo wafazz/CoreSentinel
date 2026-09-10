@@ -1,7 +1,7 @@
 """
 The observer — where lessons come from.
 
-Three sources, all of them things somebody already wrote down:
+Four sources. Three of them are things somebody already wrote down:
 
     incidents   a resolved incident's `learning` field, which Phase 7 made
                 first-class precisely so this could read it
@@ -10,9 +10,19 @@ Three sources, all of them things somebody already wrote down:
     patterns    a pattern whose occurrence count has risen, meaning the same
                 solution keeps being needed
 
+and the fourth is the one that does not need a human to start it:
+
+    experiences a failure the system watched happen, more than once
+
+That fourth source is why this module is no longer a mill with no hopper. Every
+other source needs somebody to file, record or capture something first; an
+experience arrives on its own, from the event bus, while the work is happening.
+
 Nothing here reads code and infers a lesson. An observer that invents rules from
 source it does not understand produces governance nobody agreed to, which is the
-opposite of controlled evolution.
+opposite of controlled evolution. That rule binds the experience source hardest,
+because it is the one nobody reviewed on the way in: a candidate drawn from an
+experience describes what happened and stops there.
 """
 
 from coresentinel_core.learning import candidates
@@ -67,6 +77,24 @@ def observe_patterns(store, target_dir="."):
     return seen
 
 
+def observe_experiences(store, target_dir="."):
+    """A failure the system watched happen, more than once.
+
+    Repetition here is strength, not independence: one signature recurring in
+    one context is one source however often it recurs, for the same reason
+    `candidates.observe` will not let a single incident corroborate itself.
+    """
+    from coresentinel_core.experience import analysis
+
+    try:
+        return analysis.observe(store)
+    except Exception:
+        # The three written sources must keep working on a store with no
+        # experience collection — an older store, or one from a Core that
+        # predates capture.
+        return []
+
+
 def run(store, target_dir="."):
     """One observation pass across every source. Idempotent by construction.
 
@@ -77,6 +105,7 @@ def run(store, target_dir="."):
     observed += observe_incidents(store, target_dir)
     observed += observe_failures(store, target_dir)
     observed += observe_patterns(store, target_dir)
+    observed += observe_experiences(store, target_dir)
 
     unique = {c["id"]: c for c in observed if c}
     return {

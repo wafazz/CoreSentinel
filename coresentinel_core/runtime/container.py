@@ -121,6 +121,14 @@ class Runtime:
             from coresentinel_core.audit import subjects
             subjects.install(runtime)
 
+        if config.get("learning.capture"):
+            # Subscribed like the audit sink, and for the same reason: an event
+            # is how something becomes learnable. Capture appends advisory
+            # records only — it has no path to a governance file, which is what
+            # lets it run without a human asking for it each time.
+            from coresentinel_core.experience import capture
+            capture.install(runtime)
+
         runtime.bootstrap_ms = (time.perf_counter() - started) * 1000
         # Phase 2 asserted a 50 ms bootstrap budget in a test. Recording it here
         # means the number is also observable in the field, not only in CI.

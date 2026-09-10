@@ -90,6 +90,28 @@ def _clear_project_root_cache():
     mem.reset_project_root_cache()
 
 
+@pytest.fixture(autouse=True)
+def _no_experience_capture(monkeypatch):
+    """Experience capture is on by default; no existing test may gain a writer.
+
+    Capture subscribes to every event on a bootstrapped runtime, so without this
+    a test that emits an event would start writing experiences into whatever
+    store it happened to open. Tests that exercise capture turn it back on
+    explicitly — the fixture is the floor, not a ban.
+
+    The discovery cache is cleared for the same reason `_clear_project_root_cache`
+    exists: it is keyed by directory, and tmp_path directories get reused.
+    """
+    if str(CORE_DIR) not in sys.path:
+        sys.path.insert(0, str(CORE_DIR))
+    from coresentinel_core.experience import capture
+
+    monkeypatch.setenv("CORESENTINEL_LEARNING_CAPTURE", "false")
+    capture.reset_context_cache()
+    yield
+    capture.reset_context_cache()
+
+
 @pytest.fixture
 def sandbox(tmp_path):
     """An isolated copy of the CoreSentinel Core. Mutations here never touch the repo."""

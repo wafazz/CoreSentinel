@@ -201,8 +201,11 @@ class TestEventBus:
     def test_every_declared_event_name_is_unique(self):
         assert len(events_module.KNOWN_EVENTS) == len(set(events_module.KNOWN_EVENTS))
 
-    def test_eighteen_events_are_declared(self):
-        assert len(events_module.KNOWN_EVENTS) == 18
+    def test_twenty_one_events_are_declared(self):
+        """18 through v2, plus the three the learning subsystem announces itself
+        with. The count is asserted so that adding an event is a deliberate act
+        and not something that happens by accident in a merge."""
+        assert len(events_module.KNOWN_EVENTS) == 21
 
     def test_an_event_records_its_name_and_time(self):
         record = EventBus().emit(events_module.PATTERN_DETECTED, {"id": "PAT-1"}).record()

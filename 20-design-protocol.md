@@ -248,10 +248,15 @@ It is not an admin demo. It is a mid-2010s flat-design marketing page selling a 
 ThemeForest bundle — hero, value props, testimonials, pricing CTA. So the set is really
 **two benchmarks in one list**, and they must never be crossed:
 
-| Surface | Reference | Density |
-|---|---|---|
-| Console / dashboard / back-office | #1–#4 | Working density, §6.3 |
-| Public marketing page for a product | #5 | Landing density — hero, CTA, testimonials |
+| Surface | Reference | Density | Protocol |
+|---|---|---|---|
+| Console / dashboard / back-office | #1–#4 | Working density, §6.3 | **This file** |
+| Public marketing page for a product | #5 | Landing density — hero, CTA, testimonials | **[21-landing-protocol.md](./21-landing-protocol.md)** |
+
+**The public half of this split now has its own protocol.** What was four lines here is
+[21-landing-protocol.md](./21-landing-protocol.md) — Landing Brief, section order, the fold,
+conversion mechanics, Core Web Vitals budgets, and its own Tells list. Reference #5 stays the
+density marker; the standard lives there. Route to it for anything with a public URL.
 
 Marketing-page conventions (a big hero, centred copy, generous vertical rhythm, a pricing CTA)
 are **tells** when they appear on a console — §2 flags hero padding for exactly this reason.
@@ -294,5 +299,8 @@ job's. Take the components; compose them from the Screen Brief (§1).
 - Internal tooling nobody but Iris reads.
 - A screen explicitly specified by {USER_NAME} down to the layout — then the spec *is* the
   brief, and Vera verifies against it rather than authoring it.
+- **Any public URL** — landing page, marketing site, pricing page, template demo. That is
+  [21-landing-protocol.md](./21-landing-protocol.md), and §2 of this file actively points the
+  wrong way there: it flags hero padding as a tell, which on a landing page is the job.
 
-Everything else with a user-facing surface: brief first, then build.
+Everything else with an authenticated user-facing surface: brief first, then build.

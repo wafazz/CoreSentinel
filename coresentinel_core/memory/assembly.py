@@ -39,6 +39,7 @@ SECTION_SPECS = [
     ("rules", "Governance rules that apply", 0.15),
     ("decisions", "Decisions already made", 0.35),
     ("failures", "Known failures — do not repeat", 0.20),
+    ("knowledge", "Learned from experience", 0.20),
     ("facts", "Established facts", 0.35),
     ("patterns", "Reusable patterns", 0.20),
     ("journal", "Recent related work", 0.15),
@@ -148,11 +149,74 @@ def decision_items(task, target_dir):
 
 
 def _matches(task, haystack):
+    return _relevance(task, haystack) > 0
+
+
+# How much a lesson's scope raises its rank. A lesson learned on *this* stack
+# beats a general one on the same subject: it was evidenced where the work is.
+SCOPE_WEIGHT = {"project": 1.0, "global": 0.85}
+
+
+def knowledge_items(task, target_dir, store=None):
+    """Trusted lessons the system learned by watching, ranked and cited.
+
+    TRUSTED only. A CORROBORATED candidate has enough evidence to be worth a
+    person's attention and not enough to be worth an agent's — putting it here
+    would make the pack's weakest content indistinguishable from its strongest.
+
+    Every line carries its candidate id, so a reader who doubts one can run
+    `evolve explain` on it and see the arithmetic. An advisory line with no way
+    back to its evidence is an assertion, and assertions are what this whole
+    subsystem exists to replace.
+    """
+    from coresentinel_core.learning import candidates
+
+    opened = None
+    try:
+        if store is None:
+            from coresentinel_core.runtime.config import Config
+            from coresentinel_core.storage import open_store
+
+            opened = open_store(Config.load(target_dir), target_dir)
+            store = opened
+        trusted = candidates.trusted(store)
+    except Exception:
+        # No store, no experience collection, an older Core — the pack is built
+        # from everything else. Learned knowledge is an addition to context
+        # assembly, never a dependency of it.
+        return []
+    finally:
+        # A close failure propagates, following the convention `SqliteStore.close`
+        # already documents: a genuine failure reaches the caller rather than
+        # being lost. Swallowing it here would also trip CoreSentinel's own
+        # anti-pattern scanner, which is the correct thing for it to do.
+        if opened is not None:
+            opened.close()
+
+    items = []
+    for record in trusted:
+        relevance = _relevance(task, f"{record.get('lesson')} {record.get('context') or ''}")
+        if relevance <= 0:
+            continue
+        rank = relevance * float(record.get("confidence") or 0) * \
+            SCOPE_WEIGHT.get(record.get("scope"), 0.85)
+        detail = (f"confidence {record.get('confidence'):.2f}, "
+                  f"{len(record.get('sources') or [])} source(s)"
+                  f"{', ' + record['context'] if record.get('context') else ''} "
+                  f"— {record['id']}, explain with: coresentinel evolve explain {record['id']}")
+        items.append(_item(record.get("lesson"), detail=detail, score=rank,
+                           source=f"learned/{record.get('scope', 'global')}"))
+    items.sort(key=lambda i: i["score"], reverse=True)
+    return items
+
+
+def _relevance(task, haystack):
     import coresentinel_recall as recall_engine
+
     score, _ = recall_engine.score_record(recall_engine.tokenize(task),
                                           " ".join(str(task or "").lower().split()),
                                           haystack, 1.0)
-    return score > 0
+    return score
 
 
 def recall_items(task, target_dir, min_confidence=0.0):
@@ -202,6 +266,7 @@ def assemble(task, target_dir=".", budget_tokens=DEFAULT_BUDGET_TOKENS, min_conf
         "project": project_items(target_dir),
         "rules": rule_items(task_terms),
         "decisions": decision_items(task, target_dir),
+        "knowledge": knowledge_items(task, target_dir),
     }
     available.update(recall_items(task, target_dir, min_confidence))
 

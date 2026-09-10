@@ -28,6 +28,8 @@ PROMOTED = {
     "incidents": ["incident_id", "title", "severity", "status"],
     "incident_links": ["incident_id", "link_type", "target"],
     "learning_candidates": ["lesson", "kind", "status"],
+    "experiences": ["group_id", "kind", "outcome", "signature", "context",
+                    "occurrences", "occurred_at"],
     "verification_runs": ["target", "claim", "verdict", "score", "coverage"],
     "health_snapshots": ["target", "status", "overall_score"],
     "tasks": ["objective", "status", "agent"],

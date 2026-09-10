@@ -6,6 +6,10 @@
 > **Baseline inspected**: `main` @ `216828d`, CoreSentinel `10.1.0`, 436 tests green.
 > **Now**: CoreSentinel `11.0.0`, 1,355 tests green. Phase reports in §12, findings status in §11.
 
+> **This file holds two plans.** Part I (below, §1–§13) is the completed v2 record and is
+> not being revised. Part II — **[CoreSentinel v3 — Experience Learning Engine](#coresentinel-v3--experience-learning-engine)**
+> — is the current proposal and is **awaiting approval**. Nothing in Part II is implemented.
+
 ---
 
 ## 1. Executive Summary
@@ -1859,3 +1863,712 @@ Architecture decisions:
    - Core remains stdlib-only. Every third-party dependency requires its own ADR.
 Next phase           : 1 — Evidence Integrity
 ```
+
+---
+---
+
+# CoreSentinel v3 — Experience Learning Engine
+
+> **Status**: **PROPOSAL — awaiting human approval. Nothing here is implemented.**
+> **Author**: Iris (principal architect)
+> **Planned**: 2026-09-10
+> **Baseline inspected**: `main` @ `4e9325e`, CoreSentinel `11.0.0`, **1,381 tests collected**.
+> **Scope**: automatic learning from execution experience, without weakening the approval model.
+
+---
+
+## 14. Executive Summary
+
+### 14.1 The finding that reorders this brief
+
+**CoreSentinel already learns. It just cannot start on its own.**
+
+The requested pipeline — `Experience -> Knowledge -> Skill`, with evidence thresholds,
+human approval and reversibility — is roughly 60% built and shipping in `11.0.0`. The
+existing `coresentinel_core/learning/` package does observation, fingerprint-based
+deduplication, a corroboration threshold, permanent rejection, human promotion with a
+stated reason, snapshot-backed application and byte-identical revert.
+`tests/governance/test_learning_pipeline.py` covers it in 294 lines and it all passes.
+
+What it cannot do is notice anything by itself. Read `learning/observer.py` and the
+ceiling is explicit in its own docstring:
+
+```text
+Three sources, all of them things somebody already wrote down:
+    incidents   a resolved incident's `learning` field
+    failures    the failures memory layer
+    patterns    a pattern whose occurrence count has risen
+```
+
+Every one of those is a human artefact. Somebody has to file the incident, record the
+failure or capture the pattern. Then somebody has to run `coresentinel evolve observe`.
+**The learning loop has no input stage** — it is a mill with no hopper.
+
+So this is not a request to build a learning engine. It is a request to build the **front
+half** of one, and to raise the middle from "counts sources" to "weighs evidence".
+
+### 14.2 What is actually missing
+
+| Spec section | Verdict | Evidence in the codebase |
+| :--- | :--- | :--- |
+| §3 Experience as a record type | **Missing** | No experience store. Candidates derive directly from incidents/failures/patterns |
+| §4 Automatic capture | **Missing** | `evolve observe` is manual; no learning subscriber on the event bus |
+| §5 Experience is not knowledge | **Exists** | `OBSERVED -> CORROBORATED` is exactly this gap, and it is deliberate |
+| §6 Knowledge candidates | **Partial** | Record exists. No `confidence`, `frequency`, `success_rate`, `trusted`, `superseded` |
+| §7 Validation engine | **Partial** | Only evidence count (`MIN_EVIDENCE = 2`). No success rate, consistency, recency or context |
+| §8 Context-aware knowledge | **Missing on candidates** | Memory layers carry `scope`; patterns carry `stack`/`transferable`; candidates carry neither |
+| §9 Contradiction detection | **Partial** | `decisions/contradiction.py` is real and good — but it only reads the *decision* ledger |
+| §10 Skill evolution | **Missing** | Skills are hand-written markdown (`55-self-evolution.md` §Learned Skills, `~/.claude/skills/`) |
+| §11 `/evolve` changes role | **Needs change** | `evolve observe` is the whole loop today; it must become the deep pass |
+| §12 Safety boundary | **Exists, and is strong** | `apply.py` `SUPPORTED` allowlist + `paths.resolve_within` + mandatory `APPROVED` |
+| §13 Human approval | **Exists** | `propose -> approve -> apply -> revert`, with approval printing "Nothing has changed yet" |
+| §14 Memory organization | **Exists** | 6 layers + decisions + patterns + incidents + journal. Needs one new store, not a redesign |
+| §15 Token discipline | **Exists** | `memory/assembly.py` is a ranked, budgeted, honestly-truncated context pack |
+| §16 Learning loop | **Assembles from the above** | — |
+| §17 Observability | **Exists** | Tamper-aware audit ledger, event bus, metrics. Needs new event names and one audit subject |
+
+Five of fifteen are genuinely absent. Two need a role change. Eight already work and must
+not be rebuilt — §19.3 of the brief says so, and the risk of ignoring it is a second
+learning system competing with the first.
+
+### 14.3 The load-bearing design decision
+
+The brief contains a tension it does not resolve. §4 wants learning to happen without a
+human command. §12 forbids the system from silently changing the rules that govern it.
+Both are right, and they are reconciled by a distinction CoreSentinel does not currently
+draw:
+
+> **Advisory knowledge and governance rules are different things, and they have different bars.**
+>
+> *Trusted knowledge* informs. It appears as a ranked, cited line in a context pack, and
+> an agent may disregard it. It cannot block a gate, fail a build, or write a file.
+> **Because it cannot compel anything, it is safe to promote automatically.**
+>
+> *A governance rule* constrains. It lands in `anti-patterns.json` or a protocol file and
+> changes what every future agent is permitted to do. **It stays behind
+> `propose -> approve -> apply`, and no volume of evidence shortens that path.**
+
+This is the whole architecture in one paragraph. The automatic loop terminates at
+`TRUSTED`, which is a retrieval tier. The human loop begins at `PROPOSED`, which is a
+governance act. They share evidence and never share authority.
+
+It also answers the objection that automatic learning erodes control: it cannot, because
+the automatic path has no write access to any file `apply.py` recognises. That is not a
+convention — §17 Phase 8 makes it a test.
+
+### 14.4 One concern with the brief, stated once
+
+§10 asks for skill evolution. CoreSentinel does not own a skill runtime — per
+`18-skills-protocol.md`, skills are a **host** surface (`~/.claude/skills/`), and the one
+CS-authored skill (`landing-design`) is installed by hand. A skill candidate can therefore
+be *drafted* and *evidenced* here, but installing it is a host action outside this
+system's reach.
+
+I am not narrowing the scope: Phase 6 delivers skill candidates in full, including a
+written `SKILL.md` draft. It stops at writing into `~/.claude/skills/`, which stays a
+human act — which §10's own evidence bar ("skills should require stronger evidence than
+ordinary knowledge") implies anyway.
+
+---
+
+## 15. Current Architecture — Verified Findings
+
+Each line below was read, not assumed. File and line references are to `4e9325e`.
+
+### 15.1 Inventory
+
+| Layer | Size | Notes |
+| :--- | ---: | :--- |
+| Python (root modules + `coresentinel_core/`) | ~15,000 lines | stdlib only |
+| Tests | 1,381 collected, 42 files | `pytest.ini`, `--strict-markers` |
+| Protocol markdown | 47 files, ~6,400 lines | `00-` … `61-` |
+| SQLite migrations | 6 (`0001`–`0006`) | `coresentinel_core/storage/migrations/` |
+| JSON memory | 6 fact layers + decisions/patterns/incidents/journal | ADR-001 |
+
+### 15.2 What the learning subsystem does today
+
+```text
+                       (a human writes one of these)
+   incident.learning ─┐
+   failures layer ────┼──> evolve observe ──> candidates.observe()
+   pattern.occurrences┘         (manual)          │ fingerprint dedup
+                                                  │ >= 2 distinct sources
+                                                  v
+                                            CORROBORATED
+                                                  │  evolve propose
+                                                  v
+                                          EVO-NNN PENDING_REVIEW
+                                                  │  evolve approve  (human)
+                                                  v
+                                              APPROVED
+                                                  │  evolve apply
+                                                  v
+                                     snapshot -> write -> version bump -> audit
+                                                  │  evolve revert
+                                                  v
+                                        byte-identical restore
+```
+
+Confirmed strengths, all of which this plan preserves unchanged:
+
+1. **`candidates.fingerprint()`** (`learning/candidates.py:42`) sorts the token set before
+   hashing, so two wordings of the same lesson land on one candidate. Without it evidence
+   never accumulates. There is a test for it.
+2. **A source cannot corroborate itself** (`candidates.py:93`). One noisy incident cannot
+   reach the threshold alone.
+3. **Rejection is permanent** (`candidates.py:88`). A declined lesson does not return on
+   the next run. The docstring names the reason: a review queue that resurfaces noise
+   trains the reviewer to stop reviewing, and a reviewer who rubber-stamps has stopped
+   being a control.
+4. **`apply.py` refuses what it cannot validate** (`apply.py:90`). Three targets are
+   supported; anything else is refused with an explanation, not attempted.
+5. **A newly learned rule is `WARNING`, never `STRICT_BLOCK`** (`apply.py:143`). Promotion
+   to blocking is its own decision.
+6. **Approval writes no file** (`coresentinel_evolve.py:138`). It prints "Nothing has
+   changed yet".
+
+### 15.3 The event bus is the missing hopper
+
+`coresentinel_core/runtime/events.py` declares 18 event types. Verified emitters:
+
+| Event | Emitted at | Learning value |
+| :--- | :--- | :--- |
+| `QualityGatePassed` / `QualityGateFailed` | `coresentinel.py:751`, `facade.py:327` | **Highest.** A gate failure is a failure with a machine-readable cause |
+| `VerificationCompleted` | `coresentinel.py:538`, `facade.py:339` | **High.** Carries a verdict and a score |
+| `TaskCompleted` | `orchestrator.py:191` | **High.** Objective + outcome summary |
+| `AgentCompleted` | `orchestrator.py:105`, `coresentinel.py:1708` | Medium. Per-role outcome |
+| `IncidentCreated` | `coresentinel.py:1009` | Already consumed by `observe_incidents` |
+| `MemoryCreated` / `DecisionCreated` | `coresentinel.py:100`/`:299`, `facade.py:191`/`:241` | Medium |
+| `PatternDetected`, `DeploymentCompleted` | **never emitted** | Declared, unwired |
+
+Three subscribers exist (`container.py:113–122`): the metrics counter, the event
+persister, and the audit sink. **Nothing subscribes for learning.** The registration
+point is `Runtime.bootstrap()`, and `subjects.install(runtime)` is the pattern to copy.
+
+`EventBus.emit()` already wraps every handler in try/except (`events.py:102`) — "an
+observer must never be able to fail the operation it observed". A capture handler
+therefore cannot break a gate run even if it throws, and that guarantee is pre-existing,
+not something this plan has to add.
+
+### 15.4 Retrieval is already solved
+
+`memory/assembly.py` ranks by relevance, fills seven sections under a shared token budget
+in priority order, and **reports what it dropped and the best thing it dropped**. §15 of
+the brief (token discipline) needs one new section in `SECTION_SPECS`, not a new
+mechanism.
+
+### 15.5 Confidence already has a vocabulary
+
+`coresentinel_memory.classify_confidence()` bands at **0.90 = Known**, **0.50 = Assumed**,
+below = Unknown. `coresentinel_lifecycle.py` already decays unverified facts
+(`decay_per_30_days` 0.05, `DECAY_FLOOR` 0.30) and exempts the failures layer from decay.
+
+This plan reuses those numbers. Inventing a second confidence scale with different bands
+would mean two meanings for 0.85 in one system.
+
+### 15.6 Contradiction detection exists but reads the wrong ledger
+
+`decisions/contradiction.py` is 149 lines of deliberately-biased lexical matching with a
+`REVERSAL_SIGNALS` list, a `GENERIC` stopword set and three verdicts
+(`CONTRADICTS`/`REVISITS`/`TOUCHES`). Its docstring justifies the bias: a false flag costs
+one review, a missed contradiction costs the incident the decision was made to prevent.
+
+It is shaped for decision records (`chosen` vs `alternatives`). Knowledge contradiction is
+a different shape but wants the same tokenizer, the same signal list and the same bias.
+Phase 4 reuses the parts, not the module.
+
+---
+
+## 16. Target Architecture
+
+### 16.1 The loop, with the new stages marked
+
+```text
+  TASK ──> EXECUTION ──> RESULT
+                            │
+                            │  event bus (existing, unwired for learning)
+                            v
+                    ┌───────────────┐
+                    │ CAPTURE       │  NEW — Phase 1
+                    │ redact, sign, │  automatic, no command
+                    │ dedup, cap    │
+                    └───────┬───────┘
+                            v
+                      EXPERIENCE  (SUCCESS | FAILURE | MIXED, context-keyed)
+                            │
+                    ┌───────v───────┐
+                    │ ANALYSIS      │  NEW — Phase 2
+                    │ group by      │  no pattern -> store only
+                    │ signature     │
+                    └───────┬───────┘
+                            v  pattern
+                    KNOWLEDGE CANDIDATE  (existing record, extended — Phase 3)
+                            │
+                    ┌───────v───────┐
+                    │ VALIDATION    │  NEW — Phase 4
+                    │ evidence      │  explainable confidence
+                    │ success       │  contradiction and scope
+                    │ consistency   │
+                    │ recency       │
+                    └───────┬───────┘
+                            │
+              ┌─────────────┼──────────────┐
+              v             v              v
+          REJECTED      SUPERSEDED      TRUSTED  ── automatic path ENDS HERE
+                                           │
+                                           │  retrieval (Phase 5)
+                                           v
+                                  context pack, cited
+                                           │
+                                           │  >= 3 trusted, one context (Phase 6)
+                                           v
+                                    SKILL CANDIDATE  (draft only)
+                                           │
+    ═══════════════════════════════════════╪═══════ HUMAN BOUNDARY ═══════════
+                                           │  evolve propose   (human)
+                                           v
+                                    EVO-NNN  ──> approve ──> apply ──> revert
+                                                 (unchanged, Phases 1–12 of v2)
+```
+
+### 16.2 Principles
+
+1. **Automatic learning ends at advisory.** Nothing automatic crosses into governance.
+2. **Reuse before addition.** Confidence bands, decay maths, the recall scorer, the
+   context budget, the audit sink and the approval chain all exist. New code connects
+   them; it does not restate them.
+3. **A confidence number carries its arithmetic.** A score whose terms are not stored
+   beside it is a number that cannot be argued with, which is worse than no number.
+4. **Contradiction narrows scope before it overrides.** Two opposite outcomes in two
+   different environments are not a contradiction — they are one rule that was too broad.
+5. **Nothing is deleted.** `SUPERSEDED` keeps `superseded_by`; history stays traceable.
+6. **Capture is bounded by construction.** Signature dedup + outcome filter + a hard cap.
+   A learning system that grows without limit becomes the context bloat CoreSentinel
+   exists to remove.
+7. **Backward compatibility is not negotiable.** Every v1 candidate record must load,
+   score and render without migration.
+
+### 16.3 Package layout
+
+```text
+coresentinel_core/
+  experience/                    NEW
+    __init__.py
+    records.py        experience shape, signature, context key, redaction gate
+    capture.py        event-bus subscriber + install(runtime)
+    retention.py      fold-by-signature, cap, compaction (dry run until --apply)
+    analysis.py       experience -> candidate promotion
+  learning/                      EXTENDED, not replaced
+    candidates.py     + confidence, context_key, TRUSTED, SUPERSEDED
+    confidence.py     NEW — the four terms and the weighted sum
+    contradiction.py  NEW — knowledge-vs-knowledge, reusing decisions/ tokenizer
+    skills.py         NEW — skill candidate detection + SKILL.md draft
+    observer.py       unchanged interface; gains a fourth source (experiences)
+    apply.py          UNCHANGED — deliberately. The safety boundary does not move
+  storage/migrations/
+    0007_experience.sql          NEW
+    0008_candidate_scoring.sql   NEW (indexed columns only)
+```
+
+### 16.4 Storage strategy — respecting ADR-001
+
+ADR-001 splits on audience: **human-read, git-committed, diffed-in-review knowledge stays
+JSON; machine-derived, high-churn, read-by-range records go to SQLite.** `0005_learning.sql`
+already applies this exact test, and its comment explains why the pattern *library* was
+deliberately left in JSON.
+
+Experiences are machine-derived, high-churn and queried by range. **SQLite.** Same
+reasoning, same conclusion — this plan does not revisit ADR-001, it applies it.
+
+```sql
+-- 0007_experience.sql
+CREATE TABLE IF NOT EXISTS experiences (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    record_id     TEXT    NOT NULL UNIQUE,
+    kind          TEXT    NOT NULL,   -- gate | verification | task | agent | incident | correction
+    outcome       TEXT    NOT NULL,   -- SUCCESS | FAILURE | MIXED
+    signature     TEXT    NOT NULL,   -- grouping key: what recurred
+    context_key   TEXT,               -- stack/framework/os fingerprint, NULL = global
+    occurrences   INTEGER NOT NULL DEFAULT 1,
+    occurred_at   TEXT    NOT NULL,
+    recorded_at   TEXT    NOT NULL,
+    payload       TEXT    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_experiences_signature ON experiences (signature);
+CREATE INDEX IF NOT EXISTS idx_experiences_outcome   ON experiences (outcome);
+CREATE INDEX IF NOT EXISTS idx_experiences_context   ON experiences (context_key);
+CREATE INDEX IF NOT EXISTS idx_experiences_recorded  ON experiences (recorded_at);
+```
+
+`learning_candidates` keeps its `payload` blob, so the new candidate fields need no schema
+change. `0008` adds only what is filtered or ordered on:
+
+```sql
+-- 0008_candidate_scoring.sql
+ALTER TABLE learning_candidates ADD COLUMN confidence  REAL;
+ALTER TABLE learning_candidates ADD COLUMN context_key TEXT;
+CREATE INDEX IF NOT EXISTS idx_candidates_confidence ON learning_candidates (confidence);
+CREATE INDEX IF NOT EXISTS idx_candidates_context    ON learning_candidates (context_key);
+```
+
+**The candidate JSON store stays authoritative** for records the human reads. The columns
+are for ordering, exactly as `0001`'s comment describes.
+
+### 16.5 The experience record
+
+```text
+record_id      EXP-<sha1[:10]>          from signature + occurred_at
+kind           gate | verification | task | agent | incident | correction
+outcome        SUCCESS | FAILURE | MIXED
+signature      normalised "what happened", the grouping key
+statement      one sentence, human-readable
+context_key    e.g. "laravel12.php83.ubuntu2404" | null for global
+scope          global | workflow | technology | framework | environment | deployment | project
+occurrences    folded count (retention.py)
+evidence       { event, subject, gate_code, verdict, score, exit_code }
+links          { incident, decision, pattern, task, commit }
+occurred_at    from the event
+recorded_at    when captured
+```
+
+`signature` is what makes recurrence detectable, so it is normalised hard: lowercased,
+digits and paths stripped, sorted token set, hashed — the same treatment
+`candidates.fingerprint()` gives a lesson, and for the same reason. Two runs of the same
+gate failure must collapse to one signature or nothing is ever seen "repeatedly".
+
+### 16.6 Confidence, and why it is explainable
+
+Four terms, each independently meaningful, each stored beside the result:
+
+| Term | Weight | Definition | Reused from |
+| :--- | ---: | :--- | :--- |
+| `evidence` | 0.35 | `min(1, distinct_sources / 3)` | `MIN_EVIDENCE` idiom |
+| `success` | 0.30 | `successes / (successes + failures)`, `0.5` when neither | new |
+| `consistency` | 0.25 | `1 − contradicting / total` | new |
+| `recency` | 0.10 | decay on days since `last_seen`, floor `0.30` | `lifecycle.DECAY_FLOOR`, `memory.decay_per_30_days` |
+
+```text
+confidence = 0.35*evidence + 0.30*success + 0.25*consistency + 0.10*recency
+```
+
+Thresholds reuse the existing bands rather than inventing new ones:
+
+| Transition | Requires |
+| :--- | :--- |
+| `OBSERVED -> CORROBORATED` | `>= 2` distinct sources — **unchanged**, so v1 behaviour is preserved exactly |
+| `CORROBORATED -> TRUSTED` | `confidence >= 0.90` (the existing **Known** band) **and** `>= 3` distinct sources **and** no unresolved contradiction |
+| any `-> SUPERSEDED` | a newer candidate contradicts it and outscores it, with `superseded_by` recorded |
+| any `-> REJECTED` | human, with a reason — **unchanged** |
+
+`coresentinel evolve explain CAND-x` prints the four terms, the weights, the arithmetic and
+the source list. That is §17's "why does CoreSentinel believe this?" answered as output
+rather than as a design intention.
+
+### 16.7 Context scoping
+
+Scope ladder, least to most specific:
+
+```text
+global < workflow < technology < framework < environment < deployment < project
+```
+
+`context_key` is derived from the existing `coresentinel_core/project/discovery/`
+(`stack.py`, `infrastructure.py`) — already written, already tested, currently unused by
+learning. A lesson learned under Laravel 12 / PHP 8.3 / Ubuntu 24.04 is stored at that key,
+never as `global`, unless corroborating experiences span more than one key.
+
+Retrieval prefers the most specific match, then widens. A `global` claim requires evidence
+from `>= 2` distinct `context_key`s — which is the mechanical form of §8's warning against
+"Laravel always requires X".
+
+### 16.8 Contradiction handling
+
+Three cases, and only one of them is a genuine contradiction:
+
+| Situation | Verdict | Action |
+| :--- | :--- | :--- |
+| Same signature, opposite outcomes, **same** `context_key` | `INCONSISTENT` | lower `consistency`; block `TRUSTED` |
+| Same signature, opposite outcomes, **different** `context_key` | `SCOPED` | **not a contradiction.** Both survive, each narrowed to its own key |
+| Two candidates whose statements share terms and one carries a reversal signal | `SUPERSEDES` | newer one wins **only if** it outscores; loser -> `SUPERSEDED`, `superseded_by` set |
+
+The middle row is the one that matters. It is the difference between a system that learns
+"Redis is wrong" and one that learns "Redis is wrong *on this host*". Overriding when it
+should have narrowed is how a learning system produces confident nonsense.
+
+### 16.9 `/evolve` in its new role
+
+| Command | Change |
+| :--- | :--- |
+| *(none)* | **NEW.** Capture is automatic, via the event bus. No command, no user action |
+| `evolve observe` | **Extended.** Keeps its three human sources; gains experiences as a fourth. Still idempotent |
+| `evolve review` | **NEW.** The deep pass: recurring patterns, contradictions, stale knowledge, skill candidates, protocol candidates. **Writes a report and changes nothing** |
+| `evolve explain CAND-x` | **NEW.** The confidence arithmetic and the evidence chain |
+| `evolve experiences` | **NEW.** Inspect the raw log; `--prune` folds and caps (dry run until `--apply`) |
+| `evolve candidates` | Extended output: confidence, context, status |
+| `evolve propose/approve/apply/revert` | **UNCHANGED.** The human boundary does not move |
+
+No new top-level command. The surface grows by four subcommands under a verb that already
+exists.
+
+### 16.10 Backward-compatibility contract
+
+1. Every v1 candidate record loads. Missing `confidence` is **computed on read**, missing
+   `context_key` defaults to `global`. No data migration, no rewrite step.
+2. `MIN_EVIDENCE = 2` and the `OBSERVED -> CORROBORATED` rule are untouched, so
+   `test_learning_pipeline.py` passes unmodified. If it needs edits, the change is wrong.
+3. `apply.py` is not modified in any phase. Its `SUPPORTED` allowlist is the safety
+   boundary; a plan that widens it while adding autonomy is the plan §12 warns against.
+4. Capture is config-gated (`learning.capture`, default `true`) and disabled wholesale in
+   the test fixture, so 1,381 existing tests see no new writes.
+5. `evolve observe` output remains a superset of today's.
+
+---
+
+## 17. Implementation Roadmap
+
+Eight phases. Each ends green with no regression, and each is independently revertable.
+
+### Phase 1 — Experience Capture
+- `experience/records.py`: shape, signature, context key, **redaction gate**
+  (`security/redaction.py` is mandatory on every payload before it is stored).
+- `experience/capture.py`: subscriber + `install(runtime)`, modelled on `audit/subjects.py`.
+- `experience/retention.py`: fold by signature, cap at `learning.max_experiences` (2,000).
+- `0007_experience.sql`; config keys `learning.capture`, `learning.max_experiences`.
+- Registration in `runtime/container.py:bootstrap()` behind the config flag.
+- **Not every event becomes an experience.** Gate failures, verification verdicts, task
+  completions and incidents do. `MemoryCreated` does not — logging every trivial internal
+  operation is what §4 explicitly warns against.
+- **Exit**: a gate failure produces exactly one experience; the same failure twice produces
+  one record with `occurrences: 2`; no secret reaches the store; a raising handler cannot
+  fail the gate run.
+
+### Phase 2 — Experience Analysis
+- `experience/analysis.py`: group by signature, track success/failure counts per key,
+  detect recurrence at `>= 2` occurrences (matching `observer.MIN_PATTERN_OCCURRENCES`).
+- Wire experiences in as `observer`'s fourth source. No pattern found -> stored, not promoted.
+- **Exit**: three failures with one cause yield one candidate, not three; a one-off yields none.
+
+### Phase 3 — Knowledge Candidates v2
+- `learning/confidence.py`: the four terms, the weighted sum, the stored breakdown.
+- Extend the candidate record: `confidence`, `confidence_terms`, `context_key`, `scope`,
+  `success_count`, `failure_count`, `occurrences`, `superseded_by`.
+- Add `TRUSTED` and `SUPERSEDED` to `STATUSES`; `0008_candidate_scoring.sql`.
+- **Exit**: v1 records load and score with zero migration; `test_learning_pipeline.py`
+  passes **unmodified**.
+
+### Phase 4 — Validation & Contradiction
+- `learning/contradiction.py`, reusing `decisions/contradiction.py`'s tokenizer,
+  `REVERSAL_SIGNALS` and `GENERIC` set.
+- The three verdicts of §16.8. Auto-promotion to `TRUSTED` under §16.6's thresholds.
+- **Exit**: opposite outcomes in one context block `TRUSTED`; in two contexts they narrow
+  scope and both survive; a superseded candidate keeps `superseded_by` and is never deleted.
+
+### Phase 5 — Retrieval
+- New `("knowledge", "Learned knowledge", 0.20)` section in `assembly.SECTION_SPECS`.
+- Rank by `relevance * confidence * scope_specificity`; every rendered line **cites its
+  candidate id** so the reader can run `evolve explain` on it.
+- `TRUSTED` only. A `CORROBORATED` candidate is not yet advice.
+- **Exit**: the pack stays inside its budget; adding 500 experiences does not grow it;
+  every knowledge line is traceable to its evidence.
+
+### Phase 6 — Skill Candidates
+- `learning/skills.py`: `>= 3` `TRUSTED` candidates sharing a `context_key`, plus
+  `>= 8` supporting experiences -> `SKILL-NNN`.
+- Draft written to `memory/skill_candidates/<name>/SKILL.md` in the `SKILL.md` +
+  `references/` shape `18-skills-protocol.md` documents.
+- **Never writes to `~/.claude/skills/`.** Installation is a human act (§14.4).
+- **Exit**: one strong lesson produces no skill; a genuine cluster produces a draft; the
+  host skills directory is never touched.
+
+### Phase 7 — `/evolve` Deep Review
+- `evolve review`: recurring patterns, contradictions, stale `TRUSTED` knowledge whose
+  recency has decayed, skill candidates, protocol-improvement candidates -> one report.
+- `evolve explain`, `evolve experiences [--prune]`.
+- New events `ExperienceCaptured`, `KnowledgeTrusted`, `ContradictionDetected`,
+  `SkillCandidateCreated`; one new audit subject so `audit coverage` counts them.
+- **`review` writes no governance file.** It ends in a proposal a human reads.
+- **Exit**: `review` on a seeded store surfaces every category and mutates nothing.
+
+### Phase 8 — Safety, Regression & Documentation
+- `tests/governance/test_learning_safety.py` — the phase that justifies the rest:
+  - automatic capture cannot write any file in `apply.SUPPORTED`
+  - a `TRUSTED` candidate cannot reach `apply()` without `propose -> approve`
+  - `apply.SUPPORTED` is unchanged from `11.0.0`
+  - `confidence` cannot be set directly, only computed
+  - `evolve review` leaves every governance file byte-identical
+  - a capture handler that raises does not fail the operation it observed
+- Extend `test_no_secret_reaches_a_log.py` to the experience store.
+- Full regression: **1,381 existing tests must pass unmodified.**
+- Update `55-self-evolution.md` (pipeline + CLI), `04-memory-ecosystem-protocol.md`,
+  `14-cli-protocol.md`, `18-skills-protocol.md` (skill-candidate origin), `README.md`.
+- `tests/documentation/test_no_drift.py` already guards doc/CLI drift and will catch a
+  command documented but not shipped.
+
+---
+
+## 18. Risks
+
+| # | Risk | Mitigation |
+| --: | :--- | :--- |
+| 1 | **Capture noise floods memory** | Signature dedup, outcome filter, hard cap, fold-by-signature retention. Phase 1's exit criterion is explicit about it |
+| 2 | **Confidence theatre** — a number that looks precise and is not | Every term stored and printed. `explain` shows the arithmetic. Called an estimate wherever it appears, as `assembly.py` already does for token counts |
+| 3 | **Trusted knowledge steers silently** | Every context-pack line cites its candidate id; `TRUSTED` cannot block, write or fail anything |
+| 4 | **Over-broad generalisation** | `global` requires `>= 2` distinct context keys. Scoping precedes overriding (§16.8) |
+| 5 | **The automatic path drifts into governance** | `apply.py` untouched; Phase 8 tests the boundary rather than documenting it |
+| 6 | **Test pollution from a global subscriber** | Config-gated, disabled in `conftest.py`; 1,381 tests must pass unmodified |
+| 7 | **Scope creep into a second learning system** | `learning/` is extended, never forked. `observer.py` keeps its interface and gains one source |
+| 8 | **Contradiction detector too noisy or too quiet** | Inherits the decisions detector's stated bias — a false flag costs one review, a missed one costs the incident. Tuned by the `GENERIC` stopword set, not by raising thresholds |
+| 9 | **Skill drafts rot in a directory nobody reads** | `evolve review` reports them; `18-skills-protocol.md` gains a gap row until one is installed |
+
+---
+
+## 19. Definition of Done
+
+Mapped to the brief's §20 acceptance criteria.
+
+| # | Criterion | Verified by |
+| --: | :--- | :--- |
+| 1 | Meaningful experiences recorded automatically | Phase 1 exit; `evolve experiences` non-empty after a gate run |
+| 2 | `/evolve` not needed for normal learning | Capture runs on the bus with no command |
+| 3 | Experiences generate candidates | Phase 2 exit |
+| 4 | Knowledge requires evidence before trust | §16.6 thresholds; Phase 3–4 tests |
+| 5 | Contradictions detected and handled | Phase 4 exit, all three verdicts |
+| 6 | Relevant knowledge retrieved for future tasks | Phase 5 exit, inside budget |
+| 7 | Repeated validated patterns produce skill candidates | Phase 6 exit |
+| 8 | `/evolve` does deeper analysis | Phase 7 `evolve review` |
+| 9 | Core governance cannot self-modify silently | **Phase 8** — the tests, not the prose |
+| 10 | Every learning decision traceable | `evolve explain`; new audit subject |
+| 11 | Existing workflows still work | 1,381 tests pass unmodified |
+| 12 | Tests demonstrate the lifecycle | End-to-end: gate failure -> experience -> candidate -> trusted -> retrieved -> proposed -> approved -> applied -> reverted |
+
+**Truthfulness (non-negotiable, carried over from Part I §9):** no phase is reported
+complete until its code, tests and integration are written and the suite is green. A
+status line that says "released" for a file nothing wrote is the specific failure
+`apply.py`'s docstring was written to record — repeating it in the learning engine would
+be the same mistake with a longer memory.
+
+---
+
+## 20. Decisions Needed Before Phase 1
+
+| # | Decision | Recommendation |
+| --: | :--- | :--- |
+| 1 | **Is §14.3's advisory/governance split accepted?** Everything else rests on it | **Accept.** It is the only reading that satisfies §4 and §12 together |
+| 2 | Experiences in SQLite, not JSON | **Accept.** ADR-001's own test, same reasoning as `0005` |
+| 3 | Auto-promotion to `TRUSTED` without human review | **Accept**, given #1 — `TRUSTED` compels nothing |
+| 4 | `TRUSTED` at `confidence >= 0.90` | **Accept** — reuses the existing *Known* band rather than inventing one |
+| 5 | Experience cap at 2,000 | **Accept** as a starting value; config-tunable |
+| 6 | Skill candidates stop short of `~/.claude/skills/` | **Accept** (§14.4) — CS does not own that surface |
+| 7 | Should `evolve review` be able to auto-open a proposal? | **No.** It reports; a human proposes. One less path into governance |
+
+---
+
+## 21. Status
+
+```text
+Plan                 : APPROVED 2026-09-10
+Implementation       : Phases 1–8 COMPLETE
+Tests                : 1,568 passed, 1 skipped, 0 failed  (was 1,381 collected)
+Doctor               : HEALTHY, 10/10 subsystems, bootstrap 19 ms
+Next action          : run a real project against it and see what the log fills with
+```
+
+---
+
+## 22. Phase Reports
+
+### Correction to the baseline in this document's header
+
+The header claims "1,381 tests collected". That was a `--collect-only` count, not a green
+run, and it should not have been written as a baseline. Running the suite for the first time
+during Phase 1 surfaced **two pre-existing failures**, one of them mine:
+
+- `test_no_drift.py` — the README protocol directory never listed `20-design-protocol.md`
+  or `21-landing-protocol.md`, and claimed 40 documents against 42 on disk. Introduced by
+  commit `cdb4c7c`, which went out without the suite being run. Fixed in Phase 1.
+- `test_discovery.py::test_discovery_stays_fast_on_a_large_tree` — **intermittent**. It
+  measured 2.4 s and then 4.3 s against a 2.0 s budget while creating and scanning 2,001
+  files, and passed on both subsequent full runs. Environmental (OneDrive-synced
+  filesystem), unrelated to this work. Left alone rather than loosened: the budget asserts
+  something real about discovery, and raising it to accommodate one slow filesystem would
+  retire the assertion. It belongs in `28-flaky-protocol.md` if it recurs.
+
+### What was built
+
+| Phase | Delivered | Tests |
+| :--- | :--- | ---: |
+| 1 — Experience Capture | `experience/{records,capture,retention}.py`, `0007_experience.sql`, bus subscriber, config gate | 49 |
+| 2 — Experience Analysis | `experience/analysis.py`, `observer`'s fourth source | 38 |
+| 3 — Knowledge Candidates v2 | `learning/confidence.py`, `TRUSTED`/`SUPERSEDED`, on-read scoring | 30 |
+| 4 — Validation & Contradiction | `learning/contradiction.py`, three verdicts, auto-promotion | 19 |
+| 5 — Retrieval | `knowledge` section in `assembly.SECTION_SPECS`, cited lines | 12 |
+| 6 — Skill Candidates | `learning/skills.py`, drafts to `memory/skill_candidates/` | 14 |
+| 7 — `/evolve` Deep Review | `review`, `explain`, `experiences`; 3 new events, `learning` audit subject | 17 |
+| 8 — Safety & Regression | `test_learning_safety.py`, docs | 16 |
+
+### Deviations from the plan, and why
+
+1. **`0008_candidate_scoring.sql` was not written.** §16.4 said to add only columns that are
+   filtered or ordered on in SQL. Nothing filters candidates in SQL — `candidates.py` reads
+   `all()` and filters in Python — so by the plan's own criterion the migration had no
+   reason to exist. The v2 fields live in the existing `payload`.
+
+2. **Experience identity was split in two.** The plan gave each experience a deterministic
+   `record_id`. That works on JSON, which has no uniqueness constraint, and fails on SQLite,
+   which does: the second sighting of a recurring failure became a hard write error.
+   Grouping belongs to the record (`group_id`), identity to the row (`id`). Both experience
+   suites now run against **both backends**, because a single-backend suite reported this as
+   green.
+
+3. **`occurrences` is derived, not incremented.** The plan implied a stored counter. Capture
+   appends and never rewrites — the right shape for the write path — so recurrence is
+   computed by grouping and reclaimed by folding. A counter and the rows it counts drift
+   apart the first time a write half-fails.
+
+4. **Context detection does not use `discovery.inspect()`.** It walks the file tree, which is
+   far too expensive for a listener that runs on every event. Manifest-only detectors
+   (`detect_runtime_versions`, `detect_frameworks`, `detect_databases`) give a better answer
+   anyway: a stack a manifest *states* is stronger evidence than one inferred from counting
+   source files.
+
+5. **`SUPERSEDES` gained an overlap ratio.** Run against the real candidate store, a bare
+   shared-term count flagged six unrelated pairs. The decision-ledger detector can afford to
+   over-flag because a finding there costs one glance; here a `SUPERSEDES` finding *acts*, so
+   the bar is genuine overlap rather than coincidence.
+
+### Bugs the work surfaced
+
+Five, all fixed, all now pinned by tests:
+
+1. **`QualityGateFailed` named no cause.** It carried the objective and the word `BLOCKED`,
+   so two unrelated failures on one objective were indistinguishable to anything reading the
+   event. Both emitters now carry `blocked_by`, `code` and `reason`.
+
+2. **`redaction` was blanking real data.** A field named `context_key` reached the store as
+   `[redacted]` — `SENSITIVE_KEY_WORDS` matches a trailing `_key` as a credential. This is
+   the over-redaction the module's own comment warns about. The field was renamed; the
+   shared redactor was not weakened.
+
+3. **Backend divergence on deterministic ids** (deviation 2 above).
+
+4. **Contradiction findings were counted per evidence entry** rather than per signature,
+   inflating the number that decides whether trust is withheld.
+
+5. **Three of the four observer sources never passed through redaction.** Capture cleaned
+   what it observed, but incident learnings, failures-layer facts and captured patterns are
+   free text a person typed — and a person who has just debugged a credential leak writes
+   the credential down. From there a lesson reached the candidate store, a context pack and a
+   drafted `SKILL.md` on disk. Found by a Phase 8 test that seeded a candidate directly.
+   Redaction now happens at `candidates.observe`, the funnel every source passes through,
+   and again when a draft is rendered to a file.
+
+### What is not done
+
+- **No draft has been reviewed.** `memory/skill_candidates/` will fill and nothing reads it
+  but `evolve review`. Logged as an open gap in `18-skills-protocol.md`.
+- **`PatternDetected` and `DeploymentCompleted` are still never emitted.** Both are mapped
+  as learning sources and ready; nothing emits them, which `audit coverage` already reports.
+- **The confidence weights are a first guess.** 0.35/0.30/0.25/0.10 are declared and
+  arguable, which is the point — but nothing has yet run long enough to say whether they are
+  right.
+

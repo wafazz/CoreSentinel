@@ -26,7 +26,7 @@ COLLECTIONS = ["events", "audit_events", "verification_runs",
                "knowledge_entities", "knowledge_relations",
                "agent_sessions", "task_results", "permission_grants",
                "incidents", "incident_links", "learning_candidates",
-               "metrics"]
+               "experiences", "metrics"]
 
 
 def now():

@@ -169,7 +169,7 @@ VALUE_FLAGS = {"--project", "--layer", "--min-confidence", "--limit", "--label",
                "--root-cause", "--resolution", "--learning", "--severity",
                "--detected-by", "--class", "--decision", "--file", "--commit",
                "--test", "--pattern", "--subject",
-               "--candidate", "--name", "--solution", "--stack", "--gotchas",
+               "--candidate", "--name", "--solution", "--stack", "--gotchas", "--max",
                "--category", "--first-used-in", "--incident",
                "--host", "--port", "--offset", "--base"}
 
@@ -748,10 +748,16 @@ def cmd_gate(args):
         base = flag_value(args, "--base")
         code = gates.run_all_gates(target, emit_json, flag_value(args, "--objective"),
                                    report_style, base)
+        blocking = gates.blocking_gate() if code else None
         emit_audited("QualityGateFailed" if code else "QualityGatePassed", target,
                      {"objective": flag_value(args, "--objective"),
                       "base": base,
-                      "result": "BLOCKED" if code else "APPROVED"})
+                      "result": "BLOCKED" if code else "APPROVED",
+                      # Which gate, and on what code. Without these the event
+                      # says only that something blocked, which is not a cause.
+                      "blocked_by": (blocking or {}).get("gate"),
+                      "code": (blocking or {}).get("code"),
+                      "reason": (blocking or {}).get("reason")})
         return code
     if sub == "reset":
         gates.reset_gates()
@@ -775,6 +781,15 @@ def handle_learning(sub, args):
     store = runtime.store
 
     try:
+        if sub == "experiences":
+            return _evolve_experiences(runtime, store, args, emit_json)
+
+        if sub == "explain":
+            return _evolve_explain(store, free_arg(args, 1), emit_json)
+
+        if sub == "review":
+            return _evolve_review(runtime, store, target, args, emit_json)
+
         if sub == "observe":
             report = observer.run(store, target)
             if emit_json:
@@ -783,7 +798,8 @@ def handle_learning(sub, args):
             print("\n" + "=" * 64)
             print("  🔬 CoreSentinel Learning Observation")
             print("=" * 64)
-            print(f"  {report['observed']} candidate(s) from incidents, failures and patterns")
+            print(f"  {report['observed']} candidate(s) from incidents, failures, "
+                  f"patterns and experiences")
             print("  " + "-" * 60)
             for candidate in report["candidates"]:
                 mark = {"CORROBORATED": "▶", "PROPOSED": "·",
@@ -811,6 +827,13 @@ def handle_learning(sub, args):
                 print(f"  {status:<14} {count}")
             print("  " + "-" * 60)
             print(f"  Evidence threshold: {overview['evidence_threshold']} distinct sources")
+            if overview["trusted"]:
+                print(f"  Trusted (retrieved into context packs): "
+                      f"{len(overview['trusted'])}")
+            if overview["eligible_for_trust"]:
+                print(f"  Eligible for trust, not yet promoted: "
+                      f"{len(overview['eligible_for_trust'])} — run 'evolve review'")
+            print("  TRUSTED informs. Only 'evolve propose' makes something a rule.")
             print("=" * 64 + "\n")
             return 0
 
@@ -872,6 +895,197 @@ def handle_learning(sub, args):
         return 0
     finally:
         runtime.shutdown()
+
+
+def _evolve_experiences(runtime, store, args, emit_json):
+    """The raw log, and the retention pass over it."""
+    from coresentinel_core.experience import retention
+
+    if "--prune" in args:
+        cap = int(flag_value(args, "--max")
+                  or runtime.config.get("learning.max_experiences")
+                  or retention.DEFAULT_MAX)
+        report = retention.fold(store, cap, apply_changes="--apply" in args)
+        if emit_json:
+            print(json.dumps(report, indent=2))
+            return 0
+        print("\n" + "=" * 64)
+        print("  🧪 CoreSentinel Experience Retention")
+        print("=" * 64)
+        print(f"  Rows        : {report['rows_before']} → {report['rows_after']}")
+        print(f"  Distinct    : {report['distinct']}")
+        print(f"  Reclaimed   : {report['reclaimed']}")
+        print(f"  Cap         : {report['cap']}")
+        for dropped in report["dropped"][:10]:
+            print(f"    dropped {dropped['outcome']:<8} {str(dropped['statement'])[:52]}")
+        print("  " + "-" * 60)
+        print("  Applied." if report["applied"]
+              else "  Dry run — nothing was written. Add --apply to fold.")
+        print("=" * 64 + "\n")
+        return 0
+
+    overview = retention.summary(store)
+    if emit_json:
+        print(json.dumps(overview, indent=2))
+        return 0
+    print("\n" + "=" * 64)
+    print("  🧪 CoreSentinel Experience Log")
+    print("=" * 64)
+    print(f"  Stored rows : {overview['stored']}")
+    print(f"  Distinct    : {overview['distinct']}")
+    print(f"  By outcome  : " + ", ".join(f"{k} {v}" for k, v in overview["by_outcome"].items())
+          if overview["by_outcome"] else "  By outcome  : (nothing yet)")
+    if overview["recurring"]:
+        print("  " + "-" * 60)
+        print("  Recurring:")
+        for row in overview["recurring"][:10]:
+            print(f"    {row['occurrences']:>4}×  {str(row['statement'])[:56]}")
+    print("  " + "-" * 60)
+    print("  Captured automatically from the event bus. No command records these.")
+    print("=" * 64 + "\n")
+    return 0
+
+
+def _evolve_explain(store, candidate_id, emit_json):
+    """Why CoreSentinel believes a thing, as arithmetic rather than assertion."""
+    from coresentinel_core.learning import candidates, confidence, contradiction
+
+    if not candidate_id:
+        print("[!] Which candidate? coresentinel evolve explain CAND-abc123",
+              file=sys.stderr)
+        return 1
+
+    raw = candidates.get(store, candidate_id)
+    if not raw:
+        print(f"[!] Candidate '{candidate_id}' not found.", file=sys.stderr)
+        return 1
+
+    record = candidates.enrich(raw)
+    findings = contradiction.outcome_findings(raw)
+
+    if emit_json:
+        print(json.dumps({"candidate": record, "findings": findings}, indent=2))
+        return 0
+
+    print("\n" + "=" * 64)
+    print(f"  🔎 Why CoreSentinel believes {record['id']}")
+    print("=" * 64)
+    print(confidence.explain(record["confidence_terms"], record["lesson"]))
+    print("  " + "-" * 60)
+    print(f"  Status       : {record['status']}")
+    print(f"  Scope        : {record['scope']}"
+          + (f"  ({record['context']})" if record.get("context") else ""))
+    if record.get("superseded_by"):
+        print(f"  Superseded by: {record['superseded_by']}")
+    print("  " + "-" * 60)
+    print("  Evidence chain:")
+    for entry in raw.get("evidence", []):
+        print(f"    {entry.get('at', '?'):<20} {str(entry.get('kind')):<11} "
+              f"{str(entry.get('source'))[:28]}")
+        if entry.get("detail"):
+            print(f"      └─ {str(entry['detail'])[:56]}")
+    for finding in findings:
+        print(f"    [{finding['verdict']}] {finding['detail'][:70]}")
+    print("  " + "-" * 60)
+    if record["status"] == candidates.TRUSTED:
+        print("  TRUSTED means this is retrieved into context packs as advice.")
+        print("  It is not a rule and blocks nothing. Only 'evolve propose' does that.")
+    print("=" * 64 + "\n")
+    return 0
+
+
+def _evolve_review(runtime, store, target, args, emit_json):
+    """The deep pass. Reports, and changes no governance file.
+
+    `observe` and automatic capture handle the routine; this is the periodic
+    step back — what recurred, what disagrees, what has gone stale, what might
+    be a skill. It ends in a proposal a human reads, never in a rule.
+    """
+    from coresentinel_core.experience import analysis, retention
+    from coresentinel_core.learning import candidates, contradiction, observer, skills
+
+    apply_changes = "--apply" in args
+
+    observer.run(store, target)
+    validation = contradiction.validate(store, apply_changes=apply_changes)
+    drafts = skills.draft(store, apply_changes=apply_changes)
+    experiences = retention.summary(store)
+    lessons = analysis.summary(store)
+
+    stale = [c for c in candidates.trusted(store)
+             if c["confidence_terms"]["terms"]["recency"] <= 0.5]
+
+    report = {
+        "coresentinel_api": "1.1",
+        "experiences": experiences,
+        "lessons": lessons,
+        "validation": validation,
+        "skill_candidates": drafts,
+        "stale": [{"id": c["id"], "lesson": c["lesson"],
+                   "last_seen": c.get("last_seen")} for c in stale],
+        "applied": apply_changes,
+        "governance_changed": False,
+    }
+
+    if apply_changes:
+        for entry in validation["promoted"]:
+            runtime.events.emit("KnowledgeTrusted",
+                                {"candidate": entry["id"], "confidence": entry["confidence"],
+                                 "result": "TRUSTED"})
+        for finding in validation["findings"]:
+            if finding["verdict"] == contradiction.INCONSISTENT:
+                runtime.events.emit("ContradictionDetected",
+                                    {"candidate": finding["id"], "result": finding["verdict"],
+                                     "detail": finding["detail"]})
+        for entry in drafts["drafted"]:
+            runtime.events.emit("SkillCandidateCreated",
+                                {"skill": entry["id"], "name": entry["name"],
+                                 "result": "DRAFTED"})
+
+    if emit_json:
+        print(json.dumps(report, indent=2))
+        return 0
+
+    print("\n" + "=" * 64)
+    print("  🧭 CoreSentinel Evolution Review")
+    print("=" * 64)
+    print(f"  Experiences   : {experiences['stored']} row(s), "
+          f"{experiences['distinct']} distinct")
+    print(f"  Recurring     : {lessons['recurring_failures']} failure(s) seen "
+          f"{lessons['threshold']}× or more")
+    print("  " + "-" * 60)
+    print(f"  Promoted to TRUSTED : {len(validation['promoted'])}")
+    for entry in validation["promoted"][:8]:
+        print(f"    {entry['id']}  {entry['confidence']:.2f}  {entry['lesson'][:48]}")
+    print(f"  Withheld            : {len(validation['blocked'])}")
+    for entry in validation["blocked"][:8]:
+        print(f"    {entry['id']}  {entry['why'][:56]}")
+    print("  " + "-" * 60)
+    print(f"  Contradictions      : {validation['inconsistent']} inconsistent, "
+          f"{validation['scoped']} scoped")
+    for finding in validation["findings"][:6]:
+        print(f"    [{finding['verdict']:<12}] {finding['detail'][:52]}")
+    if validation["superseded"]:
+        print("  Superseded:")
+        for entry in validation["superseded"]:
+            print(f"    {entry['superseded']} → {entry['by']}  "
+                  f"({entry['was']:.2f} → {entry['now']:.2f})")
+    print("  " + "-" * 60)
+    print(f"  Skill candidates    : {len(drafts['drafted'])} drafted, "
+          f"{len(drafts['skipped'])} short of the bar")
+    for entry in drafts["drafted"]:
+        print(f"    {entry['id']}  {entry['name']}")
+    if stale:
+        print("  " + "-" * 60)
+        print(f"  Stale knowledge     : {len(stale)} lesson(s) nothing has "
+              f"re-confirmed lately")
+    print("  " + "-" * 60)
+    if not apply_changes:
+        print("  Dry run — nothing was written. Add --apply to record promotions.")
+    print("  No governance file was changed. A rule still needs:")
+    print("    coresentinel evolve propose --candidate <id> --target ... --change ...")
+    print("=" * 64 + "\n")
+    return 0
 
 
 def cmd_pattern(args):
@@ -955,7 +1169,8 @@ def cmd_evolve(args):
     import coresentinel_evolve as evolve
     sub = args[0].lower() if args and not args[0].startswith("--") else "list"
 
-    if sub in ("observe", "candidates", "apply", "revert", "reject", "promote"):
+    if sub in ("observe", "candidates", "apply", "revert", "reject", "promote",
+               "experiences", "explain", "review"):
         return handle_learning(sub, args)
     if sub == "propose":
         proposal = evolve.propose_evolution(
@@ -2086,7 +2301,7 @@ COMMANDS = [
                "test coverage. --strict promotes the missing-test warning to blocking.\n"
                "Logic correctness stays with the reviewer agents (Cato / Sage)."},
     {"name": "gate", "aliases": ["gates"], "group": "Verification & Review", "handler": cmd_gate,
-     "summary": "Drive the 8-stage Quality Gates pipeline",
+     "summary": "Drive the 10-stage Quality Gates pipeline",
      "usage": ["coresentinel gate run [target-dir] [--objective \"...\"] [--base <ref>] "
                "[--report] [--json]",
                "coresentinel gate status [--report] [--json]",
@@ -2204,7 +2419,10 @@ COMMANDS = [
                "HEALTHY >= 90, WARNING 75-89, CRITICAL < 75."},
     {"name": "evolve", "aliases": ["evolution", "cse"], "group": "Squad & Governance", "handler": cmd_evolve,
      "summary": "Controlled Self-Evolution proposal pipeline",
-     "usage": ["coresentinel evolve observe [--json]", "coresentinel evolve candidates",
+     "usage": ["coresentinel evolve experiences [--prune [--apply] [--max N]]",
+               "coresentinel evolve observe [--json]", "coresentinel evolve candidates",
+               "coresentinel evolve explain CAND-abc123",
+               "coresentinel evolve review [--apply]",
                "coresentinel evolve reject CAND-abc123 --reason \"...\"",
                "coresentinel evolve promote CAND-abc123 --reason \"...\"",
                "coresentinel evolve propose --target \"...\" --change \"...\" --evidence \"...\"\n"
@@ -2212,13 +2430,30 @@ COMMANDS = [
                "coresentinel evolve approve EVO-014 --approver \"Fakrul\"",
                "coresentinel evolve apply EVO-014", "coresentinel evolve revert EVO-014"],
      "detail": "The loop, and nothing skips a step:\n"
-               "  incident -> root cause -> pattern -> candidate -> evidence\n"
-               "           -> human approval -> versioned rule -> future agents\n"
+               "  experience -> candidate -> evidence -> confidence -> TRUSTED\n"
+               "             -> human approval -> versioned rule -> future agents\n"
                "\n"
-               "'observe' derives candidates from incident learnings, the failures layer and\n"
-               "repeated patterns. A candidate needs 2 distinct sources before it may be\n"
-               "proposed — one incident is an anecdote. 'promote' skips that with a stated\n"
-               "reason; 'reject' is permanent, so a declined lesson does not resurface.\n"
+               "Experiences are captured automatically from the event bus — no command\n"
+               "records them. 'experiences' inspects the log; '--prune' folds duplicates and\n"
+               "caps it, as a dry run until --apply.\n"
+               "\n"
+               "'observe' derives candidates from incident learnings, the failures layer,\n"
+               "repeated patterns and recurring experiences. A candidate needs 2 distinct\n"
+               "sources before it may be proposed — one incident is an anecdote, and one\n"
+               "signature repeating is still one source however loudly it repeats.\n"
+               "'promote' skips that with a stated reason; 'reject' is permanent.\n"
+               "\n"
+               "'explain' prints why CoreSentinel believes a candidate: the four confidence\n"
+               "terms, their weights, the arithmetic and the evidence chain.\n"
+               "\n"
+               "'review' is the deep pass — recurring failures, contradictions, stale\n"
+               "knowledge, skill candidates. It promotes to TRUSTED and changes NO\n"
+               "governance file.\n"
+               "\n"
+               "TRUSTED and PROPOSED are different things. TRUSTED is a retrieval tier: a\n"
+               "cited line in a context pack that an agent may disregard, which blocks\n"
+               "nothing and writes nothing — which is why it is safe to reach without a\n"
+               "human. PROPOSED is a governance act, and no amount of evidence reaches it.\n"
                "\n"
                "'approve' records a human decision and changes NO file. 'apply' makes the\n"
                "change: it refuses anything not APPROVED, snapshots the target first, bumps\n"
