@@ -957,6 +957,84 @@ event; never the values you just cleared.
 
 ---
 
+## Laravel 13 + Inertia 3 + Vue 3.5 + Bootstrap/AdminLTE (console, no TypeScript)
+
+### Version Baseline (verified live 2026-09-08)
+Laravel **13.30.1** · PHP 8.4 · `inertiajs/inertia-laravel` **3.3.3** ·
+`@inertiajs/vue3` + `@inertiajs/vite` **3.7.0** · Vue **3.5.42** · Vite **8.2.2** ·
+`laravel-vite-plugin` **3.2.0** · `@vitejs/plugin-vue` 6.x · Bootstrap **5.3.8** ·
+admin-lte **4.9.1** · ApexCharts **7.1.0** + `vue3-apexcharts` · `sass-embedded`.
+The Laravel 13 skeleton now ships **Tailwind + `@tailwindcss/vite` by default** — uninstall
+both when the project ships Bootstrap, or two CSS frameworks compile into one bundle.
+`Inertia::always()` and `Inertia::once()` both confirmed present in 3.3.3.
+
+### AdminLTE 4 Layout Classes Collide With a Hand-Rolled Inertia Shell
+- **Stack**: AdminLTE 4.9.1, Bootstrap 5.3.8, Inertia 3, Vue 3.5
+- **Problem**: the mobile sidebar never appeared. The element was in the DOM, carried the
+  right `is-open` class, and computed `transform: matrix(1,0,0,1,0,0)` — and still sat
+  entirely off-screen at `x: -250`.
+- **Solution**: **do not reuse AdminLTE's own layout class names** (`.app-wrapper`,
+  `.app-sidebar`, `.app-main`, `.app-content`) for a hand-rolled shell. AdminLTE 4 styles
+  those itself and drives them from body classes plus its PushMenu JS, so two stylesheets
+  fight over one box: computed width was AdminLTE's `250px` rather than the authored
+  `15.5rem`, and its negative offset held the panel off-canvas. Namespace the layout
+  (`slt-*`, `app2-*`, anything) and keep AdminLTE's SCSS for what it genuinely provides —
+  cards, nav, forms, tables. Also drop the `adminlte.js` import and the
+  `layout-fixed sidebar-expand-lg` body classes when none of its JS is used.
+- **Gotchas**: the tell is a **computed width that is not the width you authored** — check
+  that first, it identifies the collision in one look. The reason to hand-roll at all is the
+  Safe/Unsafe Split above: Treeview writes `menu-open` classes and inline heights onto nodes
+  the framework owns. A hand-rolled treeview is also a net gain — it can auto-expand the
+  active branch by matching `usePage().url` against a typed menu config, which DOM state
+  cannot do.
+- **First used in**: Social Media Listening Tool (2026-09-08)
+
+### Sidebar Config as the Single Source of Truth, Asserted by Test
+- **Stack**: Laravel 13 + Inertia 3 (applies to any framework)
+- **Problem**: sidebar links and the router drift apart, and a dead link is found by a user.
+- **Solution**: one PHP class owns the nav tree, resolves `route()` names to paths
+  server-side (so the frontend never learns how routing works), and exposes a flat
+  `routeNames()` list. A feature test then walks the tree and asserts every link responds,
+  plus that every registered name exists. Dead navigation becomes a failing assertion.
+- **Gotchas**: resolve `href` in a private mapper and keep `routeNames()` reading the raw
+  *definition*, or the flattener runs `route()` twice for no reason.
+- **First used in**: Social Media Listening Tool (2026-09-08)
+
+### Third-Party Capability Is a Type Plus a Declaration, Never a Boolean
+- **Stack**: any multi-provider integration (social APIs, payment gateways, couriers)
+- **Problem**: one fat `Provider` interface forces every provider to implement methods it
+  cannot honour, so "can it?" becomes a runtime `try/catch` and the UI ends up guessing.
+- **Solution**: a **narrow base interface plus capability marker interfaces**
+  (`SupportsKeywordDiscovery`, `SupportsReply`, …). `$provider instanceof SupportsReply`
+  is resolved by the language, and calling an unsupported method becomes unwritable.
+  Then add a **second, declarative map** — `capabilities(): Capabilities` returning a
+  four-state enum (`Supported` · `Unsupported` · `RequiresPermission` ·
+  `RequiresVerification`) **with a human reason string per capability**, rendered verbatim
+  in the UI. `instanceof` answers "did we write it?"; only the declaration answers "is our
+  app approved for it?" and "have we confirmed it still exists?".
+- **Gotchas**: the reason string is the whole point — a greyed-out button with no
+  explanation is what the pattern exists to prevent. Capabilities belong in **code**, not a
+  table: they are properties of somebody else's API, not of our configuration, so they
+  should appear in a diff. Keep a test asserting every provider declares every capability
+  with a non-empty reason.
+- **First used in**: Social Media Listening Tool (2026-09-08)
+
+### Inertia Props Are Built From Arrays, and a Test Says So
+- **Stack**: Laravel + Inertia (any adapter)
+- **Problem**: Inertia serialises any `Arrayable` via `toArray()` — every non-hidden column,
+  every appended accessor, every loaded relation, recursively. `$hidden` is not a security
+  boundary, and Inertia's maintainers state there is no framework-level shield.
+- **Solution**: build props from explicit arrays or DTOs, never from a model instance, and
+  enforce it from commit one with a test that walks every page's prop bag recursively and
+  fails on any credential-shaped **key that carries a value**. Field *descriptors* may
+  legitimately name `app_secret` (a form has to label its inputs) — what must never appear
+  is a value against that name.
+- **Gotchas**: retrofitting this after the first leak means auditing every controller. It
+  costs ~40 lines on day one.
+- **First used in**: Social Media Listening Tool (2026-09-08)
+
+---
+
 ## How to Add Patterns
 
 After completing a significant feature, ask yourself:
