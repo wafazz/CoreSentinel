@@ -91,6 +91,10 @@ def evidence_for(row, store=None, rows=None):
     successes = sum(bucket["success"] for bucket in tally.values())
     failures = sum(bucket["failure"] for bucket in tally.values())
     return {
+        # Carried so contradiction detection can find its way back to the
+        # experience log. Reconstructing it by parsing the source id would work
+        # until somebody changed the id format.
+        "signature": row.get("signature"),
         "occurrences": int(row.get("occurrences") or 1),
         "success_count": successes,
         "failure_count": failures,
@@ -116,8 +120,14 @@ def observe(store, minimum=MIN_OCCURRENCES):
         evidence = evidence_for(row, rows=rows)
         detail = (f"{evidence['occurrences']}× "
                   f"({evidence['failure_count']} failed, {evidence['success_count']} succeeded)")
+        # The counts travel as structured metrics as well as prose. `detail` is
+        # for a person reading the queue; `metrics` is what the confidence
+        # success term reads, and a number parsed back out of a sentence is a
+        # number waiting to disagree with the sentence.
         seen.append(candidates.observe(store, lesson, source=_source_id(row),
-                                       kind="experience", detail=detail))
+                                       kind="experience", detail=detail,
+                                       metrics=evidence,
+                                       context=row.get("context")))
     return [c for c in seen if c]
 
 
