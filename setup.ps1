@@ -158,10 +158,39 @@ You are an autonomous AI coding assistant named **{{AGENT_NAME}}**.
 Role: {{AGENT_ROLE}}
 Always adhere to the protocols stored in: `{{TARGET_DIR}}`
 {{SUB_AGENTS}}
+### Task Tiering - decide FIRST, before any protocol read
+Set the tier before doing anything else; it decides how much of the Core to load.
+- **T0 Direct** - one file, bounded, no design call, no T2 surface. Typos, config values,
+  known one-line fixes, questions, machine/ops checks. **No gates, no protocol reads.**
+- **T1 Light** - 2-3 files, established pattern, no new dependency, no migration.
+  Build -> Cato (review) -> Echo (test).
+- **T2 Full** - everything else, and ALWAYS for: schema/migrations, auth/authz, payments,
+  tenant scoping, file upload, deploy config, public API. All 9 gates, all 17 agents.
+
+Declare the tier in the first reply. Torn between two? Take the higher.
+Tier down on volume, **never on risk**. Tiers escalate mid-run, never de-escalate.
+Full rules: `{{TARGET_DIR}}\02-team-protocol.md`
+
+### Token Discipline - 99% of spend is cache re-reads
+Context is re-read every turn, so cost = size x turns that follow. Measured on a real
+session: 1.2B cache-read tokens on ~1.3M of unique content (~900x amplification), context
+22k first turn -> 436k median -> 997k peak. Keep context small, in priority order:
+1. Fresh conversation per unrelated task (in Claude Code: /clear). Outweighs the rest
+   combined - a turn at 436k costs ~20x the same turn at 22k. Only the user can do this.
+2. Delegate wide reads to a subagent; the dumps stay out of my context and are never
+   re-billed (~50x cheaper by turn 500). Delegation gets cheaper the longer a session runs.
+3. Narrow edits over rewriting whole files - tool_use was 66.9% of unique content.
+4. Cap exploratory output with head/grep; a 73k-char result is re-billed every later turn.
+
+Never split one task mid-way - summarisation handles long work. Split by topic, not mid-task.
+Full data: `{{TARGET_DIR}}\03-workflow-guide.md` section 6
+
 ## Quick Reference & Process Roadmap
 - Central Index: `{{TARGET_DIR}}\00-identity.md`
 - QA Sentinel Mode: `{{TARGET_DIR}}\01-sentinel-identity.md`
 - Squad Phase Gates: `{{TARGET_DIR}}\02-team-protocol.md`
+- Workflow & Token Economics: `{{TARGET_DIR}}\03-workflow-guide.md`
+- Skill Layer (host skills -> phase gates): `{{TARGET_DIR}}\18-skills-protocol.md`
 - New Project Init: `{{TARGET_DIR}}\05-init-protocol.md`
 - Stack Migration (MIMIC): `{{TARGET_DIR}}\06-mimic-protocol.md`
 - Auto-Learn Stack: `{{TARGET_DIR}}\10-learn-protocol.md`
@@ -192,13 +221,42 @@ $RuleTemplate = $RuleTemplate.Replace('{{AGENT_NAME}}', $AgentName).
                               Replace('{{TARGET_DIR}}', $TargetDir).
                               Replace('{{SUB_AGENTS}}', $SubAgentMd)
 
-foreach ($item in $Targets) {
-    $parent = Split-Path -Parent $item.Path
+function Write-Target {
+    param(
+        [string]$FilePath,
+        [string]$ToolName,
+        [string]$Content
+    )
+
+    $parent = Split-Path -Parent $FilePath
     if (-not (Test-Path $parent)) {
         New-Item -ItemType Directory -Path $parent -Force | Out-Null
     }
-    Set-Content -Path $item.Path -Value $RuleTemplate -Encoding UTF8
-    Write-Host "[+] Rendered system prompt for $($item.Tool) -> $($item.Path)" -ForegroundColor Green
+
+    # Back up before overwriting, but only when the content would actually change.
+    # These five targets are routinely hand-edited; a re-install used to erase those
+    # edits silently, with no copy kept. Identical re-installs stay backup-free.
+    if (Test-Path $FilePath) {
+        $existing = Get-Content -Path $FilePath -Raw -ErrorAction SilentlyContinue
+        if ($null -eq $existing) { $existing = "" }
+        if ($existing.TrimEnd() -ne $Content.TrimEnd()) {
+            $backupPath = "$FilePath.bak.$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+            try {
+                Copy-Item -Path $FilePath -Destination $backupPath -ErrorAction Stop
+                Write-Host "[!] $ToolName file differed - backed up to $backupPath" -ForegroundColor Yellow
+            } catch {
+                Write-Host "[x] Could not back up $FilePath - leaving it untouched" -ForegroundColor Red
+                return
+            }
+        }
+    }
+
+    Set-Content -Path $FilePath -Value $Content -Encoding UTF8
+    Write-Host "[+] Rendered system prompt for $ToolName -> $FilePath" -ForegroundColor Green
+}
+
+foreach ($item in $Targets) {
+    Write-Target -FilePath $item.Path -ToolName $item.Tool -Content $RuleTemplate
 }
 
 # 2. Automatically install Git hooks

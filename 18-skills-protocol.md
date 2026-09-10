@@ -47,6 +47,28 @@ Checked against the live skill listing. Nothing below is aspirational.
 | `dataviz` | [12-health-score-protocol.md](./12-health-score-protocol.md) | any reporting | Ledger |
 | `design` | [20-design-protocol.md](./20-design-protocol.md) | **2 — Design** (Screen Brief reference, UI/flow canvases), 8 — Ship | Vera, Luna |
 | `claude-in-chrome` | [20-design-protocol.md](./20-design-protocol.md) | 4 — Test (screenshot every changed screen, 1280 + 390) | Probe, Vera |
+| `landing-design` | [21-landing-protocol.md](./21-landing-protocol.md) | **2 — Design** (Landing Brief), 4 — Test, 5 — Review | Vera, Luna |
+
+**`landing-design` is CoreSentinel's own — the first skill this system ships rather than consumes.**
+Installed at `~/.claude/skills/landing-design/` (`SKILL.md` + `references/{scales,sections,tells}.md`),
+written 2026-09-10. It does not appear in the host listing until Claude Code restarts; until then it
+is on disk but not invocable, and the protocol is read directly instead.
+
+Two things separate it from every other row above. It is the only skill here whose **first step is
+reading the project** — schema, routes, plans, roles, components — rather than applying a rule set in
+a vacuum. And it is the only one covering the **public** surface: everything else in this table, and
+all of `20-design-protocol.md`, is authenticated console work with an inverted rule set.
+
+**Surface routing — never cross these:**
+
+| Target | Protocol | Skill |
+|---|---|---|
+| Console, dashboard, admin, any authenticated screen | `20-design-protocol.md` | `design` |
+| Landing, marketing site, pricing, public template | `21-landing-protocol.md` | `landing-design` |
+
+A hero, generous vertical rhythm and a pricing CTA are **tells** on a console (`20` §2) and are the
+job on a landing page (`21` §3). Console density on a public page is the same error reversed. Ask
+which surface the brief is for before reaching for either.
 
 **Host availability — tested 2026-09-04:** `claude-in-chrome` is now **listed** on darwin
 (it was absent 2026-08-20), but listed is not the same as working. Tested this session:
@@ -123,7 +145,9 @@ Reviewed at Phase 8.
 
 | Gap | Status |
 |---|---|
-| No CoreSentinel skill exists — `coresentinel verify` runs via Bash only | Open. A packaged skill would make the 6-point suite invocable by name and installable by other users ([public-use goal](./00-identity.md)). |
+| No CoreSentinel skill exists — `coresentinel verify` runs via Bash only | **Partly closed 2026-09-10.** `landing-design` is now the first CS-authored skill (§2), proving the packaging shape works. `coresentinel verify` itself is still Bash-only — that one stays open. |
+| Landing pages had no protocol — four lines in `20-design-protocol.md` §6.6 | **Closed 2026-09-10** by [21-landing-protocol.md](./21-landing-protocol.md) + the `landing-design` skill. |
+| No landing-page **reference artifact** — `references/dashboard-benchmark.html` has no public-surface twin | **Open.** `20-design-protocol.md` §1 is emphatic that design converges against an image and essentially never from prose, and `21` §2 makes a reference mandatory in every brief — but there is nothing in-repo to point at, so briefs must borrow an external URL. The console side solved this and the public side has not. |
 | 17 squad specialists are prose roles, not agent definitions | Open. Only `muse` exists in `~/.claude/agents/`. Roles are played in-context, which is valid but means "parallel" in Phase 3/5/6 is sequential in practice. Say so honestly in gate reports. |
 | `claude-in-chrome` named in Phase 4 but not installed | Open (2026-08-20, darwin). E2E browser journeys have no instrument; `run` covers app-level only. |
 | Two conflicting 17-agent rosters | See [02-team-protocol.md](./02-team-protocol.md) § Roster Authority. |
