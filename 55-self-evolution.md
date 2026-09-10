@@ -15,8 +15,15 @@
 ## 🗺️ Controlled Evolution Pipeline
 
 ```text
-  AI Proposes Improvement ➔ Evidence Collection ➔ Impact Analysis ➔ Human Review ➔ Approval ➔ Versioned Change ➔ Regression Test ➔ Deploy
+  Execution ➔ Experience (automatic) ➔ Candidate ➔ Evidence ➔ Confidence ➔ TRUSTED
+                                                                              │
+                              ══════════════ HUMAN BOUNDARY ══════════════════╪══
+                                                                              │
+  Proposal ➔ Impact Analysis ➔ Human Review ➔ Approval ➔ Versioned Change ➔ Regression Test ➔ Deploy
 ```
+
+The left half runs on its own and ends at **TRUSTED**, which is advice. The right half is
+governance and begins with a person. They share evidence and never share authority.
 
 ---
 
@@ -31,16 +38,39 @@ coresentinel evolve observe        # derive candidates from what is already reco
 coresentinel evolve candidates     # the queue, by status
 ```
 
-Three sources, all of them things somebody already wrote down:
+Four sources. Three of them are things somebody already wrote down:
 
-| Source | Signal |
-| :--- | :--- |
-| **Incidents** | A resolved incident's `learning` field |
-| **Failures** | The failures memory layer — a fact there is a mistake that happened |
-| **Patterns** | A pattern whose occurrence count has risen |
+| Source | Signal | Needs a human first? |
+| :--- | :--- | :---: |
+| **Incidents** | A resolved incident's `learning` field | yes |
+| **Failures** | The failures memory layer — a fact there is a mistake that happened | yes |
+| **Patterns** | A pattern whose occurrence count has risen | yes |
+| **Experiences** | A failure the system watched happen, more than once | **no** |
 
 Nothing reads code and infers a lesson. An observer that invents rules from source it does
-not understand produces governance nobody agreed to.
+not understand produces governance nobody agreed to. That rule binds the experience source
+hardest, because it is the one nobody reviewed on the way in: a candidate drawn from an
+experience **describes what happened and stops there**.
+
+### Experiences are captured automatically
+
+Nobody runs a command to record one. `coresentinel_core/experience/` subscribes to the event
+bus, and an outcome event — a gate result, a verification verdict, a task completion, an
+incident — becomes an experience.
+
+```bash
+coresentinel evolve experiences                    # the log
+coresentinel evolve experiences --prune --apply    # fold duplicates, enforce the cap
+```
+
+Three properties hold it in place:
+
+- **Only outcomes are captured.** `MemoryCreated` and `AgentStarted` are not outcomes.
+  Recording them is how a learning store fills with facts that support no lesson.
+- **No credential is stored.** Every payload passes through `security/redaction.py`.
+- **The log is bounded.** Duplicate signatures fold; the cap (`learning.max_experiences`,
+  2000) is enforced on the write path. A learning system that grows without limit becomes
+  the context bloat CoreSentinel exists to remove.
 
 ### The evidence threshold
 
@@ -49,9 +79,63 @@ anecdote; the second is what makes it worth a rule.
 
 - The same source **cannot corroborate itself** — a single noisy incident must not argue its
   way into the rulebook.
+- **Repetition is not corroboration.** One signature recurring in one context is one source,
+  however often it recurs. A flapping gate is a single noisy incident wearing a different
+  hat, and if repeating counted as corroborating, any misconfigured check could vote itself
+  into the rulebook overnight. Repetition raises the *success* term of the confidence score,
+  where its weight is visible; it never buys independence.
 - Re-running the observer **never inflates evidence**. It is idempotent by construction.
 - A **rejected candidate stays rejected**. Resurfacing a declined lesson on every run is how
   a review queue becomes noise, and noise is how a control stops working.
+
+### Confidence, and why it carries its arithmetic
+
+Four terms, declared weights, and the breakdown stored beside the number. A score whose
+inputs are not recorded is a number nobody can argue with — it looks like a measurement and
+behaves like an opinion.
+
+| Term | Weight | What it measures |
+| :--- | ---: | :--- |
+| `evidence` | 0.35 | distinct sources, saturating at 3 |
+| `success` | 0.30 | successes / (successes + failures); 0.5 when neither |
+| `consistency` | 0.25 | 1 − contradicting / total |
+| `recency` | 0.10 | decay on `last_seen`, floored at 0.30 |
+
+The bands are the memory engine's own — **0.90 Known, 0.50 Assumed** — reused rather than
+re-chosen, so a fact and a lesson age at the same rate and 0.85 does not mean two things.
+
+```bash
+coresentinel evolve explain CAND-abc123    # the terms, the weights, the evidence chain
+```
+
+### TRUSTED is not PROPOSED
+
+This distinction is what makes automatic learning safe, and it is worth stating plainly.
+
+| | What it is | How it is reached |
+| :--- | :--- | :--- |
+| **TRUSTED** | A **retrieval** tier. A cited line in a context pack an agent may disregard. It cannot block a gate, fail a build or write a file. | Confidence ≥ 0.90, ≥ 3 distinct sources, no unresolved contradiction. **No human needed** — because it compels nothing. |
+| **PROPOSED** | A **governance** act. It becomes a rule that constrains every future agent. | A person runs `evolve propose`. **No amount of evidence shortens this.** |
+
+Confidence promotes to TRUSTED. **Nothing promotes to PROPOSED.**
+
+### Contradiction narrows before it overrides
+
+Three situations look alike and only one is a contradiction:
+
+| Situation | Verdict | What happens |
+| :--- | :--- | :--- |
+| Same signature, opposite outcomes, **same** context | `INCONSISTENT` | Lowers consistency; trust is withheld until somebody looks |
+| Same signature, opposite outcomes, **different** contexts | `SCOPED` | **Not a contradiction.** Both survive, each narrowed to where its evidence is |
+| Two lessons conflict, the challenger outscores | `SUPERSEDES` | Loser marked `SUPERSEDED` with `superseded_by`. Never deleted |
+
+The middle row is the one that matters: it is the difference between learning "Redis is
+wrong" and "Redis is wrong *on this host*". Overriding where it should have narrowed is how
+a learning system produces confident nonsense out of real evidence.
+
+Supersession requires the challenger to **outscore** the incumbent. Letting recency alone
+win would make the last thing observed the truth, which is not learning — it is forgetting
+with extra steps.
 
 ```bash
 coresentinel evolve reject CAND-8efb2da38b --reason "already covered by AP-002"
@@ -107,11 +191,21 @@ what makes approving one a decision rather than a commitment.
 ## ⚡ CLI Commands
 
 ```bash
+# The experience log — captured automatically, no command records it
+coresentinel evolve experiences
+coresentinel evolve experiences --prune --apply --max 2000
+
 # Observe, and inspect the candidate queue
 coresentinel evolve observe
 coresentinel evolve candidates
+coresentinel evolve explain CAND-abc123
 coresentinel evolve reject CAND-abc123 --reason "..."
 coresentinel evolve promote CAND-abc123 --reason "..."
+
+# The deep pass: recurrence, contradictions, stale knowledge, skill candidates.
+# Promotes to TRUSTED and changes NO governance file.
+coresentinel evolve review
+coresentinel evolve review --apply
 
 # Register a Controlled Self-Evolution Proposal
 coresentinel evolve propose \

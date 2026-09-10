@@ -2466,13 +2466,109 @@ be the same mistake with a longer memory.
 ## 21. Status
 
 ```text
-Plan                 : COMPLETE — awaiting approval
-Implementation       : NOT STARTED
-Files modified       : Planning.md only
-Tests                : 1,381 collected, untouched
-Next action          : human review of §20, then Phase 1
+Plan                 : APPROVED 2026-09-10
+Implementation       : Phases 1–8 COMPLETE
+Tests                : 1,568 passed, 1 skipped, 0 failed  (was 1,381 collected)
+Doctor               : HEALTHY, 10/10 subsystems, bootstrap 19 ms
+Next action          : run a real project against it and see what the log fills with
 ```
 
-**Nothing in Part II has been implemented.** No module was created, no migration was added,
-no command was wired. The only change to the repository is this document.
+---
+
+## 22. Phase Reports
+
+### Correction to the baseline in this document's header
+
+The header claims "1,381 tests collected". That was a `--collect-only` count, not a green
+run, and it should not have been written as a baseline. Running the suite for the first time
+during Phase 1 surfaced **two pre-existing failures**, one of them mine:
+
+- `test_no_drift.py` — the README protocol directory never listed `20-design-protocol.md`
+  or `21-landing-protocol.md`, and claimed 40 documents against 42 on disk. Introduced by
+  commit `cdb4c7c`, which went out without the suite being run. Fixed in Phase 1.
+- `test_discovery.py::test_discovery_stays_fast_on_a_large_tree` — **intermittent**. It
+  measured 2.4 s and then 4.3 s against a 2.0 s budget while creating and scanning 2,001
+  files, and passed on both subsequent full runs. Environmental (OneDrive-synced
+  filesystem), unrelated to this work. Left alone rather than loosened: the budget asserts
+  something real about discovery, and raising it to accommodate one slow filesystem would
+  retire the assertion. It belongs in `28-flaky-protocol.md` if it recurs.
+
+### What was built
+
+| Phase | Delivered | Tests |
+| :--- | :--- | ---: |
+| 1 — Experience Capture | `experience/{records,capture,retention}.py`, `0007_experience.sql`, bus subscriber, config gate | 49 |
+| 2 — Experience Analysis | `experience/analysis.py`, `observer`'s fourth source | 38 |
+| 3 — Knowledge Candidates v2 | `learning/confidence.py`, `TRUSTED`/`SUPERSEDED`, on-read scoring | 30 |
+| 4 — Validation & Contradiction | `learning/contradiction.py`, three verdicts, auto-promotion | 19 |
+| 5 — Retrieval | `knowledge` section in `assembly.SECTION_SPECS`, cited lines | 12 |
+| 6 — Skill Candidates | `learning/skills.py`, drafts to `memory/skill_candidates/` | 14 |
+| 7 — `/evolve` Deep Review | `review`, `explain`, `experiences`; 3 new events, `learning` audit subject | 17 |
+| 8 — Safety & Regression | `test_learning_safety.py`, docs | 16 |
+
+### Deviations from the plan, and why
+
+1. **`0008_candidate_scoring.sql` was not written.** §16.4 said to add only columns that are
+   filtered or ordered on in SQL. Nothing filters candidates in SQL — `candidates.py` reads
+   `all()` and filters in Python — so by the plan's own criterion the migration had no
+   reason to exist. The v2 fields live in the existing `payload`.
+
+2. **Experience identity was split in two.** The plan gave each experience a deterministic
+   `record_id`. That works on JSON, which has no uniqueness constraint, and fails on SQLite,
+   which does: the second sighting of a recurring failure became a hard write error.
+   Grouping belongs to the record (`group_id`), identity to the row (`id`). Both experience
+   suites now run against **both backends**, because a single-backend suite reported this as
+   green.
+
+3. **`occurrences` is derived, not incremented.** The plan implied a stored counter. Capture
+   appends and never rewrites — the right shape for the write path — so recurrence is
+   computed by grouping and reclaimed by folding. A counter and the rows it counts drift
+   apart the first time a write half-fails.
+
+4. **Context detection does not use `discovery.inspect()`.** It walks the file tree, which is
+   far too expensive for a listener that runs on every event. Manifest-only detectors
+   (`detect_runtime_versions`, `detect_frameworks`, `detect_databases`) give a better answer
+   anyway: a stack a manifest *states* is stronger evidence than one inferred from counting
+   source files.
+
+5. **`SUPERSEDES` gained an overlap ratio.** Run against the real candidate store, a bare
+   shared-term count flagged six unrelated pairs. The decision-ledger detector can afford to
+   over-flag because a finding there costs one glance; here a `SUPERSEDES` finding *acts*, so
+   the bar is genuine overlap rather than coincidence.
+
+### Bugs the work surfaced
+
+Five, all fixed, all now pinned by tests:
+
+1. **`QualityGateFailed` named no cause.** It carried the objective and the word `BLOCKED`,
+   so two unrelated failures on one objective were indistinguishable to anything reading the
+   event. Both emitters now carry `blocked_by`, `code` and `reason`.
+
+2. **`redaction` was blanking real data.** A field named `context_key` reached the store as
+   `[redacted]` — `SENSITIVE_KEY_WORDS` matches a trailing `_key` as a credential. This is
+   the over-redaction the module's own comment warns about. The field was renamed; the
+   shared redactor was not weakened.
+
+3. **Backend divergence on deterministic ids** (deviation 2 above).
+
+4. **Contradiction findings were counted per evidence entry** rather than per signature,
+   inflating the number that decides whether trust is withheld.
+
+5. **Three of the four observer sources never passed through redaction.** Capture cleaned
+   what it observed, but incident learnings, failures-layer facts and captured patterns are
+   free text a person typed — and a person who has just debugged a credential leak writes
+   the credential down. From there a lesson reached the candidate store, a context pack and a
+   drafted `SKILL.md` on disk. Found by a Phase 8 test that seeded a candidate directly.
+   Redaction now happens at `candidates.observe`, the funnel every source passes through,
+   and again when a draft is rendered to a file.
+
+### What is not done
+
+- **No draft has been reviewed.** `memory/skill_candidates/` will fill and nothing reads it
+  but `evolve review`. Logged as an open gap in `18-skills-protocol.md`.
+- **`PatternDetected` and `DeploymentCompleted` are still never emitted.** Both are mapped
+  as learning sources and ready; nothing emits them, which `audit coverage` already reports.
+- **The confidence weights are a first guess.** 0.35/0.30/0.25/0.10 are declared and
+  arguable, which is the point — but nothing has yet run long enough to say whether they are
+  right.
 

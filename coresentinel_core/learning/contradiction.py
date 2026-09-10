@@ -50,6 +50,19 @@ VERDICTS = [INCONSISTENT, SCOPED, SUPERSEDES]
 # the words everything shares.
 MIN_SHARED_TERMS = 2
 
+# ...and the shared terms must also be most of what the shorter lesson is about.
+#
+# The decision-ledger detector is deliberately biased toward flagging, because
+# there a finding costs one reviewer one glance. Here a SUPERSEDES finding can
+# *act* — it marks the loser SUPERSEDED and takes it out of retrieval — so the
+# same bias would let vocabulary overlap quietly retire a good lesson. Run
+# against a real store, count alone flagged six unrelated pairs that happened to
+# share two words.
+#
+# Overlap is measured against the smaller term set, so a short lesson fully
+# contained in a long one still counts.
+MIN_OVERLAP_RATIO = 0.5
+
 
 def json_key(value):
     """A stable, hashable rendering of a tally, for deduplicating findings."""
@@ -153,13 +166,19 @@ def statement_findings(candidate, others):
             continue
         if other.get("status") in ("REJECTED", "SUPERSEDED"):
             continue
-        shared = my_terms & terms_of(other.get("lesson"))
+        their_terms = terms_of(other.get("lesson"))
+        shared = my_terms & their_terms
         if len(shared) < MIN_SHARED_TERMS:
+            continue
+        smaller = min(len(my_terms), len(their_terms)) or 1
+        overlap = len(shared) / float(smaller)
+        if overlap < MIN_OVERLAP_RATIO:
             continue
         findings.append({
             "verdict": SUPERSEDES,
             "candidate": other["id"],
             "shared_terms": sorted(shared),
+            "overlap": round(overlap, 3),
             "reversal_signals": signals,
             "detail": (f"proposes reversing {other['id']}, which says: "
                        f"{other.get('lesson')}"),

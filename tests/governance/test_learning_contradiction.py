@@ -213,3 +213,16 @@ class TestItReusesTheDecisionLedgerRules:
         findings = [f for f in contradiction.check(store)
                     if f["verdict"] == contradiction.SUPERSEDES]
         assert not findings
+
+    def test_vocabulary_overlap_is_not_a_conflict(self, store):
+        """Run against a real store, a bare shared-term count flagged six
+        unrelated pairs. A SUPERSEDES finding *acts*, so the bar is overlap,
+        not coincidence."""
+        seed(store, "the deployment checklist mentions the queue worker and redis",
+             ["s1", "s2"], {"php83": {"success": 5, "failure": 0}}, signature="SIG-a")
+        seed(store, "stop the queue worker before running migrations, unrelated to redis "
+                    "caching or the deployment checklist ordering or anything else here",
+             ["s3", "s4"], {"php83": {"success": 5, "failure": 0}}, signature="SIG-b")
+        findings = [f for f in contradiction.check(store)
+                    if f["verdict"] == contradiction.SUPERSEDES]
+        assert all(f["overlap"] >= contradiction.MIN_OVERLAP_RATIO for f in findings)

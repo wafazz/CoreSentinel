@@ -155,8 +155,16 @@ class TestLegacyBoundary:
 
 
 class TestSubjectCoverage:
-    def test_twelve_subjects_are_declared(self):
-        assert len(subjects.SUBJECTS) == 12
+    def test_thirteen_subjects_are_declared(self):
+        """The original twelve, plus `learning`.
+
+        Separate from `rule_change` on purpose: a lesson reaching the advisory
+        tier is not a governance change and must not read as one in the trail.
+        It is still a decision the system made on its own, which is what an
+        audit trail is for.
+        """
+        assert len(subjects.SUBJECTS) == 13
+        assert subjects.LEARNING in subjects.SUBJECTS
 
     def test_every_declared_event_maps_to_a_known_subject(self):
         for event, subject in subjects.EVENT_SUBJECTS.items():

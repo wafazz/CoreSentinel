@@ -23,11 +23,16 @@ VERIFICATION = "verification"
 INCIDENT = "incident"
 DEPLOYMENT = "deployment"
 CONFIGURATION = "configuration_change"
+# What the system taught itself. Separate from `rule_change` on purpose: a
+# lesson reaching the advisory tier is not a governance change and must not be
+# read as one in the trail — but it is a decision the system made on its own,
+# which is exactly the kind of thing an audit trail is for.
+LEARNING = "learning"
 OTHER = "other"
 
 SUBJECTS = [AGENT_ACTION, MEMORY_CHANGE, DECISION, RULE_CHANGE, TASK_EXECUTION,
             FILE_CHANGE, COMMAND_EXECUTION, QUALITY_GATE, VERIFICATION,
-            INCIDENT, DEPLOYMENT, CONFIGURATION]
+            INCIDENT, DEPLOYMENT, CONFIGURATION, LEARNING]
 
 # Event name -> the subject it is recorded under. An event with no mapping is
 # still recorded, under OTHER, because dropping it would be the silent gap this
@@ -51,6 +56,9 @@ EVENT_SUBJECTS = {
     "DeploymentCompleted": DEPLOYMENT,
     "ConfigurationChanged": CONFIGURATION,
     "ProjectInitialized": CONFIGURATION,
+    "KnowledgeTrusted": LEARNING,
+    "ContradictionDetected": LEARNING,
+    "SkillCandidateCreated": LEARNING,
 }
 
 

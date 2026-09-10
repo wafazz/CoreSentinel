@@ -90,6 +90,17 @@ def observe(store, lesson, source, kind="incident", detail=None, now=None,
     source that is a sentence somebody wrote cannot, and passes neither. Both
     default to nothing so every v1 caller keeps working unchanged.
     """
+    from coresentinel_core.security import redaction
+
+    # Every source funnels through here, and only one of them was ever redacted.
+    # Capture cleans what it observes, but an incident learning, a failures-layer
+    # fact and a captured pattern are all free text a person typed, and a person
+    # who has just debugged a credential leak writes the credential down. From
+    # here a lesson reaches the candidate store, a context pack and a drafted
+    # SKILL.md on disk, so this is the last place it can be caught once.
+    lesson = redaction.redact_text(lesson)
+    detail = redaction.redact_text(detail) if detail else detail
+
     stamp = (now or datetime.now()).strftime(TIMESTAMP_FORMAT)
     candidate_id = fingerprint(lesson)
     existing = get(store, candidate_id)
