@@ -2301,7 +2301,7 @@ COMMANDS = [
                "test coverage. --strict promotes the missing-test warning to blocking.\n"
                "Logic correctness stays with the reviewer agents (Cato / Sage)."},
     {"name": "gate", "aliases": ["gates"], "group": "Verification & Review", "handler": cmd_gate,
-     "summary": "Drive the 8-stage Quality Gates pipeline",
+     "summary": "Drive the 10-stage Quality Gates pipeline",
      "usage": ["coresentinel gate run [target-dir] [--objective \"...\"] [--base <ref>] "
                "[--report] [--json]",
                "coresentinel gate status [--report] [--json]",

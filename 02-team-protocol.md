@@ -81,7 +81,7 @@ one**: under-reviewing costs more than over-reviewing.
 |---|---|---|
 | **T0 — Direct** | One file, bounded, no design decision, and none of the T2 surfaces below. Typos, copy edits, config values, a known one-line fix, answering a question, machine/ops checks. | No gates. Iris does it herself and reports. |
 | **T1 — Light** | 2–3 files, a pattern already established in this codebase, no new dependency, no migration. | Phase 3 Build → Phase 5 Review (**Cato** only) → Phase 4 Test (**Echo**). |
-| **T2 — Full** | Everything else, and every T2 surface below without exception. | All 9 gates, all 17 agents — exactly as the old standing order ran them. |
+| **T2 — Full** | Everything else, and every T2 surface below without exception. | All 10 gates, all 17 agents — exactly as the old standing order ran them. |
 
 ### T2 surfaces are absolute — never a judgment call
 If a change touches **schema/migrations, auth/authz, payments, tenant scoping, file
