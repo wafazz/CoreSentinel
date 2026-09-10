@@ -8,7 +8,7 @@
 [![Version](https://img.shields.io/badge/CoreSentinel-11.0.0-8A2BE2)](./VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Hosts](https://img.shields.io/badge/Hosts-Claude_%7C_Cursor_%7C_Gemini_%7C_Codex_%7C_Copilot_%7C_Windsurf-blue)](#-how-does-it-work)
-[![Tests](https://img.shields.io/badge/Self--tests-1355_passing-brightgreen)](#-coresentinel-tests-itself)
+[![Tests](https://img.shields.io/badge/Self--tests-1568_passing-brightgreen)](#-coresentinel-tests-itself)
 [![Dashboard](https://img.shields.io/badge/Dashboard-Monitoring-purple)](https://github.com/wafazz/CoreSentinel-Dashboard-Monitoring)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](#-install)
 
@@ -31,7 +31,7 @@ AI coding agents are capable but structurally unreliable in three specific ways.
 | The failure | What it looks like | What CoreSentinel does |
 | :--- | :--- | :--- |
 | **They forget** | Every session restarts from zero. The agent re-derives your stack, re-asks answered questions, and contradicts last week's architecture decision. | A 6-layer memory with confidence scores, plus a permanent decision ledger recording *why* each choice was made. |
-| **They drift** | Different answers to the same question. Rules followed on Monday, ignored on Friday. No consistent standard across projects or tools. | 38 protocols, 8 ordered quality gates, and 17 agent contracts with explicit authority boundaries — identical on every host. |
+| **They drift** | Different answers to the same question. Rules followed on Monday, ignored on Friday. No consistent standard across projects or tools. | 42 protocols, 10 ordered quality gates, and 17 agent contracts with explicit authority boundaries — identical on every host. |
 | **They can't verify themselves** | *"Fixed the vulnerability."* *"All tests pass."* Claims stated with total confidence and zero evidence. | Checks that actually run — test suite, security scan, linter, dependency audit — each recording its command, exit code and output digest. A check that could not run reports `UNKNOWN` and is never counted as a pass. |
 
 The third one is the reason this project exists. An agent that cannot prove its work is an agent you have to re-check by hand, which erases the leverage it was supposed to give you.
@@ -40,15 +40,16 @@ The third one is the reason this project exists. An agent that cannot prove its 
 
 ## ⚙️ What does it do?
 
-Seven services. Every host consumes the same ones.
+Nine services. Every host consumes the same ones.
 
 | Service | What it holds | Command |
 | :--- | :--- | :--- |
 | 🧠 **Memory** | 6 layers — working, session, project, long-term, failures, patterns — each fact carrying a confidence score. `≥0.90` is Known, below `0.50` is Unknown, and the agent may not present the second as the first. Facts are searchable, decay until re-verified, and are promoted, merged or compacted as they age. | `coresentinel memory` `recall` `brief` |
 | 🗺️ **Context** | Not the whole store — what *this task* needs. Facts, decisions, failures and patterns ranked by relevance, the governance rules that apply, and any decision the task would contradict, all inside a token budget. | `coresentinel context --task "..."` |
-| ⚖️ **Governance** | 38 protocols, 10 ordered quality gates (`Requirement → … → Deployment`) each carrying a machine-readable reason code, an architecture decision ledger, and a controlled self-evolution pipeline. | `coresentinel gate` |
+| ⚖️ **Governance** | 42 protocols, 10 ordered quality gates (`Requirement → … → Deployment`) each carrying a machine-readable reason code, an architecture decision ledger, and a controlled self-evolution pipeline. | `coresentinel gate` |
 | 👥 **Agents** | 17 specialist contracts declaring inputs, outputs, authority — and an **enforced** permission set. An agent is handed a sandbox, never the filesystem: an ungranted write fails at the point of use and the denial is audited. | `coresentinel agent` `task` |
 | 🧾 **Verification** | Six checks that execute. Each records its command, exit code, duration and output digest, and resolves to `PASS`, `FAIL` or `UNKNOWN`. `UNKNOWN` leaves the denominator instead of inflating the score, and at least half the evidence budget must run before any verdict. | `coresentinel verify` |
+| 🧬 **Learning** | Experiences captured automatically from the event bus — a gate that failed, a verification verdict, a task outcome. Recurring failures become candidate lessons, and a lesson with enough *distinct* sources becomes trusted knowledge that is retrieved into future context packs. Every confidence score carries the arithmetic that produced it. | `coresentinel evolve` |
 | 🔒 **Security** | Anti-pattern and secret scanner wired into git pre-commit, so unverified or leaking work cannot be committed. | `coresentinel check` |
 | 📊 **Telemetry** | Token spend, session analytics and hot files, aggregated across every AI tool you have installed. | `coresentinel stats` |
 | 📈 **Its own performance** | Eleven measured subjects and eight published budgets, asserted in CI. A subject nothing exercised reports as never observed, never as zero. | `coresentinel metrics` |
@@ -81,9 +82,10 @@ flowchart TB
         direction LR
         M["🧠 Memory<br/>6 layers<br/>+ confidence"]
         C["🗺️ Context<br/>stack · git<br/>· frameworks"]
-        G["⚖️ Governance<br/>38 protocols<br/>8 gates"]
+        G["⚖️ Governance<br/>42 protocols<br/>10 gates"]
         A["👥 Agents<br/>17 contracts"]
         V["🧾 Verification<br/>evidence gates"]
+        L["🧬 Learning<br/>experience →<br/>trusted knowledge"]
         S["🔒 Security<br/>anti-pattern<br/>scanner"]
         T["📊 Telemetry<br/>token spend"]
     end
@@ -151,13 +153,14 @@ $ coresentinel doctor
   ────────────────────────────────────────────────────────────
 
   ✓ Configuration          6 core assets present
-  ✓ Runtime                bootstrap 1 ms, 4 services
+  ✓ Runtime                bootstrap 19 ms, 5 services
   ✓ Storage                json backend, 12 record(s)
   ✓ Memory                 7 layers valid, 4 recorded entries
-  ✓ Governance             38 protocols, ledgers consistent
-  ✓ Agent Registry         17 contracts complete
+  ✓ Governance             42 protocols, ledgers consistent
+  ✓ Agent Registry         17 contracts complete, permissions enforced
   ✓ Verification Engine    validator + 11 engines operational
   ✓ Security Rules         5 rules armed, 4 blocking
+  ✓ Observability          5 series, 3/11 subjects
   ✓ Project Context        Node/TypeScript on 'main', 6 host(s)
 
   ────────────────────────────────────────────────────────────
@@ -203,7 +206,7 @@ Requires Python 3.9+. The installer asks for your agent name, role, and squad pr
 
 ## 🧪 CoreSentinel tests itself
 
-A governance system that is not itself tested is an unverified claim. **1,355 tests across the 14 subsystems**, plus a gated CI pipeline:
+A governance system that is not itself tested is an unverified claim. **1,568 tests across the 14 subsystems**, plus a gated CI pipeline:
 
 ```text
 Pull Request ➔ Tests ➔ Security ➔ Performance ➔ Lint ➔ Integration ➔ Compatibility ➔ PASS / FAIL
@@ -308,6 +311,11 @@ coresentinel context --task "Add Redis caching to product listing" --budget 4000
 ## Known failures — do not repeat
   - Redis eviction wiped the session store under memory pressure   confidence 0.99, INC-1024
 
+## Learned from experience
+  - Redis connection pool exhausts under the default worker count, seen 6×
+      confidence 0.93, 3 source(s), node20.express — CAND-8efb2da38b,
+      explain with: coresentinel evolve explain CAND-8efb2da38b
+
 ## Reusable patterns
   - Cache-aside with an explicit TTL for Redis reads
 
@@ -316,6 +324,8 @@ coresentinel context --task "Add Redis caching to product listing" --budget 4000
 ```
 
 The payroll export, the PDF renderer and every other unrelated fact stay out. Ranking is the same engine `recall` uses; the anti-pattern rules are matched on the `trigger_context` they already declare; and if the pack does not fit, the count and the best excluded item are printed — **a partial pack never reads as a complete one**.
+
+The *Learned from experience* section holds only **trusted** knowledge, and every line cites the candidate behind it. A lesson an agent is asked to act on with no way back to its evidence is an assertion, and assertions are what the verification engine exists to replace — that rule does not stop applying because the assertion came from CoreSentinel itself.
 
 Without `--task`, `context` behaves exactly as before.
 
@@ -462,24 +472,65 @@ A dimension whose signals cannot be evaluated reports `UNKNOWN` and stays out of
 <summary><b>🧬 Controlled evolution — the loop, and the controls on it</b></summary>
 
 ```text
-incident → root cause → pattern → candidate → evidence
-        → human approval → versioned rule → future agents
+execution → experience → candidate → evidence → confidence → TRUSTED
+                                                                │
+                       ═══════════ HUMAN BOUNDARY ══════════════╪═══
+                                                                │
+                    proposal → human approval → versioned rule → future agents
 ```
+
+The left half runs on its own. The right half is governance and begins with a person. They share evidence and never share authority.
 
 Until v10.9 the pipeline stopped one step short and said otherwise: `evolve approve` set a status and printed *"Versioned Change Released"* while writing no rule file at all. The next agent read exactly the rules it read before.
 
 **Observation is not a lesson, and a lesson is not a rule.**
 
-```console
-$ coresentinel evolve observe
+Experiences are recorded without anybody asking. A gate result, a verification verdict, a task outcome — each becomes an experience, with run-to-run noise (timestamps, paths, line numbers) stripped so the same failure twice collapses to one signature:
 
-  [▶] CAND-8efb2da38b  CORROBORATED  2 source(s)
-      Flag repeated relationship queries inside a loop during review
-  ----------------------------------------------------------------
-  1 ready to propose (needs 2 distinct sources).
+```console
+$ coresentinel evolve experiences
+
+  Stored rows : 84
+  Distinct    : 11
+  Recurring:
+       6×  Quality gate 'Security' blocked (SECRET_DETECTED)
+       3×  Verification failed: orders ship within 48h
 ```
 
-A candidate needs **two distinct sources** before it may be proposed — one incident is an anecdote. The same source cannot corroborate itself, re-running the observer never inflates evidence, and a **rejected candidate stays rejected**: a review queue that re-asks a declined question every run is a queue people stop reading.
+**Repetition is not corroboration.** One signature recurring in one context is *one* source however often it recurs — a flapping gate is a single noisy incident wearing a different hat, and if repeating counted as corroborating, any misconfigured check could vote itself into the rulebook overnight. Repetition raises the *success* term of the confidence score, where its weight is visible; it never buys independence.
+
+A candidate still needs **two distinct sources** before it may be proposed. The same source cannot corroborate itself, re-running the observer never inflates evidence, and a **rejected candidate stays rejected**: a review queue that re-asks a declined question every run is a queue people stop reading.
+
+Every belief carries its arithmetic:
+
+```console
+$ coresentinel evolve explain CAND-8efb2da38b
+
+  Confidence   : 0.6167  (Assumed)
+  ------------------------------------------------------------
+  term             value   weight   contributes
+  evidence        0.3333     0.35        0.1167
+  success         0.5000     0.30        0.1500
+  consistency     1.0000     0.25        0.2500
+  recency         1.0000     0.10        0.1000
+  ------------------------------------------------------------
+  total                                  0.6167
+
+  Drawn from   : 1 distinct source(s) — repetition does not raise this
+```
+
+A score whose inputs are not stored beside it is a number nobody can argue with — it looks like a measurement and behaves like an opinion.
+
+**TRUSTED is not PROPOSED**, and the whole safety argument lives in the difference:
+
+| | What it is | How it is reached |
+| :--- | :--- | :--- |
+| **TRUSTED** | A *retrieval* tier — a cited line in a context pack an agent may disregard. It blocks nothing and writes nothing. | Confidence ≥ 0.90, ≥ 3 distinct sources, no unresolved contradiction. **No human needed**, because it compels nothing. |
+| **PROPOSED** | A *governance* act. It becomes a rule constraining every future agent. | A person runs `evolve propose`. **No evidence shortens this.** |
+
+Contradiction **narrows before it overrides**. The same failure that breaks on Ubuntu and works on Windows is a lesson drawn too wide, not a lesson that is wrong — both survive, each scoped to where its evidence actually is. Overriding where it should have narrowed is how a learning system produces confident nonsense out of real evidence.
+
+`coresentinel evolve review` is the deep pass — recurrence, contradictions, stale knowledge, skill candidates. It promotes to TRUSTED and **changes no governance file**.
 
 Then the part that was missing entirely:
 
