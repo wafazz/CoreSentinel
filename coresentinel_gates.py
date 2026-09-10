@@ -142,6 +142,22 @@ def save_gates(state):
         json.dump(state, f, indent=2)
 
 
+def blocking_gate(state=None):
+    """The first gate that failed, with the code and reason it failed on.
+
+    `QualityGateFailed` carried the objective and the word BLOCKED and nothing
+    about *which* gate stopped it, so two unrelated failures on one objective
+    were indistinguishable to anything reading the event. Returns None when
+    nothing blocked.
+    """
+    collected = (state if state is not None else load_gates()).get("gates", {})
+    for name in GATE_PIPELINE:
+        detail = collected.get(name) or {}
+        if detail.get("status") == FAIL:
+            return {"gate": name, "code": detail.get("code"), "reason": detail.get("reason")}
+    return None
+
+
 def _changed_files(target_dir, base=None):
     """The set of paths this run is gating.
 

@@ -748,10 +748,16 @@ def cmd_gate(args):
         base = flag_value(args, "--base")
         code = gates.run_all_gates(target, emit_json, flag_value(args, "--objective"),
                                    report_style, base)
+        blocking = gates.blocking_gate() if code else None
         emit_audited("QualityGateFailed" if code else "QualityGatePassed", target,
                      {"objective": flag_value(args, "--objective"),
                       "base": base,
-                      "result": "BLOCKED" if code else "APPROVED"})
+                      "result": "BLOCKED" if code else "APPROVED",
+                      # Which gate, and on what code. Without these the event
+                      # says only that something blocked, which is not a cause.
+                      "blocked_by": (blocking or {}).get("gate"),
+                      "code": (blocking or {}).get("code"),
+                      "reason": (blocking or {}).get("reason")})
         return code
     if sub == "reset":
         gates.reset_gates()

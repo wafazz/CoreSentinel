@@ -893,7 +893,7 @@ flowchart TD
 </details>
 
 <details>
-<summary><b>📚 Protocol directory (40 documents)</b></summary>
+<summary><b>📚 Protocol directory (42 documents)</b></summary>
 
 
 **Core memory & strategy (00–08)**
@@ -901,6 +901,9 @@ flowchart TD
 
 **Build, integration & platform (09–18)**
 [`09-audit-trail`](./09-audit-trail-protocol.md) · [`10-learn`](./10-learn-protocol.md) · [`11-pattern-library`](./11-pattern-library.md) · [`12-health-score`](./12-health-score-protocol.md) · [`13-adapter`](./13-adapter-protocol.md) · [`14-cli`](./14-cli-protocol.md) · [`15-migration`](./15-migration-protocol.md) · [`15-migration-guide`](./15-migration-guide.md) · [`16-api`](./16-api-protocol.md) · [`17-ai`](./17-ai-protocol.md) · [`18-skills`](./18-skills-protocol.md)
+
+**Design surfaces (20–21)**
+[`20-design`](./20-design-protocol.md) · [`21-landing`](./21-landing-protocol.md)
 
 **Testing & QA (25–30)**
 [`25-test`](./25-test-protocol.md) · [`26-test-data`](./26-test-data-protocol.md) · [`27-test-pattern-library`](./27-test-pattern-library.md) · [`28-flaky`](./28-flaky-protocol.md) · [`29-test-review`](./29-test-review-protocol.md) · [`30-selftest`](./30-selftest-protocol.md)

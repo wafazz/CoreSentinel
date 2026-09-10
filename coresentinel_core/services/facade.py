@@ -324,8 +324,13 @@ class Services:
             if status == gates.FAIL:
                 blocked_by = name
         gates.save_gates(state)
+        failed = (collected.get(blocked_by) or {}) if blocked_by else {}
         self._emit("QualityGateFailed" if blocked_by else "QualityGatePassed",
-                   {"objective": objective, "result": "BLOCKED" if blocked_by else "APPROVED"})
+                   {"objective": objective, "result": "BLOCKED" if blocked_by else "APPROVED",
+                    # Which gate stopped it, and on what code. The event said
+                    # only "BLOCKED" before, which names no cause to learn from.
+                    "blocked_by": blocked_by, "code": failed.get("code"),
+                    "reason": failed.get("reason")})
         return {"gates": collected, "blocked_by": blocked_by,
                 "final_status": "BLOCKED" if blocked_by else "APPROVED"}
 

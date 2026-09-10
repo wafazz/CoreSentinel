@@ -51,6 +51,13 @@ DEFAULTS = {
 
     "health.min_known_dimensions": 3,
 
+    # Experience capture. On by default: a learning loop that has to be switched
+    # on is a learning loop that stays off. Capture only ever appends advisory
+    # records — it cannot reach a governance file, which is what makes the
+    # default safe rather than merely convenient.
+    "learning.capture": True,
+    "learning.max_experiences": 2000,
+
     "logging.level": "info",
     "logging.format": "text",
 
