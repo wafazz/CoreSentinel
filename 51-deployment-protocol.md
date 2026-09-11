@@ -246,3 +246,129 @@ than the whole origin failing.
 - Take the database backup **before** any risky DDL, not after it goes wrong.
 
 ---
+
+
+---
+
+## Recipe A4 — Laravel 12 + PostgreSQL + queue workers, third-party integration SaaS
+
+> From SociaPulse (2026-09-12). Use where the app holds **other people's OAuth tokens** and does
+> its real work on queues. The four items below are the ones that do not announce themselves:
+> each fails silently, or cannot be fixed after the fact.
+
+### A4.1 Four things that must be right before the first customer
+
+| # | Item | Why it cannot wait |
+|---|---|---|
+| 1 | **`'timezone' => 'UTC'` on the pgsql connection** | Laravel sends UTC wall-clock text; `timestamptz` attaches the **server's** offset without this. Every timestamp lands offset by the machine's UTC offset — scheduled work fires early, day-bucketed reports land on the wrong day. Invisible to a developer in UTC. |
+| 2 | **Token encryption key, versioned and stored apart from the database** | The cipher cannot be changed after tokens exist without a re-encryption path. A backup holding both the ciphertext and its key is a plaintext backup. |
+| 3 | **Object storage with publicly fetchable URLs** | Providers that *fetch* media themselves (Meta's do) cannot reach a local disk. Media publishing does not degrade — it simply cannot work. |
+| 4 | **Exact OAuth redirect URIs on a settled domain** | No provider accepts a wildcard subdomain. Changing the domain means re-registering everywhere, and for Google re-verifying. |
+
+### A4.2 Two processes, both mandatory
+
+```bash
+php artisan schedule:run          # every minute — cron or systemd timer
+php artisan horizon               # or queue:work over every queue name
+```
+
+If either is missing, scheduled work sits `queued` **in silence** until it ages past its window.
+There is no error, no failed job, and nothing in the log — which makes this the first thing to
+check when "nothing is publishing".
+
+Separate queues by **failure mode, not by feature**: a stuck long-poll must not delay a reply,
+and a webhook burst must not delay scheduled work.
+
+### A4.3 Post-deploy verification specific to this shape
+
+```bash
+php artisan tinker --execute='echo DB::selectOne("SHOW TIME ZONE")->TimeZone;'   # must be UTC
+php artisan sociapulse:rotate-token-keys --status                                 # keys resolve
+php artisan schedule:list                                                         # every entry present
+php artisan queue:monitor publish,sync,webhooks --max=100
+```
+
+Then the **restore drill**, whose pass condition is the whole point: key available → app
+restored → database restored → **stored tokens still decrypt and provider connections still
+work, with no customer reconnecting.** A backup is not valid until a restore has been tested.
+
+### A4.4 Gotchas met in the field
+
+- **Two PostgreSQL servers on one machine** is common on developer Macs (an EDB installer on
+  5432 and Homebrew on 5433). `psql --version`, `pg_isready` and the `pg_hba.conf` you happen to
+  open can all point at the wrong one. Read the running postmasters directly:
+  `ps -ax -o pid,command | grep "[b]in/postgres"` shows each `-D` data directory, then check
+  `port` in that directory's `postgresql.conf`.
+- **Rotating an app secret invalidates webhook signatures immediately.** Expect signature
+  failures between rotation and deploy — rotate, update config, deploy, *then* scrub history.
+- **A missing spend ceiling must mean "off", not "unlimited"**, for any metered provider. Ship
+  the config key unset and the feature disabled.
+
+### A4.5 CI for this shape — the sentinel-credential log scan
+
+> From SociaPulse (2026-09-12). Use wherever the claim is *"no credential appears in any log
+> line"*. A test can prove what reaches the browser. Only a pass over real log output can prove
+> what reaches the log, and a regex alone cannot do it honestly.
+
+**The problem with grepping for credentials.** A search for `client_secret` or `access_token`
+finds field *names* — form labels, array keys, log messages saying a token is missing. Tune the
+pattern until those stop matching and it no longer matches a real leak either.
+
+**The technique.** CI sets every credential the app reads from the environment to a *sentinel*:
+a long, unmistakable string. The suite runs. Then grep the logs for those exact strings.
+
+```yaml
+env:
+  FACEBOOK_APP_SECRET: s3ntinel-facebook-app-secret-must-never-be-logged
+  LOG_CHANNEL: single          # one destination, so the scan has one place to read
+```
+
+- **Zero false positives.** The sentinel has no other reason to exist, so a hit is proof that a
+  credential-carrying code path writes to a log.
+- **A second pass catches what no sentinel can stand in for**: stored tokens never come from the
+  environment. Match a credential *name followed by a value* (`name[:=]value`, value ≥ 12 chars),
+  allowlisting `[REDACTED]`, `null`, `missing`. A bare name passes; a name with a value does not.
+- **An absent or empty log file must FAIL, not pass.** A suite that logged nothing proves nothing
+  about what it would log, and treating silence as a pass lets a misconfigured `LOG_CHANNEL`
+  masquerade as a clean result. This is the failure mode that makes such a scan decorative.
+
+**Never upload CI logs when the scan is what failed.** The logs then contain a credential, and an
+artifact copies that leak into downloadable storage with its own retention. Condition the upload
+on the *test step's* outcome, not the job's. The scan's own output already names the lines.
+
+**Two further CI notes for a Laravel + Postgres project:**
+
+- **`phpunit.xml`'s `<env>` entries are not `force`d by default**, so a real environment variable
+  wins. That is the whole reason CI needs no edit to the committed config: export
+  `DB_HOST`/`DB_PORT`/`DB_USERNAME`/`DB_PASSWORD` in the workflow and the suite follows, while a
+  developer's local ports stay in the file. Verify it rather than trusting it —
+  `DB_PORT=19999 vendor/bin/phpunit` must fail to connect.
+- **Run CI against the real database engine.** A schema using CHECK constraints, JSONB or
+  `timestamptz` is not exercised by SQLite; a green SQLite run is a green run against a different
+  database than production.
+
+### A4.6 Keeping deploy config from drifting — test it like code
+
+Deploy configuration is the one layer whose mistakes are **silent**. A job dispatched to a queue
+no worker consumes waits forever: no exception, no failed job, nothing in the log. A command
+missing from the schedule simply never runs. Nobody reports either, because from the outside the
+application looks perfect.
+
+So assert *agreement*, not well-formedness. Parse the queue names out of the job classes and the
+commands out of the schedule file, then require each to appear in the worker units, the
+post-deploy check, and the runbook:
+
+```
+every onQueue('x') in app/Jobs  →  a documented worker instance for x
+                                →  a post-deploy assertion that x has a worker
+                                →  a runbook line naming x
+every Schedule::command('y')    →  a registered artisan command
+                                →  a post-deploy assertion + a runbook consequence line
+```
+
+Two things make this worth writing rather than skipping:
+
+1. **Guard the parser.** If the regex stops matching, every assertion passes vacuously and the
+   test becomes decoration. Assert the parsed list is non-empty.
+2. **Prove it fails.** Introduce a queue with no worker and watch the assertions go red, each
+   naming the consequence. A guard never seen to fail is an unverified guard.

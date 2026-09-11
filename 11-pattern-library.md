@@ -1209,3 +1209,251 @@ Format:
   private non-web disk and never execute, so even the weak path cannot compromise the host.
   If you ever run `php artisan config:cache`, the live-flip breaks â€” clear it for the demo.
 - **First used in**: SecureLab (2026-09-10) â€” IDOR, SQLi, Stored XSS, insecure upload
+
+
+---
+
+## Laravel 12 + PostgreSQL 16 + Inertia — multi-provider integration SaaS
+
+> Written after SociaPulse (2026-09-12): five social platform integrations, publishing,
+> scheduling, engagement and analytics across 224 tests. **PostgreSQL is newer ground for
+> this library than MySQL/MariaDB**, and the first three entries are the ones that cost real
+> debugging time. `[LEARN]` graduated — the stack is written down, so the next project starts
+> from here.
+
+### PostgreSQL `timestamptz` Needs `'timezone' => 'UTC'` on the Connection
+
+- **Stack**: Laravel (any) + PostgreSQL. Verified on Laravel 12 + PG 16.
+- **Problem**: Laravel formats dates as UTC **wall-clock text** (`2026-09-11 17:04:13`) and
+  hands that to the driver. A `timestamptz` column has to attach an offset, and with no
+  session timezone set PostgreSQL attaches the **server's** — so every timestamp in the
+  system lands offset by the machine's UTC offset. On a +08 box, scheduled posts fire eight
+  hours early, analytics bucket into the wrong civil day, and token expiry is misread. It is
+  **completely invisible to a developer working in UTC**, and nothing errors.
+- **Solution**: one line in `config/database.php`:
+  ```php
+  'pgsql' => [
+      // ...
+      'search_path' => 'public',
+      'timezone' => 'UTC',
+  ],
+  ```
+  Laravel's `PostgresConnector` issues `SET TIME ZONE` when this is present. Then guard it,
+  because the symptom is silent:
+  ```php
+  $this->assertSame('UTC', DB::selectOne('SHOW TIME ZONE')->TimeZone);
+  $this->assertStringEndsWith('+00', $model->getRawOriginal('created_at'));
+  ```
+- **Gotchas**: `APP_TIMEZONE` does **not** fix this — it changes PHP's rendering, not what the
+  driver sends. The bug surfaces as a comparison that is wrong by exactly the server offset,
+  so `$date->gt(now()->subMinute())` returning false on a timestamp written seconds ago is the
+  tell. Storage stays UTC; a tenant's zone is applied on render only.
+- **First used in**: SociaPulse (2026-09-12)
+
+### A Failed Statement Aborts the Whole PostgreSQL Transaction
+
+- **Stack**: PostgreSQL, any ORM
+- **Problem**: The MySQL habit of `try { insert } catch (UniqueConstraintViolation) { /* it's a
+  duplicate, carry on */ }` **does not work on PostgreSQL**. A failed statement puts the
+  transaction into an aborted state, and every subsequent query fails with
+  `SQLSTATE[25P02] current transaction is aborted, commands ignored until end of transaction
+  block`. The catch block runs, the code looks fine, and the request dies afterwards.
+- **Solution**: never reach for the exception. Use `ON CONFLICT DO NOTHING`:
+  ```php
+  $inserted = WebhookEvent::insertOrIgnore([...]);   // returns affected rows
+  if ($inserted === 0) { return response('', 200); } // duplicate: ack and drop
+  ```
+- **Gotchas**: it surfaces first under `RefreshDatabase`, because that wraps each test in a
+  transaction — which makes it easy to dismiss as a test artefact. It is not: any surrounding
+  transaction behaves identically in production. If an exception genuinely must be caught
+  mid-transaction, wrap that statement in a `SAVEPOINT`.
+- **First used in**: SociaPulse (2026-09-12) — webhook deduplication
+
+### `$this->connection` Inside an Eloquent Model Is Not the Relation
+
+- **Stack**: Laravel, any version
+- **Problem**: A relation named `connection()` is natural domain vocabulary (an OAuth
+  connection, a bank connection, a device connection). But `Eloquent\Model` declares a
+  **protected `$connection` property** holding the database connection *name*. Inside the class
+  that property is accessible, so `__get` never fires, the relation is never loaded, and
+  `$this->connection` silently evaluates to a string. It raises a PHP **warning**, not an
+  error, and the expression returns null. From **outside** the class the identical expression
+  works perfectly, because the property is inaccessible there and `__get` does fire — which is
+  what makes it so hard to spot.
+- **Solution**: inside the model, call the relation method:
+  ```php
+  return $this->ownToken()->first()
+      ?? $this->connection()->first()?->token()->first();
+  ```
+- **Gotchas**: the same collision exists for `$table`, `$keyType`, `$perPage`, `$attributes`,
+  `$casts`, `$with` and `$dates` — never name a relation after one of those and then use it
+  in-model. The failure mode is a null result plus a warning buried in the log, so the
+  symptom is "this feature just doesn't work", not a stack trace.
+- **First used in**: SociaPulse (2026-09-12) — every publish failed with "no stored credential"
+
+### Tenant Resolution Middleware Is *Appended*, Not Prepended
+
+- **Stack**: Laravel 11/12 (`bootstrap/app.php` middleware config), session-based tenancy
+- **Problem**: `$middleware->web(prepend: [ResolveTenant::class])` puts it ahead of
+  `StartSession`, and the active tenant is read from the session — so every authenticated page
+  500s with `Session store not set on request`. Reaching for route middleware instead is the
+  opposite error: it runs after the whole group, too late for anything in the group that needs
+  a bound tenant.
+- **Solution**: append it, ordered before anything that reads the tenant while building a
+  response:
+  ```php
+  $middleware->web(append: [
+      ResolveTenant::class,          // after StartSession, before Inertia's share()
+      HandleInertiaRequests::class,
+  ]);
+  ```
+- **Gotchas**: the larisHQ rule "resolve the tenant *before* the guard" applies only when the
+  `users` table is itself tenant-scoped (`unique(tenant_id, email)`). Where users are global —
+  one person in several workspaces — authentication does not depend on the scope and appending
+  is correct. **Check which shape you have before copying either rule.**
+- **First used in**: SociaPulse (2026-09-12)
+
+### Versioned Credential Encryption — a Key Version Column, From the First Migration
+
+- **Stack**: any application storing third-party OAuth tokens
+- **Problem**: encrypting credentials against one permanent `APP_KEY` makes rotation
+  all-or-nothing at a single instant across every row — which in practice means it never
+  happens, and a suspected key compromise has no remedy short of asking every customer to
+  reconnect. Retrofitting versioning after tokens exist means decrypting production
+  credentials during a migration.
+- **Solution**: the ciphertext records the key that produced it.
+  ```php
+  $table->text('access_token');
+  $table->string('encryption_key_version', 16);   // the column that makes rotation a job
+  ```
+  Decryption selects the key by the row's own version, so two versions coexist and rotation is
+  a background re-encryption: `Key v1 → decrypt → Key v2 → encrypt → update version`. Keys come
+  from a config registry, not `APP_KEY`. Established framework primitives only — the versioning
+  is key *management*, never a new cipher.
+- **Gotchas**: rotation **must refuse** when the old key is missing, because re-encrypting
+  means decrypting first — fail loudly rather than skipping rows nobody can read again. Two
+  drills before production: a restore (the app recovers *without any customer reconnecting* —
+  that is the pass condition) and a controlled rotation. A backup holding both the ciphertext
+  and its key is a plaintext backup.
+- **First used in**: SociaPulse (2026-09-12)
+
+### A Scheduler's Dispatch Lease Is Not the Worker's Claim
+
+- **Stack**: any every-minute scheduler feeding a queue
+- **Problem**: the scheduler finds due rows and dispatches jobs, but a dispatched row stays
+  `queued` until a worker picks it up — so the next minute's tick finds it again and dispatches
+  again, piling up jobs that each do nothing. Using the worker's claim column for this breaks
+  the claim's guarantee.
+- **Solution**: two separate columns for two separate questions. `dispatched_at` is the
+  scheduler's lease; `claimed_at` plus a status transition is the worker's claim.
+  ```php
+  // Lease, taken in one conditional statement so two schedulers cannot both win.
+  $took = Target::whereKey($id)
+      ->whereIn('status', $claimable)
+      ->where(fn ($q) => $q->whereNull('dispatched_at')
+          ->orWhere('dispatched_at', '<=', now()->subMinutes(10)))
+      ->update(['dispatched_at' => now()]) === 1;
+  ```
+- **Gotchas**: the lease must go stale (10 min works) or a worker that died holding a row
+  strands it forever. **Any reschedule must clear `dispatched_at`** — otherwise the scheduler
+  treats the new time as already handled and the item never goes out, which looks like the
+  scheduler is simply broken.
+- **First used in**: SociaPulse (2026-09-12)
+
+### Signed Permission Overrides, Never a Stored Effective Set
+
+- **Stack**: any role system where roles are defaults rather than fixed grants
+- **Problem**: "fixed roles, but let the owner tick individual permissions" invites storing the
+  member's resolved permission list. That freezes them against the role definition as it stood
+  the day they were customised: when a later release adds a permission to the role default,
+  every customised member silently never receives it.
+- **Solution**: store only the **differences**, signed.
+  ```
+  effective = defaults(role) ∪ {explicit grants} \ {explicit revokes}
+  ```
+  The table holds `(user, permission, granted: bool)`. Setting a permission back to its role
+  default **deletes** the row rather than storing agreement — that is what lets future default
+  changes keep flowing. A member with no overrides costs zero rows.
+- **Gotchas**: pair it with the Grant Ceiling (nobody hands out what they do not hold) and a
+  floor the top role cannot lose, or a workspace can make itself unadministerable. Test the
+  ceiling in **both** directions: a rejection *and* an acceptance, or a too-strict ceiling
+  ships unnoticed. The registry stays in code; an override naming an undeclared key is ignored
+  at resolution, not trusted.
+- **First used in**: SociaPulse (2026-09-12)
+
+### Classify the Ambiguous Outcome Instead of Reconciling It
+
+- **Stack**: any integration performing an irreversible remote write (publishing, payments, sends)
+- **Problem**: an action that was sent but never answered leaves the outcome unknown. Retrying
+  may duplicate something that cannot be undone; not retrying may lose it. The textbook answer
+  — ask the provider whether the write already exists — needs a lookup endpoint most providers
+  do not offer well.
+- **Solution**: split failures by whether the provider gave a **definite** answer.
+  - Provider responded with an error → nothing was created → safe to retry if retryable.
+  - Timeout/connection loss after send → outcome unknown → park in a first-class `unverified`
+    state, **never auto-retried**, with a human resolution path in the UI.
+  Same safety property as reconciliation, no lookup dependency.
+- **Gotchas**: `unverified` must be a real state with real copy, not an error bucket — the user
+  needs to be told what happened, what we did *not* do, and what to check. "Refusing to publish
+  is recoverable; publishing twice is not" is the sentence that settles every argument about it.
+- **First used in**: SociaPulse (2026-09-12)
+
+### Two-Stage Retention — Their Data and Your Figures Expire Differently
+
+- **Stack**: any product storing third-party data under the provider's terms
+- **Problem**: one global `data_retention_days` cannot express reality. One provider allows two
+  years, another requires its data gone after 30 days, a third wants deletion propagated within
+  24 hours. A single number is either illegally long for one or uselessly short for all.
+- **Solution**: declare retention **beside each provider** (like capability), with two limits:
+  `rawDays` for a stored copy of the provider's own figures, and `derivedDays` for numbers you
+  computed. One purge, two stages: strip the raw half first and keep the row, delete the row at
+  the derived limit. History survives without holding their data too long.
+- **Gotchas**: carry a `confirmed` flag. Where the rule is believed rather than established,
+  enforce the **strictest** reading — derived figures inherit the raw limit — and print
+  "unconfirmed policy, strict reading" on every purge run so the open question stays visible
+  instead of decaying into an assumption.
+- **First used in**: SociaPulse (2026-09-12) — YouTube's 30-day Stored Authorized Data rule
+
+### A Missing Ceiling Means OFF, Not Unlimited
+
+- **Stack**: any metered third-party API billed per call
+- **Problem**: `if ($cap !== null && $spent > $cap) { stop; }` reads naturally and is exactly
+  backwards. An unconfigured ceiling is the state a system is in *before anyone has thought
+  about cost* — which is precisely when it should not be spending.
+- **Solution**: invert it. No ceiling configured → metered calls refused, with a reason the UI
+  renders: *"No spend ceiling is set, so metered calls stay off until one is."* A ceiling of
+  zero must degrade cleanly to "unavailable, and here is why", never to an error.
+- **Gotchas**: record usage against **both** the tenant that caused it and the platform pool it
+  came from — a per-tenant counter cannot answer "is there budget left" and a global one cannot
+  answer "who spent it". A per-tenant allowance must bite *before* the platform ceiling, or one
+  customer spends what everyone shares.
+- **First used in**: SociaPulse (2026-09-12)
+
+### Metric Honesty — Null Is Not Zero, and Incomparable Things Are Never Summed
+
+- **Stack**: any dashboard aggregating several sources
+- **Problem**: two quiet lies. Substituting `0` for "the provider never reported this"
+  understates every average it lands in; and adding metrics with different counting rules
+  (reach vs views vs impressions) produces a number that is true of nothing.
+- **Solution**: (a) unavailable renders as *"not available for this channel"*, never `0` —
+  enforce it in the query layer, not the template; (b) offer a cross-source total **only** for
+  metrics every source defines identically, and have it **name the sources it could not
+  include** rather than quietly shrinking its denominator; (c) keep each source's native metric
+  name and value verbatim, so a metric's removal upstream does not erase the history you hold.
+- **Gotchas**: normalise into a small allow-list and *drop* everything else, rather than
+  mapping loosely — an approximate mapping is how an incomparable value ends up in a total
+  anyway. Also report coverage (days observed vs requested): a source connected three days ago
+  invites a comparison nobody should make.
+- **First used in**: SociaPulse (2026-09-12)
+
+### Three Laravel/Test Traps Worth One Line Each
+
+- **`Http::fake()` MERGES stubs, it does not replace them.** A permissive stub in `setUp()`
+  matches before a specific one registered later in the test, so the test passes against the
+  wrong response. Register the full set per test, and put overrides **last** in the array
+  (same-key spread: last wins).
+- **`method_exists($disk, 'temporaryUrl')` is always true.** `FilesystemAdapter` declares it
+  and the local driver **throws** from inside it. Ask `$disk->providesTemporaryUrls()`.
+- **Laravel 12's skeleton has no `app/Http/Middleware/` directory** — `mkdir` before writing
+  the first one, or the heredoc silently fails.
+- **First used in**: SociaPulse (2026-09-12)

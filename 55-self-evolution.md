@@ -1747,3 +1747,136 @@ is absent. A dev server can be running that this session did not start.
 5. **Ordering integrations by external lead time, not by importance.** LinkedIn is last to
    build and first to apply for, because its partner approval is the longest pole and it is
    entirely outside our control.
+
+
+---
+
+## SociaPulse — 2026-09-12 (Laravel 12 + PostgreSQL, own SaaS, 7 phases, 224 tests)
+
+Seven phases delivered in one session. Every phase gate passed on CS verify, and the security
+review found no exploitable vulnerability. The entries below are the mistakes, which are worth
+more than the successes.
+
+### Anti-Pattern: Building a guard that cannot fail, and shipping it green
+
+- **What happened**: three times in one project.
+  1. Adding PKCE, I issued the OAuth `state`, built the authorization URL with it, then stored
+     the code verifier under a **second, freshly issued state** — one the callback would never
+     look up. Every test stayed green because the only provider wired at that moment (Threads)
+     does not use PKCE.
+  2. The no-secrets prop scan walked every *tenant* screen and none of the *platform* ones —
+     exactly backwards, since the platform console reads across every workspace, so a leak
+     there is a leak of every customer at once.
+  3. A test named "an unverified user cannot reach the console" created its user with
+     `User::factory()`, which sets `email_verified_at` by default. The user was verified. The
+     test asserted nothing and passed.
+- **Impact**: each one looked like coverage. The PKCE bug would have broken X sign-in on first
+  contact with a real provider; the prop scan gave false assurance about the highest-value
+  screens in the product; the verification test would have let an unverified user through
+  silently. **A guard that cannot fail is worse than no guard, because it manufactures
+  confidence.**
+- **Rule**: after writing a protection, make it fail on purpose before trusting it. Break the
+  input, remove the scope, unset the flag — see red, then fix. For a test asserting "X is
+  blocked", first assert the precondition that makes X blockable (`assertFalse($user->verified)`)
+  so the setup cannot silently invert. For a guard that only one code path exercises, add the
+  second path before moving on.
+- **Applies to**: all projects. Especially anything named `*Test` that asserts a negative.
+
+### Anti-Pattern: `??` used where null carries meaning
+
+- **What happened**: `$discovered->expiresAt ?? $grant->expiresAt`. Meta's `debug_token` reports
+  `expires_at: 0` for a **non-expiring** token, which the parser correctly turned into `null`
+  meaning "never expires". The `??` then silently fell through to the grant's 60-day expiry and
+  stamped it onto a token that has none — so the nightly refresher would have started rewriting
+  a credential that never needed it.
+- **Impact**: null-coalescing cannot distinguish *"the provider told us: never"* from *"the
+  provider told us nothing"*. Both are `null`, and the fallback quietly assumes the second.
+- **Rule**: when null is a legitimate **answer** rather than an absence, carry a separate flag
+  that says whether the source spoke — `confirmed: bool` — and branch on that, never on the
+  value. `$source->confirmed ? $source->value : $fallback`.
+- **Applies to**: any code merging an authoritative answer with a default. Timestamps, quotas,
+  permissions, retention windows.
+
+### Anti-Pattern: Copying a rule from the pattern library without checking its precondition
+
+- **What happened**: prepended `ResolveTenant` to the `web` group, following the larisHQ rule
+  "resolve the tenant **before** the guard, because `EloquentUserProvider` applies global scopes
+  during authentication". Prepending puts it ahead of `StartSession` too, and the tenant is read
+  from the session — so every authenticated page 500'd with `Session store not set on request`.
+- **Impact**: the larisHQ rule is correct **where users are tenant-scoped** (`unique(tenant_id,
+  email)`). In SociaPulse users are global — one person belongs to several workspaces — so
+  authentication does not depend on the scope at all and the precondition never held. I applied
+  the conclusion without re-reading the premise.
+- **Rule**: a library entry's **Problem** section is a precondition, not preamble. Before
+  copying a solution, confirm the problem it solves is the problem you have. Where a rule
+  hinges on a schema shape, check that shape first.
+- **Applies to**: every use of `11-pattern-library.md`.
+
+### Anti-Pattern: Writing an assertion and never reading it back
+
+- **What happened**: wrote
+  `assertSame(1, $t->fresh()->rotation_generation - $t->rotation_generation + $t->rotation_generation - $t->rotation_generation + 1)`
+  — a tangle of arithmetic that reduces to `fresh - old + 1` and expresses nothing I intended.
+  It failed, which is the only reason I noticed. The claim I actually meant — *the rotated
+  refresh token was persisted* — was not being tested at all.
+- **Impact**: had it happened to pass, a genuine bug (the rotated refresh token being dropped,
+  fatal on X which rotates on every use) would have shipped behind a green test.
+- **Rule**: an assertion must read as a sentence about behaviour. If it needs arithmetic to
+  understand, the thing being asserted has not been decided yet — stop and name it. Re-read
+  every assertion once before moving to the next test.
+- **Applies to**: all projects.
+
+### Anti-Pattern: Repeating a trap the library already documents
+
+- **What happened**: the "keep `tenant_id` out of `$fillable`, and then remember `create()`
+  silently drops it" gotcha — documented in `11-pattern-library.md` under *Tenant Scope: read
+  open, write closed* — bit **three separate times** in one session, on `role`, on `tenant_id`,
+  and on `social_connection_id`. Each time the symptom was a not-null violation minutes later.
+- **Impact**: three debugging detours for a trap I had already read, in this session, in the
+  file I loaded at the start.
+- **Rule**: when a model deliberately excludes a column from `$fillable`, write the factory or
+  helper that sets it explicitly **in the same commit as the model**. The exclusion and its
+  workaround belong together; separating them guarantees the next caller rediscovers it.
+- **Applies to**: any codebase using `$fillable` as a privilege boundary.
+
+### Anti-Pattern: Trusting a subagent's finding about code I can read myself
+
+- **What happened**: the security review reported that `AuditLog` and `WebhookEvent` queries in
+  the platform console would be silently tenant-filtered. I checked before acting: neither model
+  uses `BelongsToTenant`, so neither carries a global scope, and the finding was wrong.
+- **Impact**: none — because I verified. Acting on it would have meant adding
+  `withoutGlobalScopes()` calls that do nothing, and writing a commit message asserting a bug
+  that never existed.
+- **Rule**: a subagent's report is evidence, not a conclusion. Where the claim is about code on
+  disk, verify it with a grep before it reaches a commit message or {USER_NAME}. **But keep the
+  underlying question** — here the hazard was real for the future (adding the trait to
+  `AuditLog` later would break the console), so the right response was a regression test, not a
+  dismissal and not a fix.
+- **Applies to**: every delegated review.
+
+## Learned Skills — SociaPulse
+
+- **Verify a platform capability, never recall it.** Five parallel research passes against
+  first-party docs produced findings that contradicted my priors: X had replaced its entire
+  pricing *model*, YouTube's quota is three separate buckets shared across every tenant, and
+  Facebook has no public post search at any tier. Encoding those as *tests* — a test fails if
+  Facebook ever claims keyword search — turns perishable research into something that cannot
+  silently rot.
+- **Declared capability + discovered scope + kill switch.** Three independent gates, each with
+  a human reason string rendered verbatim. `instanceof` answers "did we write it", the
+  declaration answers "is our app approved", the connection's read-back scopes answer it for
+  one token, and the switch answers "will we pay for it today". The reason string is the
+  feature — a greyed-out control with no explanation is what the architecture exists to prevent.
+- **A silent success is more dangerous than a loud failure.** Threads' keyword search returns
+  HTTP 200 while searching only the caller's own posts when the scope was never granted. No
+  exception ever fires. The only defence is asserting the granted scopes at connection time and
+  storing them as discovered state — never inferring capability from a successful-looking
+  response.
+- **Say what is not built, by name, in the product.** X image posting is refused in the composer
+  with "needs its chunked upload endpoint, which is not built yet" rather than accepted and
+  failed at publish. Naming the gap costs one string and converts a mysterious failure into an
+  understood limitation.
+- **Ask which of three is at fault.** Grouping every operational signal by *our system /
+  customer authorisation / provider* is the single highest-value screen in an integration
+  product, because it is the first question support has to answer and a wall of
+  undifferentiated errors never answers it.
