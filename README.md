@@ -8,7 +8,7 @@
 [![Version](https://img.shields.io/badge/CoreSentinel-11.0.0-8A2BE2)](./VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Hosts](https://img.shields.io/badge/Hosts-Claude_%7C_Cursor_%7C_Gemini_%7C_Codex_%7C_Copilot_%7C_Windsurf-blue)](#-how-does-it-work)
-[![Tests](https://img.shields.io/badge/Self--tests-1568_passing-brightgreen)](#-coresentinel-tests-itself)
+[![Tests](https://img.shields.io/badge/Self--tests-1577_passing-brightgreen)](#-coresentinel-tests-itself)
 [![Dashboard](https://img.shields.io/badge/Dashboard-Monitoring-purple)](https://github.com/wafazz/CoreSentinel-Dashboard-Monitoring)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](#-install)
 
@@ -206,7 +206,7 @@ Requires Python 3.9+. The installer asks for your agent name, role, and squad pr
 
 ## 🧪 CoreSentinel tests itself
 
-A governance system that is not itself tested is an unverified claim. **1,568 tests across the 14 subsystems**, plus a gated CI pipeline:
+A governance system that is not itself tested is an unverified claim. **1,577 tests across the 14 subsystems**, plus a gated CI pipeline:
 
 ```text
 Pull Request ➔ Tests ➔ Security ➔ Performance ➔ Lint ➔ Integration ➔ Compatibility ➔ PASS / FAIL
@@ -497,7 +497,7 @@ $ coresentinel evolve experiences
        3×  Verification failed: orders ship within 48h
 ```
 
-**Repetition is not corroboration.** One signature recurring in one context is *one* source however often it recurs — a flapping gate is a single noisy incident wearing a different hat, and if repeating counted as corroborating, any misconfigured check could vote itself into the rulebook overnight. Repetition raises the *success* term of the confidence score, where its weight is visible; it never buys independence.
+**Repetition is not corroboration.** One signature recurring in one context is *one* source however often it recurs — a flapping gate is a single noisy incident wearing a different hat, and if repeating counted as corroborating, any misconfigured check could vote itself into the rulebook overnight. Repetition is counted — it is what carries a signature past the recurrence bar and makes it a candidate at all, and the count is shown — but it moves no term of the confidence score and it never buys independence.
 
 A candidate still needs **two distinct sources** before it may be proposed. The same source cannot corroborate itself, re-running the observer never inflates evidence, and a **rejected candidate stays rejected**: a review queue that re-asks a declined question every run is a queue people stop reading.
 
@@ -506,20 +506,27 @@ Every belief carries its arithmetic:
 ```console
 $ coresentinel evolve explain CAND-8efb2da38b
 
-  Confidence   : 0.6167  (Assumed)
+  Confidence   : 0.6667  (Assumed)
   ------------------------------------------------------------
   term             value   weight   contributes
-  evidence        0.3333     0.35        0.1167
-  success         0.5000     0.30        0.1500
-  consistency     1.0000     0.25        0.2500
-  recency         1.0000     0.10        0.1000
+  evidence        0.3333     0.50        0.1667
+  success              —        —  not measured
+  consistency     1.0000     0.36        0.3571
+  recency         1.0000     0.14        0.1429
   ------------------------------------------------------------
-  total                                  0.6167
+  total                                  0.6667
+
+  Not measured : success — 0.30 of the declared weight
+                 redistributed across the terms above, so an
+                 unrecorded term is not counted as a low score.
 
   Drawn from   : 1 distinct source(s) — repetition does not raise this
+  Outcomes     : 0 succeeded, 6 failed
 ```
 
 A score whose inputs are not stored beside it is a number nobody can argue with — it looks like a measurement and behaves like an opinion.
+
+**A term nobody measured is left out, not scored against.** `success` has nothing to say about a lesson drawn from failures — the tally counts how often the *operation* failed, and for "this keeps breaking" every one of those failures is corroboration. So the term stands aside and its weight is shared across the terms that did measure something. Scoring it a middling 0.5 instead was the first release's mistake, and it was not a rounding error: at 0.30 of the weight it held every candidate below 0.85 against a 0.90 bar, and a failure-drawn lesson below 0.70. Since a recurring failure is the *only* thing that becomes a candidate, nothing the engine produced could reach the tier it was being measured against. An empty TRUSTED tier read as a young store for as long as nobody did the arithmetic.
 
 **TRUSTED is not PROPOSED**, and the whole safety argument lives in the difference:
 
