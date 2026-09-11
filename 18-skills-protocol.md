@@ -51,8 +51,8 @@ Checked against the live skill listing. Nothing below is aspirational.
 
 **`landing-design` is CoreSentinel's own — the first skill this system ships rather than consumes.**
 Installed at `~/.claude/skills/landing-design/` (`SKILL.md` + `references/{scales,sections,tells}.md`),
-written 2026-09-10. It does not appear in the host listing until Claude Code restarts; until then it
-is on disk but not invocable, and the protocol is read directly instead.
+written 2026-09-10. **Confirmed listed and invocable 2026-09-11 (win32)** — the restart the previous
+note was waiting on has happened.
 
 Two things separate it from every other row above. It is the only skill here whose **first step is
 reading the project** — schema, routes, plans, roles, components — rather than applying a rule set in
@@ -85,7 +85,19 @@ extension is not connected, say so and fall back — `run` for E2E, {USER_NAME}'
 the design pass. Never report a screenshot that was not taken.
 
 **To screenshot a local file at all**, serve it over HTTP first
-(`python3 -m http.server <port>` in its directory) — `file://` is rejected by the extension.
+(`python3 -m http.server <port>` in its directory; `python -m http.server` on Windows) —
+`file://` is rejected by the extension.
+
+**Host availability — win32, 2026-09-11:** all 13 bound skills above are present in the listing,
+`landing-design` included. `claude-in-chrome` was **tested this session and the extension IS
+connected** — `tabs_context_mcp` answered "No tab group exists" (a connected extension reporting an
+empty group, not a connection failure). So the darwin "Not connected" row above is stale as a
+general claim: it was that machine, that day. Phase 4 screenshots are reachable on win32.
+
+What still holds on both hosts: `file://` is refused, so a local page must be served over HTTP
+first. And a screenshot of an authenticated screen needs the dev server up and a seeded login —
+that cost is the real reason a Phase 4 screenshot gets skipped, not the extension. Say which of the
+two it was; never report a screenshot that was not taken.
 
 ### Harness maintenance (run when the condition fires, not on a schedule)
 
@@ -103,6 +115,7 @@ the design pass. Never report a screenshot that was not taken.
 |---|---|
 | `claude-api` | **Mandatory read** before touching anything Claude/Anthropic-shaped — model IDs, pricing, tool use, caching. Never answer from memory. Skip only when another provider (OpenAI/Gemini/Llama/…) is the subject. |
 | `claude-code-guide` (agent) | Questions about Claude Code, the Agent SDK, or the Claude API. Delegate rather than guess. |
+| `workflow-authoring` | Read only when {USER_NAME} has already asked for a workflow. It is the script reference for the Workflow tool — **it does not authorise running one** (§4). Added to this inventory 2026-09-11 (win32). |
 
 ---
 

@@ -638,6 +638,30 @@ Track mistakes to never repeat.
   302 to the right place proves routing, not effect.
 - **Applies to**: All Laravel projects
 
+### Anti-Pattern: A settings field wired to the wrong store — a control nobody can set
+- **What happened**: Social Media Listening Tools, 2026-09-11. The Threads settings screen
+  had a `keyword_search_granted` field. Its descriptor carried no `'store' => 'setting'`,
+  so `PlatformSettingsController::fieldsFor()` fell through to its default and looked the
+  key up in the **encrypted credentials**, where nothing ever writes it. The row therefore
+  rendered blank forever. Meanwhile `ProviderRegistry::makeThreads()` read the same key from
+  `social_accounts.settings` to decide whether Threads keyword search could see public posts
+  at all. Reader and writer were pointed at two different stores.
+- **Impact**: The single most consequential flag on the platform was permanently `false` and
+  **unreachable** — no operator action could change it. Worse, the screen actively lied: the
+  readonly row rendered the placeholder *"Read from the platform after connecting"* while
+  nothing in the codebase ever read it back. Every symptom pointed at App Review or at Meta,
+  not at a one-word omission in a field descriptor.
+- **Rule**: A field descriptor that names *where a value is displayed from* and code that
+  reads *where the value lives* are two declarations of the same fact, and they drift
+  silently because neither fails loudly when they disagree — an absent key is
+  indistinguishable from an unset value. When adding a settings field, assert the round
+  trip in a test: write it where the app writes it, then assert the **screen shows it**.
+  And treat a placeholder that promises "read from the platform" as a claim requiring a
+  call that actually does so — if nothing reads it back, the honest widget is an input,
+  not a disabled box.
+- **Applies to**: All projects with declarative form/field registries (Laravel + Inertia
+  especially, where the descriptor and the reader sit in different files)
+
 ---
 
 ## Basic Custom E-Commerce — 2026-08-27 (Laravel 12, client delivery)
@@ -1587,3 +1611,31 @@ together they told one marketer two numbers. Put the definition on the model, on
 - **Running the review on the combined tree.** Two phases reviewed together surfaced the
   interaction bugs — an announcement link broken by a middleware added in the *other* phase — that
   neither phase's own review would have found.
+
+---
+
+## LS-SecureLab â€” Intentionally-vulnerable lab, done as a real T2 build (2026-09-10)
+
+**Learned Skill**: A security *training* lab is still a T2 build, not a toy. SecureLab touched
+auth/authz, migrations, and file upload â€” three absolute T2 surfaces â€” so it ran the full gate
+set even though "it is supposed to be insecure." The trick is separating *intended* weaknesses
+(4 planted, isolated, toggled findings) from *accidental* ones (everything else must be correct):
+role kept out of `$fillable`, CSRF on, passwords hashed, session regenerate on login, ownership
+check on downloads. "This app is a vuln lab" is never a licence to be sloppy outside the planted
+findings.
+
+**Learned Skill**: Prove the lesson AND the fix with the same automated artifact. Dual-mode
+feature tests (exploit succeeds with the flag on, fails with it off) turn "retest" from a manual
+click into `php artisan test`. Backed by a live HTTP replay in both modes for on-stage confidence.
+
+**Anti-Pattern (session, minor)**: A PowerShell one-liner containing an inline regex digit-class
+literal tripped a safety hook that misread it as a `Remove-Item` on a protected path. Fix: put
+non-trivial regex/exploit scripts in a scratchpad `.ps1` (or a `.md` written with the file tool)
+and run/append the file, rather than inlining regex in the tool command. Same shape as other
+"shell metacharacter in an inline command" gotchas â€” move it to a script.
+
+**Anti-Pattern (avoided, worth recording)**: For the insecure-upload finding, the tempting demo
+is a webshell. That would be a code-execution sink and violates the safety scope. Correct move:
+demonstrate unsafe *handling* only â€” private non-web disk, no execution â€” so the finding is real
+(Medium) but the host can never be compromised.
+

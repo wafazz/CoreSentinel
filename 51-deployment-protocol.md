@@ -171,6 +171,24 @@ docker-compose up -d
 - [ ] Login works
 - [ ] Core features tested
 - [ ] Error logging configured
+- [ ] **Token-refresh jobs proved, not assumed** — see below
+
+### When the scheduler holds a credential's lifetime
+
+"Scheduler cron active (if applicable)" is too soft when a scheduled job is what keeps an API
+credential alive. Several providers issue tokens that expire on a **calendar** — Meta Threads is
+60 days, and once lapsed it cannot be refreshed or exchanged, only replaced by hand. If
+`schedule:run` is not in cron on the production host, nothing fails at deploy time. It fails
+weeks later, silently, and the first symptom is a listening tool that has quietly stopped
+returning results.
+
+So on any deploy of an app with a token-refresh command:
+
+1. Confirm the cron entry exists on the **production** host, not just in `routes/console.php`.
+2. Run the command by hand once (`php artisan threads:refresh-token --dry-run`) and read the output.
+3. Note the token's expiry somewhere a person will see it before it lapses.
+
+*(Recorded 2026-09-11 from Social Media Listening Tools.)*
 
 ---
 

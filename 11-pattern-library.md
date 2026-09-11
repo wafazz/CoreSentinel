@@ -957,6 +957,61 @@ event; never the values you just cleared.
 
 ---
 
+## Third-Party Grants & Token Lifecycles
+
+> Written after the Threads connection work on 2026-09-11. Both entries generalise
+> well beyond Meta: any API that gates behaviour on a review-granted scope, and any
+> API whose token expires on a calendar rather than on use, has these two shapes.
+
+#### Ask the Provider What the Token Actually Holds
+
+- **Stack**: Any OAuth/token API — verified on Meta Threads (Laravel 12 + Inertia 3 + Vue 3.5)
+- **Problem**: A permission granted by App Review changes what an endpoint *returns*
+  without changing its **status code**. Threads `keyword_search` answers `200` whether or
+  not `threads_keyword_search` was approved — unapproved, it silently searches only the
+  authenticated user's own posts. A short result list is indistinguishable from a quiet
+  keyword. The tempting workaround is a checkbox in Settings where the operator records
+  what App Review said. That is an assertion, and it decays: it is wrong the moment a
+  scope is revoked, an app is unpublished, or a different token is pasted in.
+- **Solution**: Find the introspection endpoint and read the grant. Meta's is
+  `GET /v1.0/debug_token?input_token={token}`, returning
+  `{ is_valid, expires_at, issued_at, scopes[], user_id }`. Call it during connection
+  verification and store the result as discovered state, not operator input. Let the
+  platform's answer **overrule** whatever the operator asserted, and test that it does.
+  The same call usually yields two more things worth having: the token's expiry, and the
+  account id that write endpoints need.
+- **Gotchas**: Meta documents the *inspecting* token as belonging to "a Threads tester",
+  so introspection may be refused on a production app — degrade to the old wording and
+  say "unconfirmed" rather than failing the connection or claiming a scope. `is_valid`
+  absent is not `is_valid: false`; only an explicit false means the provider disowned the
+  token. Timestamps are Unix seconds, and `0` means "never expires", not 1970.
+- **First used in**: Social Media Listening Tools (Threads connection)
+
+#### A Token That Expires on a Calendar Needs a Job, Not a Button
+
+- **Stack**: Any long-lived-token API — verified on Meta Threads
+- **Problem**: A Threads long-lived token lasts 60 days, must be **≥24 hours old** before
+  it can be refreshed, and once lapsed *cannot be refreshed or exchanged at all* — only
+  replaced by hand. Nothing announces the lapse: ingestion keeps running and searches keep
+  returning `200` with nothing in them. A "Reconnect" button does not help, because the
+  failure mode is that nobody is looking.
+- **Solution**: A scheduled command that renews inside the last N days (14 gives a
+  fortnight of retries before anything is lost), refuses when the token is younger than
+  the provider's minimum age, and refuses when the expiry is **unknown** — an expiry
+  nobody has established is not grounds for a cron job to start rewriting credentials.
+  Almost every run is a no-op, which is what makes it cheap to run daily. Exit non-zero on
+  a failed *due* refresh so CI or the scheduler treats it as the incident it is.
+- **Gotchas**: Refresh/exchange endpoints are often **unversioned** root paths
+  (`{host}/refresh_access_token`), so a shared client that builds URLs as
+  `host + '/' + version` genuinely cannot reach them — give them their own path rather
+  than bending the client. These endpoints also take the token as a **query parameter**;
+  there is no header form, so the usual "never put a token in a query string" rule cannot
+  apply here — document why. Restart the age clock on the new token, or the next run
+  refreshes something the provider still considers too young.
+- **First used in**: Social Media Listening Tools (`ThreadsTokenService`)
+
+---
+
 ## How to Add Patterns
 
 After completing a significant feature, ask yourself:
@@ -1056,3 +1111,25 @@ Format:
   a dead end, and it is the state a new tenant sees **first**.
 - **Gotchas**: write empty-state copy in the domain's voice — "No stockists under this agent yet"
   beats "No data available". This is the most-read and least-written copy in any admin panel.
+
+---
+
+### Runtime BEFORE/AFTER Vulnerability Toggle (intentionally-vulnerable lab)
+- **Stack**: Laravel 11+/12, any DB; applies to any "broken on purpose" demo/training app
+- **Problem**: A pentest/training lab must show the SAME exploit working (BEFORE) and then
+  blocked (AFTER) on stage, ideally without git checkouts, restarts, or shipping a permanently
+  vulnerable endpoint.
+- **Solution**: One env flag `SECURELAB_VULN` → `config/securelab.php` → a tiny
+  `App\Security\Toggle::vulnerable()` read LIVE from config at request time. Each finding keeps
+  its weak and fixed paths side by side (e.g. `VulnerableUserSearch` / `SecureUserSearch`, or an
+  `if (Toggle::secure()) abort_unless(...)` guard, or `{!! !!}` vs `{{ }}` chosen in Blade). The
+  controller just picks the path. Flip `.env` + refresh to switch — `php artisan serve`
+  re-bootstraps the framework every request, so Dotenv re-reads `.env` with no restart (as long
+  as config is NOT cached). A coloured layout banner shows the current mode.
+- **Gotchas**: Default the flag to `false` in `.env.example` so a fresh clone is safe; the demo
+  box's `.env` sets it `true`. Tests force either mode with `config(['securelab.vulnerable'=>...])`
+  and assert the exploit succeeds in one and fails in the other — that dual-mode test IS the
+  automated retest. Never give an "insecure file upload" finding a real execution sink: store on a
+  private non-web disk and never execute, so even the weak path cannot compromise the host.
+  If you ever run `php artisan config:cache`, the live-flip breaks — clear it for the demo.
+- **First used in**: SecureLab (2026-09-10) — IDOR, SQLi, Stored XSS, insecure upload
