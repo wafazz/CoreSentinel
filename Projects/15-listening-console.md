@@ -12,6 +12,8 @@
 
 ## Overview
 - **Root**: `Downloads/Social Media Listening Tools/Social Media Listening Tools`
+- **Not to be confused with** [12-social-listening](./12-social-listening.md) — the R&D build at
+  `Desktop/Codex Lure/project/RND DayThree/...` on Laravel 13. Same idea, **separate codebase**.
 - **Stack**: Laravel 12 + PHP 8.2+ + Inertia 3.3 + Vue 3.5 + AdminLTE 4 + Bootstrap 5.3 + ApexCharts, Vite 8
 - **Type**: social listening / monitoring console
 - **Auth**: session (single operator; **single-tenant, one account per platform** — `social_accounts` has a

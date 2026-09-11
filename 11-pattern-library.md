@@ -1,8 +1,8 @@
-# Pattern Library
+﻿# Pattern Library
 > Proven, reusable solutions indexed by problem type. Pull from here before re-inventing.
 
 > **The patterns below are also data.** `coresentinel pattern` keeps the same fields this
-> file documents — stack, problem, solution, gotchas, first used in — plus identity
+> file documents â€” stack, problem, solution, gotchas, first used in â€” plus identity
 > (`PAT-NNNN`), provenance (which incident taught it) and an occurrence count. A record
 > renders back into the format below without loss.
 >
@@ -31,7 +31,7 @@ As you build projects, add your patterns here. Each pattern should include:
 - **Problem**: Images (company logo, user avatars) render fine in HTML views but break when exported to mPDF or SFTP storage.
 - **Solution**: Embed images directly as base64 data-URIs (`data:image/png;base64,...`) into the unified HTML view template.
 - **Gotchas**: Validate PDF generation using `Output('', STRING_RETURN)` and assert the `%PDF` header byte signature in tests.
-- **First used in**: DAISY 2.0 — Invoice PDF rendering
+- **First used in**: DAISY 2.0 â€” Invoice PDF rendering
 
 ### Real-Time & Event Streams (SSE)
 #### Single-Threaded Dev Server Freeze Avoidance
@@ -39,7 +39,7 @@ As you build projects, add your patterns here. Each pattern should include:
 - **Problem**: `php -S` built-in dev server on Windows is single-threaded (`PHP_CLI_SERVER_WORKERS` is POSIX-only). An active 55s SSE stream freezes all subsequent HTTP requests.
 - **Solution**: Serve local dev via Apache vhost on a custom port (`http://localhost:8081`).
 - **Gotchas**: Never run SSE or long-polling loops inside single-threaded dev environments on Windows.
-- **First used in**: DAISY 2.0 — Omnichannel Workspace
+- **First used in**: DAISY 2.0 â€” Omnichannel Workspace
 
 ### Database & Concurrency
 #### Atomic Race-Free Action Guard
@@ -47,7 +47,7 @@ As you build projects, add your patterns here. Each pattern should include:
 - **Problem**: Two agents click "Answer" or "Claim" simultaneously, resulting in race conditions with check-then-update queries.
 - **Solution**: Perform a single atomic UPDATE query with state check: `UPDATE calls SET status='answered', agent_id=? WHERE id=? AND status='ringing'`. Verify `$stmt->rowCount() === 1`. If `0`, another worker claimed it first.
 - **Gotchas**: Do not check status via `SELECT` prior to `UPDATE` unless inside an explicit InnoDB transaction lock.
-- **First used in**: DAISY 2.0 — Call pickup control
+- **First used in**: DAISY 2.0 â€” Call pickup control
 
 ### API Integration & Security
 #### Encrypted Secrets at Rest
@@ -55,56 +55,56 @@ As you build projects, add your patterns here. Each pattern should include:
 - **Problem**: Storing plain-text API keys/webhooks secrets in database tables exposes credentials on database backups.
 - **Solution**: Encrypt all third-party secrets before writing to DB using app secret key (`AI::encryptKey($secret)`). Decrypt only at runtime when instantiating client wrappers.
 - **Gotchas**: Never display decrypted secrets back to UI input fields; show placeholder badges instead.
-- **First used in**: DAISY 2.0 — Channel configuration & AI settings
+- **First used in**: DAISY 2.0 â€” Channel configuration & AI settings
 
 ### SaaS / Feature Gating
 
 #### Add a gateable feature module (DAISY)
 - **Stack**: Hand-rolled PHP (DAISY 2.0), MySQL
-- **Problem**: Ship a new module the platform owner can toggle per-plan from the console (shows in the features listing) — not an always-on core module.
-- **Solution**: The dispatcher auto-gates any module whose name equals a `features.key` (`App.php` dispatch: `Feature::isFeature($module) && !Feature::enabled($module)` → 403). To ship gated module `foo`:
-  1. Name it `modules/foo/controller.php` with `foo_index()` — module name MUST equal the feature key.
-  2. One idempotent migration: `INSERT ... WHERE NOT EXISTS` a `features` row (key='foo'); a `permissions` row (`module='foo', action='view', resource=NULL` — use WHERE NOT EXISTS, not INSERT IGNORE, because a NULL resource can't dedupe on the unique key); and grant it to `super-admin`/`system-admin` in `role_permissions`. Migration 031's one-time CROSS JOIN already ran, so a NEW permission is NOT retroactively granted — grant it explicitly or existing tenant-admins get 403.
+- **Problem**: Ship a new module the platform owner can toggle per-plan from the console (shows in the features listing) â€” not an always-on core module.
+- **Solution**: The dispatcher auto-gates any module whose name equals a `features.key` (`App.php` dispatch: `Feature::isFeature($module) && !Feature::enabled($module)` â†’ 403). To ship gated module `foo`:
+  1. Name it `modules/foo/controller.php` with `foo_index()` â€” module name MUST equal the feature key.
+  2. One idempotent migration: `INSERT ... WHERE NOT EXISTS` a `features` row (key='foo'); a `permissions` row (`module='foo', action='view', resource=NULL` â€” use WHERE NOT EXISTS, not INSERT IGNORE, because a NULL resource can't dedupe on the unique key); and grant it to `super-admin`/`system-admin` in `role_permissions`. Migration 031's one-time CROSS JOIN already ran, so a NEW permission is NOT retroactively granted â€” grant it explicitly or existing tenant-admins get 403.
   3. Controller: `RBAC::require('foo.view')` as the first line; every query tenant-scoped by `Auth::tenantId()`.
   4. Route in `App.php` (static literals before `{id}`).
   5. Sidebar nav item gated `RBAC::can('foo.view')`; the sidebar's feature-gate loop hides it off-plan automatically (belt + suspenders).
-- **Gotchas**: `Feature::all()`/`isFeature()` read the DB `features` table, NOT `config/plans.php` (that map is fresh-install seed only, kept in sync for catalog consistency). Plans are owner-managed DB data (migration 033) — do NOT hardcode plan grants in a migration; leave assignment to the console (enterprise `'*'` gets it free). No migration runner exists: apply with `mysql -u root <db> < migration.sql` and verify the seeded row before assuming the gate resolves.
-- **First used in**: DAISY 2.0 — analytics module (migration 036)
+- **Gotchas**: `Feature::all()`/`isFeature()` read the DB `features` table, NOT `config/plans.php` (that map is fresh-install seed only, kept in sync for catalog consistency). Plans are owner-managed DB data (migration 033) â€” do NOT hardcode plan grants in a migration; leave assignment to the console (enterprise `'*'` gets it free). No migration runner exists: apply with `mysql -u root <db> < migration.sql` and verify the seeded row before assuming the gate resolves.
+- **First used in**: DAISY 2.0 â€” analytics module (migration 036)
 
 ---
 
 ## Laravel 13 + Inertia 3 + React 19 + TypeScript
 
-> ⚠️ **`[LEARN]` — RESEARCH-SOURCED, NOT YET BATTLE-TESTED.** Captured during the Learn Protocol
+> âš ï¸ **`[LEARN]` â€” RESEARCH-SOURCED, NOT YET BATTLE-TESTED.** Captured during the Learn Protocol
 > Phase 1 Research Sprint on **2026-08-14**, verified live against Packagist / npm registry /
-> GitHub releases / official docs and package source — but **not yet proven in a shipped build**.
-> Treat as `Assumed` confidence (0.50–0.89), not `Known`. Promote to full patterns after the first
+> GitHub releases / official docs and package source â€” but **not yet proven in a shipped build**.
+> Treat as `Assumed` confidence (0.50â€“0.89), not `Known`. Promote to full patterns after the first
 > project in this stack ships (Learn Protocol Phase 3). First captured in: **E-Commerce Catalog System**.
 
 ### Version Baseline (verified 2026-08-14)
-Laravel **13.x** (12 left bug-fix support 2026-08-13 — there is no LTS) · `inertiajs/inertia-laravel` **^3.3** ·
-`@inertiajs/react` + `@inertiajs/vite` **^3.6** · React **19.2** (Inertia 3 *requires* 19+) ·
-TypeScript **5.9 — NOT 7.0** · Vite **8.2** + `laravel-vite-plugin` **^3.2** · PHP **8.3–8.5** ·
-Bootstrap **5.3.8** (Bootstrap 6 does not exist) · AdminLTE **4.3.1** *(→ **4.9.1** as of
-2026-08-27, re-verified against the npm registry — check before pinning)* · MySQL **8.0.17+**.
+Laravel **13.x** (12 left bug-fix support 2026-08-13 â€” there is no LTS) Â· `inertiajs/inertia-laravel` **^3.3** Â·
+`@inertiajs/react` + `@inertiajs/vite` **^3.6** Â· React **19.2** (Inertia 3 *requires* 19+) Â·
+TypeScript **5.9 â€” NOT 7.0** Â· Vite **8.2** + `laravel-vite-plugin` **^3.2** Â· PHP **8.3â€“8.5** Â·
+Bootstrap **5.3.8** (Bootstrap 6 does not exist) Â· AdminLTE **4.3.1** *(â†’ **4.9.1** as of
+2026-08-27, re-verified against the npm registry â€” check before pinning)* Â· MySQL **8.0.17+**.
 Breeze/Jetstream are dead paths (removed from the installer in L12; starter kits now use Fortify).
 Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was removed from Inertia in v3.
 
-### Ecosystem Mapping (Learn Protocol §1b)
+### Ecosystem Mapping (Learn Protocol Â§1b)
 | Concept | Known (hand-rolled PHP / DAISY 2.0) | Laravel 13 + Inertia 3 + React |
 |---|---|---|
 | ORM | Hand-written PDO + `Model::query()` | Eloquent |
 | Auth | `Auth::` static + session | Laravel Fortify (starter-kit default) |
 | Routing | `App.php` dispatcher, literals before `{id}` | `routes/web.php` + `laravel/wayfinder` typed helpers |
 | Middleware | Inline guards at controller top | `bootstrap/app.php` `->withMiddleware()` |
-| Validation | Manual checks + `$errors[]` | FormRequest → `ValidationException` → **302 redirect**, never 422 |
+| Validation | Manual checks + `$errors[]` | FormRequest â†’ `ValidationException` â†’ **302 redirect**, never 422 |
 | Template/View | Unified HTML view templates | React page components resolved by `@inertiajs/vite` |
 | CLI | Bare PHP scripts | `php artisan` |
 | Queue | None | `queue:work` (Horizon is unusable on native Windows) |
 | Cache | None | `Cache::` / Redis |
 | Type sync | None | `spatie/laravel-data` + `typescript-transformer`; Wayfinder for routes |
 
-### Inertia 3 — Shared Props & Partial Reloads
+### Inertia 3 â€” Shared Props & Partial Reloads
 - **Stack**: Laravel 13, Inertia 3, React 19
 - **Problem**: `usePage().props.auth` becomes `undefined` mid-session and the layout throws.
 - **Solution**: a partial reload (`router.reload({only:['products']})`) filters the **entire** prop bag, shared props included. Wrap anything the layout always needs in `Inertia::always()`:
@@ -112,19 +112,19 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   'auth'  => Inertia::always(fn () => ['user' => $request->user()?->only('id','name','email')]),
   'flash' => Inertia::always(fn () => ['message' => $request->session()->get('message')]),
   ```
-  For heavy, rarely-changing shell data (sidebar menu tree, permission matrix, lookups) use **`Inertia::once()`** — resolved once server-side, carried client-side, then omitted from the payload entirely. Declare it in the shared middleware, not per-page; once-props are only remembered while navigating between pages that include them.
-  > ⚠️ **The method is `Inertia::once()`, added in `inertia-laravel` 2.0.12 (Dec 2025).** An earlier draft of this entry said `Inertia::shareOnce()` — **no such method exists.** Corrected 2026-08-14 after live verification.
-- **Gotchas**: closures defer *computation*, not payload — the prop is still sent. An eager `auth.user` with roles/permissions rides every page load, every partial reload and every poll tick, and lands in browser history state (Firefox errors past 16 MiB). `Inertia::lazy()` was renamed `Inertia::optional()` in v3 and the old class is deleted.
+  For heavy, rarely-changing shell data (sidebar menu tree, permission matrix, lookups) use **`Inertia::once()`** â€” resolved once server-side, carried client-side, then omitted from the payload entirely. Declare it in the shared middleware, not per-page; once-props are only remembered while navigating between pages that include them.
+  > âš ï¸ **The method is `Inertia::once()`, added in `inertia-laravel` 2.0.12 (Dec 2025).** An earlier draft of this entry said `Inertia::shareOnce()` â€” **no such method exists.** Corrected 2026-08-14 after live verification.
+- **Gotchas**: closures defer *computation*, not payload â€” the prop is still sent. An eager `auth.user` with roles/permissions rides every page load, every partial reload and every poll tick, and lands in browser history state (Firefox errors past 16 MiB). `Inertia::lazy()` was renamed `Inertia::optional()` in v3 and the old class is deleted.
 - **First used in**: E-Commerce Catalog System (planned)
 
-### Inertia — Props Leak Every Model Field
+### Inertia â€” Props Leak Every Model Field
 - **Stack**: Laravel 13, Inertia 3
 - **Problem**: passing an Eloquent model as a prop exposes far more than intended.
-- **Solution**: Inertia serializes any `Arrayable` via `toArray()` — every non-`$hidden` column, every `$appends` accessor, every loaded relation, recursively. `$hidden` protects `User.password` and nothing else. Route every prop through a `spatie/laravel-data` DTO (which also generates the matching TS interface). Enforce in code review from commit #1.
-- **Gotchas**: Inertia's maintainers state explicitly this is not considered a security issue and there is **no framework-level shield**. v3 moved the initial payload from a `data-page` attribute into `<script type="application/json">` — that changed *where* you read it in DevTools, not *whether* it's readable.
+- **Solution**: Inertia serializes any `Arrayable` via `toArray()` â€” every non-`$hidden` column, every `$appends` accessor, every loaded relation, recursively. `$hidden` protects `User.password` and nothing else. Route every prop through a `spatie/laravel-data` DTO (which also generates the matching TS interface). Enforce in code review from commit #1.
+- **Gotchas**: Inertia's maintainers state explicitly this is not considered a security issue and there is **no framework-level shield**. v3 moved the initial payload from a `data-page` attribute into `<script type="application/json">` â€” that changed *where* you read it in DevTools, not *whether* it's readable.
 - **First used in**: E-Commerce Catalog System (planned)
 
-### Inertia 3 — TypeScript via `InertiaConfig` Declaration Merging
+### Inertia 3 â€” TypeScript via `InertiaConfig` Declaration Merging
 - **Stack**: Inertia 3, TypeScript 5.9
 - **Problem**: v2's hand-rolled `PageProps` union no longer matches how v3 types shared props.
 - **Solution**: augment `InertiaConfig` once, globally, in `resources/js/types/global.d.ts`:
@@ -139,32 +139,32 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   }
   ```
   Page-specific props then go on the default export's normal props interface; `usePage<T>()`'s generic now means *page* props only.
-- **Gotchas**: omitting the bare `import '@inertiajs/core'` makes `declare module` **replace** rather than augment. `tsconfig.include` must cover `**/*.d.ts`. **pnpm users must add `public-hoist-pattern[]=@inertiajs/core` to `.npmrc`** or the augmentation never resolves. Retrofitting this later is painful — do it day one.
+- **Gotchas**: omitting the bare `import '@inertiajs/core'` makes `declare module` **replace** rather than augment. `tsconfig.include` must cover `**/*.d.ts`. **pnpm users must add `public-hoist-pattern[]=@inertiajs/core` to `.npmrc`** or the augmentation never resolves. Retrofitting this later is painful â€” do it day one.
 - **First used in**: E-Commerce Catalog System (planned)
 
-### Inertia 3 — Stale Lazy-Chunk 404s After Deploy
+### Inertia 3 â€” Stale Lazy-Chunk 404s After Deploy
 - **Stack**: Inertia 3, Vite 8
-- **Problem**: an open tab throws `TypeError: Failed to fetch dynamically imported module` after a deploy. Inertia's asset-versioning (409 → full visit) does **not** cover this.
-- **Solution**: `@inertiajs/vite` defaults `lazy: true`, so code splitting — and therefore content-hashed chunk filenames — is on by default in v3. Handle Vite's own event and keep the previous build around:
+- **Problem**: an open tab throws `TypeError: Failed to fetch dynamically imported module` after a deploy. Inertia's asset-versioning (409 â†’ full visit) does **not** cover this.
+- **Solution**: `@inertiajs/vite` defaults `lazy: true`, so code splitting â€” and therefore content-hashed chunk filenames â€” is on by default in v3. Handle Vite's own event and keep the previous build around:
   ```js
   window.addEventListener('vite:preloadError', (e) => { e.preventDefault(); location.reload() })
   ```
-  Root cause of the 404 is atomic-symlink deploys deleting the old `public/build` immediately — keep it for a grace period.
+  Root cause of the 404 is atomic-symlink deploys deleting the old `public/build` immediately â€” keep it for a grace period.
 - **Gotchas**: background requests deliberately do **not** force a reload (protects unsaved forms), so a long-lived admin tab can sit on stale JS indefinitely. Since v3.6.0 you can intercept: `router.on('location', e => { e.preventDefault(); showToast(...) })`.
 - **First used in**: E-Commerce Catalog System (planned)
 
-### AdminLTE 4 in React — The Safe/Unsafe Split
+### AdminLTE 4 in React â€” The Safe/Unsafe Split
 - **Stack**: AdminLTE 4.3.1, Bootstrap 5.3.8, React 19, Inertia 3
-- **Problem**: "AdminLTE is jQuery, it will fight React" — true of v3, **obsolete for v4**.
+- **Problem**: "AdminLTE is jQuery, it will fight React" â€” true of v3, **obsolete for v4**.
 - **Solution**: AdminLTE 4 is jQuery-free, TypeScript-native, ESM, with an explicit `initialize()`/`teardown()` AbortController lifecycle built for frameworks that construct the layout after `DOMContentLoaded`. Split by what owns the DOM:
-  - ✅ **All SCSS** — inert, ~90% of AdminLTE's value.
-  - ✅ **`PushMenu`, `Layout`, `ColorMode`, `FullScreen`** — they write only to `document.body` / `<html>`, outside the React root. React never sees `document.body.classList`. Instantiate once in the persistent layout's `useEffect`, `teardown()` on unmount.
-  - ❌ **`Treeview`, `CardWidget`, `SidebarSearch`** — they own DOM inside the React tree (`menu-open` classes and inline `slideDown` height styles on React-rendered `<li>`s; `remove` deletes nodes React believes it owns). Re-implement in React, ~200–300 lines.
-  Use `react-bootstrap@2.10.10` for Modal/Dropdown/Tooltip/Offcanvas — AdminLTE's CSS skins them free since they emit standard Bootstrap classes.
-- **Gotchas**: the rewrite is a **net gain** — a React treeview can auto-expand the active branch by matching `usePage().url` against a typed menu config, which DOM-state cannot do. The official `@adminlte/react` is **hard-coupled to Next.js** (`next/navigation`), v0.4.0, 2 stars — unusable outside Next. Every community port is abandoned. `PushMenu` already persists to `localStorage` key `lte.sidebar.state` — don't run a second persistence mechanism alongside it. Seed React state from localStorage **synchronously** in `useState(() => …)`, never in an effect, or the sidebar flashes the wrong width.
+  - âœ… **All SCSS** â€” inert, ~90% of AdminLTE's value.
+  - âœ… **`PushMenu`, `Layout`, `ColorMode`, `FullScreen`** â€” they write only to `document.body` / `<html>`, outside the React root. React never sees `document.body.classList`. Instantiate once in the persistent layout's `useEffect`, `teardown()` on unmount.
+  - âŒ **`Treeview`, `CardWidget`, `SidebarSearch`** â€” they own DOM inside the React tree (`menu-open` classes and inline `slideDown` height styles on React-rendered `<li>`s; `remove` deletes nodes React believes it owns). Re-implement in React, ~200â€“300 lines.
+  Use `react-bootstrap@2.10.10` for Modal/Dropdown/Tooltip/Offcanvas â€” AdminLTE's CSS skins them free since they emit standard Bootstrap classes.
+- **Gotchas**: the rewrite is a **net gain** â€” a React treeview can auto-expand the active branch by matching `usePage().url` against a typed menu config, which DOM-state cannot do. The official `@adminlte/react` is **hard-coupled to Next.js** (`next/navigation`), v0.4.0, 2 stars â€” unusable outside Next. Every community port is abandoned. `PushMenu` already persists to `localStorage` key `lte.sidebar.state` â€” don't run a second persistence mechanism alongside it. Seed React state from localStorage **synchronously** in `useState(() => â€¦)`, never in an effect, or the sidebar flashes the wrong width.
 - **First used in**: E-Commerce Catalog System (planned)
 
-### Bootstrap + AdminLTE 4 through Vite — `loadPaths` Is Mandatory
+### Bootstrap + AdminLTE 4 through Vite â€” `loadPaths` Is Mandatory
 - **Stack**: Vite 8, Dart Sass, AdminLTE 4.3.1, Bootstrap 5.3.8
 - **Problem**: `Can't find stylesheet to import` on every Bootstrap partial.
 - **Solution**: AdminLTE 4 no longer vendors Bootstrap (it's a **peer dependency** `^5.3.8`), so its SCSS bare-imports it and Dart Sass can't resolve that. Required in `vite.config.ts`:
@@ -181,45 +181,45 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   $primary: #2b6cb0;
   @import "admin-lte/src/scss/adminlte";
   ```
-- **Gotchas**: **keep `@import`, do not convert to `@use`** — AdminLTE 4.3.1's own `adminlte.scss` uses `@import` exclusively, and Bootstrap 5.3's docs carry an official note that the Dart Sass deprecation warnings can be ignored pending a long-term fix (module migration is a Bootstrap **6** goal). Hence `silenceDeprecations`, or every build emits a wall of noise. Pin `admin-lte` **exactly** — 5 releases in 3 months. npmjs.com's HTML page shows stale deps (bootstrap ^5.1.3 + jquery) — that's 3.2.x metadata leaking; the real 4.3.1 `package.json` has no jQuery at all.
+- **Gotchas**: **keep `@import`, do not convert to `@use`** â€” AdminLTE 4.3.1's own `adminlte.scss` uses `@import` exclusively, and Bootstrap 5.3's docs carry an official note that the Dart Sass deprecation warnings can be ignored pending a long-term fix (module migration is a Bootstrap **6** goal). Hence `silenceDeprecations`, or every build emits a wall of noise. Pin `admin-lte` **exactly** â€” 5 releases in 3 months. npmjs.com's HTML page shows stale deps (bootstrap ^5.1.3 + jquery) â€” that's 3.2.x metadata leaking; the real 4.3.1 `package.json` has no jQuery at all.
 - **First used in**: E-Commerce Catalog System (planned)
 
-### E-Commerce — Product Variants Without EAV
+### E-Commerce â€” Product Variants Without EAV
 - **Stack**: Laravel 13, MySQL 8.0.17+
 - **Problem**: model product variations so "unlimited products" stays queryable and extensible.
-- **Solution**: option / option_value / variant + `product_variant_option_values` pivot (Shopify/Medusa shape), with **one deviation: the option dictionary is global, not per-product free text** — that's what makes catalog-wide faceting ("everything in Red") a plain indexed join instead of string matching. Add `option_signature VARCHAR(191)` on the variant — sorted `option_value_id`s joined by `.`, `UNIQUE(product_id, option_signature)`:
+- **Solution**: option / option_value / variant + `product_variant_option_values` pivot (Shopify/Medusa shape), with **one deviation: the option dictionary is global, not per-product free text** â€” that's what makes catalog-wide faceting ("everything in Red") a plain indexed join instead of string matching. Add `option_signature VARCHAR(191)` on the variant â€” sorted `option_value_id`s joined by `.`, `UNIQUE(product_id, option_signature)`:
   ```sql
   SELECT * FROM product_variants WHERE product_id = :pid AND option_signature = '12.45';
   ```
-  One index seek. The frontend already knows which option values were clicked, so it builds the signature client-side. Price/stock/SKU live **only** on variants; every product always gets ≥1 variant.
-- **Gotchas**: the pivot alone cannot prevent two variants sharing an identical option combination — the signature unique key does. Maintain it in the same transaction as the pivot sync (observer). The pivot's InnoDB PK `(variant_id, value_id)` is useless for "which variants are Red" — the reverse index `(option_value_id, product_variant_id)` is load-bearing. Nullable `variant_id` on cart/order items looks simpler but buys permanent `IF variant_id IS NULL` branching in every purchase, refund and report path. Design tops out around 50k products with 2–3 filters; past that move to Scout + Meilisearch — **which needs no schema change, and that's the point of choosing this over EAV or JSON**.
+  One index seek. The frontend already knows which option values were clicked, so it builds the signature client-side. Price/stock/SKU live **only** on variants; every product always gets â‰¥1 variant.
+- **Gotchas**: the pivot alone cannot prevent two variants sharing an identical option combination â€” the signature unique key does. Maintain it in the same transaction as the pivot sync (observer). The pivot's InnoDB PK `(variant_id, value_id)` is useless for "which variants are Red" â€” the reverse index `(option_value_id, product_variant_id)` is load-bearing. Nullable `variant_id` on cart/order items looks simpler but buys permanent `IF variant_id IS NULL` branching in every purchase, refund and report path. Design tops out around 50k products with 2â€“3 filters; past that move to Scout + Meilisearch â€” **which needs no schema change, and that's the point of choosing this over EAV or JSON**.
 - **First used in**: E-Commerce Catalog System (planned)
 
-### MySQL — Soft Deletes Break Unique Indexes
+### MySQL â€” Soft Deletes Break Unique Indexes
 - **Stack**: Laravel, MySQL 8.0.13+
 - **Problem**: a soft-deleted row still occupies its `slug` / `sku`, so recreating it fails on the unique index.
-- **Solution**: `UNIQUE(slug, deleted_at)` does **not** fix this — MySQL treats NULLs as distinct, so two *live* rows would then both be allowed the same slug. Use a generated column as the sentinel:
+- **Solution**: `UNIQUE(slug, deleted_at)` does **not** fix this â€” MySQL treats NULLs as distinct, so two *live* rows would then both be allowed the same slug. Use a generated column as the sentinel:
   ```sql
   deleted_at_key TIMESTAMP AS (COALESCE(deleted_at,'1970-01-01 00:00:00')) VIRTUAL,
   UNIQUE KEY uq_product_slug (slug, deleted_at_key)
   ```
   Live rows share the sentinel and collide correctly; deleted rows are separated by deletion time.
-- **Gotchas**: soft-deleting a parent must soft-delete children via a `deleting` observer — `ON DELETE CASCADE` never fires for a soft delete. Same trick enforces "one primary image per owner": `primary_guard VARCHAR(96) AS (IF(is_primary, CONCAT(imageable_type,':',imageable_id), NULL)) VIRTUAL` + `UNIQUE(primary_guard)`, since NULLs don't collide.
+- **Gotchas**: soft-deleting a parent must soft-delete children via a `deleting` observer â€” `ON DELETE CASCADE` never fires for a soft delete. Same trick enforces "one primary image per owner": `primary_guard VARCHAR(96) AS (IF(is_primary, CONCAT(imageable_type,':',imageable_id), NULL)) VIRTUAL` + `UNIQUE(primary_guard)`, since NULLs don't collide.
 - **First used in**: E-Commerce Catalog System (planned)
 
-### Money — Integer Minor Units, Not DECIMAL
+### Money â€” Integer Minor Units, Not DECIMAL
 - **Stack**: PHP, MySQL
 - **Problem**: rounding bugs that only appear at specific quantities.
-- **Solution**: store `INT UNSIGNED price_minor` (cents/sen). Both types are exact *in MySQL* — the argument is the **PHP boundary**: PDO returns `DECIMAL` as a **string**, so the first `$product->price * $qty` silently coerces to float. An integer column casts to `int` and stays exact through every operation. Every gateway (Stripe, Adyen, iPay88) takes minor units too, and `INT UNSIGNED` is half the index width of `DECIMAL(10,2)`.
-- **Gotchas**: suffix every column `_minor` so the unit is never ambiguous. Ad-hoc SQL and BI tools need `/100`. Three-decimal currencies (KWD, BHD, TND) need a per-currency exponent — that's when `moneyphp/money` earns its place; before then a ~40-line value object is less indirection.
+- **Solution**: store `INT UNSIGNED price_minor` (cents/sen). Both types are exact *in MySQL* â€” the argument is the **PHP boundary**: PDO returns `DECIMAL` as a **string**, so the first `$product->price * $qty` silently coerces to float. An integer column casts to `int` and stays exact through every operation. Every gateway (Stripe, Adyen, iPay88) takes minor units too, and `INT UNSIGNED` is half the index width of `DECIMAL(10,2)`.
+- **Gotchas**: suffix every column `_minor` so the unit is never ambiguous. Ad-hoc SQL and BI tools need `/100`. Three-decimal currencies (KWD, BHD, TND) need a per-currency exponent â€” that's when `moneyphp/money` earns its place; before then a ~40-line value object is less indirection.
 - **First used in**: E-Commerce Catalog System (planned)
 
-### MariaDB — Indexed Virtual Columns & the `mariadb` Driver
-- **Stack**: Laravel 11+, MariaDB 10.2–10.4
+### MariaDB â€” Indexed Virtual Columns & the `mariadb` Driver
+- **Stack**: Laravel 11+, MariaDB 10.2â€“10.4
 - **Problem**: MySQL-shaped advice silently breaks on MariaDB.
-- **Solution**: Set **`DB_CONNECTION=mariadb`**, not `mysql`. Laravel has had a dedicated `MariaDbConnection` / `MariaDbGrammar` since 11 and `config/database.php` already ships a correct `mariadb` block. The decisive reason: **`renameColumn()` emits `ALTER TABLE … RENAME COLUMN`, which MariaDB only gained in 10.5.2** — `MariaDbGrammar` version-checks and falls back to the legacy `CHANGE old new <definition>` form, `MySqlGrammar` does not. On ≤10.4 under the `mysql` driver every `renameColumn()` migration is a hard syntax error. `joinLateral()` and JSON path functions also diverge.
-  UNIQUE indexes on `VIRTUAL` generated columns **are** supported (InnoDB, since 10.2.3) — `PERSISTENT`/`STORED` is not required, and `COALESCE`/`IF`/`CONCAT` are deterministic enough to be legal in one.
-- **Gotchas**: `ALTER TABLE` on a table with an **indexed** virtual column is forced to `ALGORITHM=COPY` — every future migration on that table is a full rebuild, and `->algorithm('inplace')` errors. A generated column **cannot read** a column carrying `ON UPDATE CASCADE` / `ON UPDATE SET NULL` / `ON DELETE SET NULL`. `utf8mb4_0900_ai_ci` doesn't exist (that's MySQL 8); `utf8mb4_uca1400_*` needs 10.10+ — use `utf8mb4_unicode_ci`, since MariaDB's own default is the weaker `general_ci`. No `defaultStringLength(191)` needed: `innodb_default_row_format` has been `dynamic` since 10.2, giving 3072-byte keys. `JSON` is a `LONGTEXT` alias compared **as text**, and the `->`/`->>` operators don't exist until **13.1**. Identifiers cap at 64 chars and Laravel does not truncate — pass explicit names via `constrained(indexName: …)`.
+- **Solution**: Set **`DB_CONNECTION=mariadb`**, not `mysql`. Laravel has had a dedicated `MariaDbConnection` / `MariaDbGrammar` since 11 and `config/database.php` already ships a correct `mariadb` block. The decisive reason: **`renameColumn()` emits `ALTER TABLE â€¦ RENAME COLUMN`, which MariaDB only gained in 10.5.2** â€” `MariaDbGrammar` version-checks and falls back to the legacy `CHANGE old new <definition>` form, `MySqlGrammar` does not. On â‰¤10.4 under the `mysql` driver every `renameColumn()` migration is a hard syntax error. `joinLateral()` and JSON path functions also diverge.
+  UNIQUE indexes on `VIRTUAL` generated columns **are** supported (InnoDB, since 10.2.3) â€” `PERSISTENT`/`STORED` is not required, and `COALESCE`/`IF`/`CONCAT` are deterministic enough to be legal in one.
+- **Gotchas**: `ALTER TABLE` on a table with an **indexed** virtual column is forced to `ALGORITHM=COPY` â€” every future migration on that table is a full rebuild, and `->algorithm('inplace')` errors. A generated column **cannot read** a column carrying `ON UPDATE CASCADE` / `ON UPDATE SET NULL` / `ON DELETE SET NULL`. `utf8mb4_0900_ai_ci` doesn't exist (that's MySQL 8); `utf8mb4_uca1400_*` needs 10.10+ â€” use `utf8mb4_unicode_ci`, since MariaDB's own default is the weaker `general_ci`. No `defaultStringLength(191)` needed: `innodb_default_row_format` has been `dynamic` since 10.2, giving 3072-byte keys. `JSON` is a `LONGTEXT` alias compared **as text**, and the `->`/`->>` operators don't exist until **13.1**. Identifiers cap at 64 chars and Laravel does not truncate â€” pass explicit names via `constrained(indexName: â€¦)`.
 - **First used in**: E-Commerce Catalog System (planned)
 
 ## Laravel 12 + Blade + MySQL (server-rendered commerce)
@@ -227,7 +227,7 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
 > **BATTLE-TESTED.** Shipped in **Basic Custom E-Commerce** (2026-08-27): Laravel 12.68,
 > PHP 8.3, Blade, MySQL 8/MariaDB 10.4, no Node, no queues. 199 tests / 564 assertions
 > green on both engines. These are `Known` confidence, unlike the `[LEARN]`
-> Laravel 13 + Inertia block above — which remains research-sourced and is **not**
+> Laravel 13 + Inertia block above â€” which remains research-sourced and is **not**
 > promoted by this project, because Inertia, React, Vite and Fortify were never used.
 
 ### Fail Closed on an Unverifiable Third-Party Response
@@ -249,13 +249,13 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   **pending**. Ship the integration complete and inert; one config change activates it
   once a human confirms the shape. Log the `reason` verbatim so the person resolving it
   is told exactly what was missing.
-- **Gotchas**: The failure mode must be asymmetric and you must say so out loud —
+- **Gotchas**: The failure mode must be asymmetric and you must say so out loud â€”
   refusing to settle a real payment is recoverable, marking an unpaid order paid is not.
   Make the ambiguity configurable where it is cheap (`TOYYIBPAY_AMOUNT_FORMAT=decimal|cents`)
   and have the mismatch log print **both** interpretations, so the correct setting is
   obvious from one live response. Write the "this is deliberate, not a bug" note into the
-  README and the deploy runbook — otherwise the next developer 'fixes' it by guessing.
-- **First used in**: Basic Custom E-Commerce — REQ-005 / OQ-11
+  README and the deploy runbook â€” otherwise the next developer 'fixes' it by guessing.
+- **First used in**: Basic Custom E-Commerce â€” REQ-005 / OQ-11
 
 ### OAuth Refresh-Token Rotation Under Concurrency
 - **Stack**: Laravel 11+, any OAuth 2 provider that rotates refresh tokens (EasyParcel Open API)
@@ -263,7 +263,7 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   find the access token expired will both refresh; rotation invalidates one of the results
   and the integration dies silently at the *next* refresh, hours later.
 - **Solution**: Serialise with an atomic cache lock and **re-read the token row inside the
-  lock** — the waiter must not act on the row it read before blocking:
+  lock** â€” the waiter must not act on the row it read before blocking:
   ```php
   return Cache::lock('provider:refresh', 10)->block(5, function () {
       $fresh = $this->token();                       // re-read INSIDE the lock
@@ -272,13 +272,13 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
       return $this->token()?->access_token;
   });
   ```
-- **Gotchas**: **Persisting the new refresh token is the whole point** — keeping the old one
+- **Gotchas**: **Persisting the new refresh token is the whole point** â€” keeping the old one
   is the silent killer. The `file` cache driver supports `Cache::lock()`, so this needs no
   Redis and no extra table. Tokens cannot live in `.env`: they rotate at runtime, and after
-  `config:cache` Laravel does not read `.env` at all — store them in a table with the
+  `config:cache` Laravel does not read `.env` at all â€” store them in a table with the
   Eloquent `encrypted` cast. Set the app cipher **before** the first token is written;
   changing it later makes existing ciphertext undecryptable.
-- **First used in**: Basic Custom E-Commerce — REQ-006
+- **First used in**: Basic Custom E-Commerce â€” REQ-006
 
 ### Money Across a Decimal-String API Boundary
 - **Stack**: PHP 8.3, any API returning prices as strings (EasyParcel `pricing.total_amount`)
@@ -286,7 +286,7 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   A `(int) ($amount * 100)` conversion reintroduces exactly the float error the integer
   storage exists to prevent.
 - **Solution**: One conversion function, called once at the service boundary, that never
-  multiplies by 100 as a float — split on the decimal point, pad to three places, and round
+  multiplies by 100 as a float â€” split on the decimal point, pad to three places, and round
   on the third digit as integers:
   ```php
   [$whole, $fraction] = array_pad(explode('.', $trimmed, 2), 2, '0');
@@ -294,11 +294,11 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   $minor = intdiv((int) $whole * 1000 + (int) $fraction + 5, 10);
   ```
   Reject anything not matching `/^-?\d+(\.\d+)?$/` rather than coercing it.
-- **Gotchas**: Round at the third decimal, don't truncate — `"10.999"` must become `1100`,
+- **Gotchas**: Round at the third decimal, don't truncate â€” `"10.999"` must become `1100`,
   not `1099`. Keep the reverse (`format()`) display-only and never parse it back for
   arithmetic. Some gateways take minor units directly (ToyyibPay `billAmount` is in cents),
   in which case the correct amount of conversion code is **none**.
-- **First used in**: Basic Custom E-Commerce — REQ-006
+- **First used in**: Basic Custom E-Commerce â€” REQ-006
 
 ### Forced First-Login Password Change (handover credentials)
 - **Stack**: Laravel 11+ with the default auth guard
@@ -314,17 +314,17 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   }
   ```
   Provide `php artisan shop:create-admin` using `$this->secret()` as the supported server
-  path — the password then never reaches the screen or shell history.
+  path â€” the password then never reaches the screen or shell history.
 - **Gotchas**: Set the flag even when a real password was supplied via env: the person who
   typed it into `.env` should not be the only one who knows it. Call
   `Auth::logoutOtherDevices()` on change. Enforce the policy with
   `Password::min(12)->letters()->numbers()` and require `current_password`.
-- **First used in**: Basic Custom E-Commerce — REQ-009
+- **First used in**: Basic Custom E-Commerce â€” REQ-009
 
 ### Guarded Atomic Update in Eloquent (Laravel form of the Race-Free Action Guard)
 - **Stack**: Laravel 11+, MySQL/MariaDB
 - **Problem**: Decrement stock, or transition an order to paid, exactly once under
-  concurrent callers — without `SELECT` then `UPDATE`.
+  concurrent callers â€” without `SELECT` then `UPDATE`.
 - **Solution**: Put the predicate in the write and check the affected row count. The query
   builder returns it:
   ```php
@@ -336,14 +336,14 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
       ->update(['payment_status' => PaymentStatus::Paid->value]) === 1;
   ```
   Only the caller that gets `1` proceeds. A duplicate gateway callback gets `0` and is a no-op.
-- **Gotchas**: Never `$model->decrement()` on a **loaded** model — that reads then writes and
+- **Gotchas**: Never `$model->decrement()` on a **loaded** model â€” that reads then writes and
   reintroduces the race. Test it against the **real engine**; SQLite will not tell the truth
   about these guarantees. When the guarded decrement fails after money was taken, flag the
   order (`needs_review`) rather than accepting it silently.
-- **First used in**: Basic Custom E-Commerce — REQ-005 / REQ-008
+- **First used in**: Basic Custom E-Commerce â€” REQ-005 / REQ-008
   (Laravel expression of *Atomic Race-Free Action Guard*, above.)
 
-### Route Model Binding — two traps in one nested admin resource
+### Route Model Binding â€” two traps in one nested admin resource
 - **Stack**: Laravel 11+
 - **Problem**: Two separate 404/500 bugs that both look like "the route is wrong".
 - **Solution**:
@@ -354,18 +354,18 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
      the **parameter name**: `{variation:id}` under `{product}` calls `Product::variations()`.
      If the relation is `variants()`, name the parameter `{variant}`. The URL segment
      (`/variations`) and the parameter name are independent.
-- **Gotchas**: Scoped binding is a bonus once the name is right — a child belonging to another
+- **Gotchas**: Scoped binding is a bonus once the name is right â€” a child belonging to another
   parent 404s before your own ownership check runs. Keep the explicit check anyway; it
   documents the invariant and survives a future route change.
-- **First used in**: Basic Custom E-Commerce — REQ-001 / REQ-002
+- **First used in**: Basic Custom E-Commerce â€” REQ-001 / REQ-002
 
 ### Renaming a Status Enum That Is Already in the Database
 - **Stack**: Laravel 11+, PHP 8.1+ backed enums, MySQL/MariaDB
 - **Problem**: A client wants their own operational vocabulary for a status column that is
-  already populated (`pending_payment` → `pending`, `paid` → `new_order`, `shipped` →
+  already populated (`pending_payment` â†’ `pending`, `paid` â†’ `new_order`, `shipped` â†’
   `in_delivery`, plus a genuinely new case).
 - **Solution**: Because the column is `VARCHAR` and the enum lives in PHP, this is a **data**
-  migration, not a schema one — but it is not optional: historical rows would otherwise hold
+  migration, not a schema one â€” but it is not optional: historical rows would otherwise hold
   values the enum can no longer cast, and **every read of them throws**. Remap, then move the
   column default, in one reversible migration:
   ```php
@@ -380,7 +380,7 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   system concludes (an oversell flag, a reconciliation hold) must not be assignable by hand:
   expose `selectable()` on the enum, restrict the form with
   `Rule::enum(Status::class)->only(Status::selectable())`, but keep every case in the **list
-  filter** so those rows stay findable. Critically — if the current value is not in the
+  filter** so those rows stay findable. Critically â€” if the current value is not in the
   `<select>`, the browser falls back to the **first option**, and saving the form silently
   reassigns the record. Render the current state as a selected `(current)` option when it is
   not selectable. Put domain predicates (`countsAsSale()`) on the enum so reports cannot drift
@@ -389,18 +389,18 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
 
 ### Dashboard Metrics You Do Not Have Data For
 - **Stack**: Any reporting UI built to a reference design
-- **Problem**: A dashboard mock specifies tiles the system has no data source for — ad spend
+- **Problem**: A dashboard mock specifies tiles the system has no data source for â€” ad spend
   and ROAS on a store that tracks no advertising, "paid + COD" on a prepaid-only store.
 - **Solution**: Never render a fabricated figure to fill a slot, and never render `0` for an
-  untracked metric — **"we spent nothing" is a different claim from "we do not track this"**.
+  untracked metric â€” **"we spent nothing" is a different claim from "we do not track this"**.
   Three honest options, in order of preference: (1) replace the tile with a metric the data
-  actually supports — average order value, payment conversion; (2) give the figure a real
+  actually supports â€” average order value, payment conversion; (2) give the figure a real
   admin-maintained source and compute from it; (3) render an explicit *Not tracked* state.
-  Where an average or ratio has no denominator, pass `null` and say so — an average of nothing
+  Where an average or ratio has no denominator, pass `null` and say so â€” an average of nothing
   is undefined, not zero. Same for percentage change against a zero baseline: "up from zero"
   is not a percentage; render a dash.
 - **Gotchas**: When you add a setting purely to feed a metric and then drop the metric, **remove
-  the setting too** — validation rule, accessor, form field and test — or it becomes cruft
+  the setting too** â€” validation rule, accessor, form field and test â€” or it becomes cruft
   behind a feature that no longer exists. Also check whether two tiles are structurally
   identical in *this* system before shipping both: a prepaid-only store's "sales" and
   "collection" coincide by construction, and the reference design only distinguished them
@@ -412,42 +412,42 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
 - **Problem**: Get a real admin template without adopting a Node build chain, and
   without loading it from a CDN at runtime.
 - **Solution**: AdminLTE 4 is a CSS/JS theme over Bootstrap 5.3, so in a Blade app it is
-  a **template choice, not a framework change** — routes, controllers and models are
+  a **template choice, not a framework change** â€” routes, controllers and models are
   untouched. Vendor four things into `public/`: `adminlte.min.css`, `adminlte.min.js`,
   Bootstrap's **`bootstrap.bundle.min.js`**, and Bootstrap Icons' CSS **plus its
   `fonts/*.woff2`**. Shell markup:
-  `app-wrapper` → `app-header` / `app-sidebar` (`data-bs-theme="dark"`) /
-  `app-main` → `app-content-header` + `app-content`. Sidebar toggling is
+  `app-wrapper` â†’ `app-header` / `app-sidebar` (`data-bs-theme="dark"`) /
+  `app-main` â†’ `app-content-header` + `app-content`. Sidebar toggling is
   `data-lte-toggle="sidebar"`; treeview is `data-lte-toggle="treeview"` on the `ul`.
-- **Gotchas**: AdminLTE's JS does **not** include Bootstrap's — dropdowns and the
+- **Gotchas**: AdminLTE's JS does **not** include Bootstrap's â€” dropdowns and the
   sidebar toggle need the bundle loaded first, in that order. Bootstrap Icons' CSS
   references `fonts/` **relative to itself**, so the directory layout must be preserved;
-  assert the resolved path on disk in a test (not over HTTP — serving static files is the
+  assert the resolved path on disk in a test (not over HTTP â€” serving static files is the
   web server's job and the router will 404 them). `woff2` precedes `woff` in the
   `@font-face` src, so shipping only the woff2 is safe. Delete any hand-rolled sidebar CSS
   the theme now owns rather than leaving it to collide. Pin the version: AdminLTE 4 moved
-  4.3 → 4.9 inside a few months.
+  4.3 â†’ 4.9 inside a few months.
 - **First used in**: Basic Custom E-Commerce (admin panel, 2026-08-27)
 
 ### Laravel Without Node (server-rendered, no build step)
 - **Stack**: Laravel 11+/12, Blade + Bootstrap, cheap VPS or shared hosting
 - **Problem**: The skeleton ships Vite + Tailwind, so deploying a CSS file requires Node on
-  the build host — real operational cost for a server-rendered site with one stylesheet.
+  the build host â€” real operational cost for a server-rendered site with one stylesheet.
 - **Solution**: Delete `package.json`, `vite.config.js` and `resources/css|js`. Vendor the CSS
   framework into `public/css/` and reference it with `asset()`. Strip every `npm`/`vite` line
   from `composer.json` scripts. Product uploads go to a `public/uploads` filesystem disk, so
   `storage:link` is not needed either.
 - **Gotchas**: The skeleton's `welcome.blade.php` calls `@vite` behind a manifest check, so it
-  silently keeps working — delete it or you ship a page pulling a remote font CDN. Assert the
+  silently keeps working â€” delete it or you ship a page pulling a remote font CDN. Assert the
   absence in a test (`assertStringNotContainsString('/build/assets', $html)`), otherwise a
   future package quietly reintroduces the dependency. Removing Vite deviates from the stock
   skeleton, so record it as a decision, not a silent omission.
 - **First used in**: Basic Custom E-Commerce
 
-### Laravel 12 — `authorizeResource()` Is Dead, Use `HasMiddleware`
+### Laravel 12 â€” `authorizeResource()` Is Dead, Use `HasMiddleware`
 - **Stack**: Laravel 11+/12, resource controllers
 - **Problem**: `$this->authorizeResource(Model::class, 'model')` in a controller constructor
-  throws `Call to undefined method ...::middleware()` at request time — not at boot, so it
+  throws `Call to undefined method ...::middleware()` at request time â€” not at boot, so it
   looks like a routing fault.
 - **Solution**: Laravel 11 moved middleware out of controllers, and the base `Controller` no
   longer has `middleware()`. `AuthorizesRequests::authorizeResource()` still calls it.
@@ -471,11 +471,11 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
 - **Gotchas**: keep the `AuthorizesRequests` trait only if a method still calls
   `$this->authorize()` directly. Route-model binding runs in `SubstituteBindings` (web group)
   **before** a route-level `admin` middleware, so an unauthorised request to a *nonexistent*
-  id returns **404, not 403** — a test asserting 403 must use a real record or it passes for
+  id returns **404, not 403** â€” a test asserting 403 must use a real record or it passes for
   the wrong reason.
-- **First used in**: Daily Spend — REQ-05…REQ-13 (2026-08-29)
+- **First used in**: Daily Spend â€” REQ-05â€¦REQ-13 (2026-08-29)
 
-### Laravel 12 — `APP_TIMEZONE` Is Silently Ignored
+### Laravel 12 â€” `APP_TIMEZONE` Is Silently Ignored
 - **Stack**: Laravel 11+/12 (slim skeleton)
 - **Problem**: `APP_TIMEZONE=Asia/Kuala_Lumpur` in `.env` has no effect. `config('app.timezone')`
   stays `UTC`, `now()` returns UTC, and anything anchored to the app clock (scheduler,
@@ -486,7 +486,7 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   ```php
   $this->assertSame(env('APP_TIMEZONE'), config('app.timezone'));
   ```
-- **Gotchas**: this is invisible until two clocks are compared — the app looked fine because
+- **Gotchas**: this is invisible until two clocks are compared â€” the app looked fine because
   every *user-facing* query used `$user->timezone`. It surfaced only when demo data seeded with
   `now()` failed to appear under "today". Any project mixing `config('app.timezone')` and a
   per-user timezone needs this assertion.
@@ -495,26 +495,26 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
 ### Date Columns Are Calendar Days, Not Instants
 - **Stack**: Any ORM over MySQL/MariaDB with a `DATE` column
 - **Problem**: a scheduled job compared `$model->next_date` (a `DATE` cast to Carbon) against
-  `Carbon::now($user->timezone)->startOfDay()`. Same printed value, different instants —
-  midnight-UTC vs midnight-UTC+8 — so `lte()` returned **false** and a due-today record never
+  `Carbon::now($user->timezone)->startOfDay()`. Same printed value, different instants â€”
+  midnight-UTC vs midnight-UTC+8 â€” so `lte()` returned **false** and a due-today record never
   fired. Silent: no error, just nothing happening.
 - **Solution**: compare calendar dates as calendar dates. ISO strings sort and compare
   correctly and carry no zone:
   ```php
   $today = Carbon::now($tz)->toDateString();
-  while ($model->next_date->toDateString() <= $today) { … }
+  while ($model->next_date->toDateString() <= $today) { â€¦ }
   ```
-  Same for equality — `->toDateString() === $tomorrow` rather than `isSameDay()`.
+  Same for equality â€” `->toDateString() === $tomorrow` rather than `isSameDay()`.
 - **Gotchas**: the failure only appears when the app clock and the user clock straddle
   midnight, so it passes all day and breaks for a window each night. Storing the column as
-  `DATE` (not `DATETIME`) is the right call and removes conversion from every report path —
+  `DATE` (not `DATETIME`) is the right call and removes conversion from every report path â€”
   but only if the *comparisons* respect that too.
-- **First used in**: Daily Spend — REQ-13 (2026-08-29)
+- **First used in**: Daily Spend â€” REQ-13 (2026-08-29)
 
-### Privilege Columns Must Not Be Fillable — and the Silent No-Op That Follows
+### Privilege Columns Must Not Be Fillable â€” and the Silent No-Op That Follows
 - **Stack**: Laravel, any version
 - **Problem**: `users.role` and `users.status` were correctly kept out of `$fillable`. An admin
-  controller then did `$user->update(['status' => $validated['status']])` — which mass-assignment
+  controller then did `$user->update(['status' => $validated['status']])` â€” which mass-assignment
   protection silently discards. **Suspending a user did nothing, with no error and a success
   toast.** A green-looking feature that had never worked.
 - **Solution**: keep privilege out of `$fillable`, and give the model one explicit method that
@@ -530,19 +530,19 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   Any field deliberately excluded from `$fillable` needs a named mutator, or every future
   caller reintroduces the bug. A feature test asserting the *resulting state* catches it;
   one asserting the redirect does not.
-- **First used in**: Daily Spend — REQ-20 (2026-08-29)
+- **First used in**: Daily Spend â€” REQ-20 (2026-08-29)
 
 ### Laravel on Native Windows 11 (no WSL)
 - **Stack**: Laravel 13, Windows 11, Vite 8
 - **Problem**: which local environment, and what silently degrades.
-- **Solution**: **XAMPP is disqualified** — current Windows builds cap at PHP 8.2.12 and Laravel 13 requires ^8.3. Use **Herd for Windows** (MySQL is a Pro feature, $99/yr) or **Laragon 8.6.1** (free, bundles MySQL 9.6 — but use nginx, not Apache, on PHP 8.5). `herd secure` matters more than it sounds: **three Laravel 13 / Inertia 3 features degrade silently on plain HTTP** — `Sec-Fetch-Site` CSRF checking (`PreventRequestForgery` returns **403, not 419**), history encryption (`crypto.subtle` is secure-context-only), and secure cookies. `laravel-vite-plugin` auto-detects Herd's cert via `detectTls` (`valetTls` is deprecated).
-- **Gotchas**: **Horizon is confirmed broken** on native Windows — needs `ext-pcntl` *and* `ext-posix`, neither of which PHP-on-Windows has; Herd's maintainers say it's not solvable. `php artisan dev` is degraded: the tabbed `@laravel/multiplex` UI is macOS/Linux only and Pail needs `pcntl_fork`, so you get 3 of 4 processes. Queue workers: Supervisor is Linux-only, use NSSM. You do **not** need Vite `usePolling` on native Windows — every documented case is WSL2/VM/Docker. `resolve.tsconfigPaths` fails on Windows during the **SSR** build (Vite 8 + Rolldown, rolldown#8732). `Cannot find module '../rolldown-binding.win32-x64-msvc.node'` → delete `node_modules` **and** `package-lock.json`, reinstall. Avoid project paths that are deep or contain spaces. NTFS case-insensitivity lets `import './button'` resolve `Button.tsx` locally and break on Linux CI.
+- **Solution**: **XAMPP is disqualified** â€” current Windows builds cap at PHP 8.2.12 and Laravel 13 requires ^8.3. Use **Herd for Windows** (MySQL is a Pro feature, $99/yr) or **Laragon 8.6.1** (free, bundles MySQL 9.6 â€” but use nginx, not Apache, on PHP 8.5). `herd secure` matters more than it sounds: **three Laravel 13 / Inertia 3 features degrade silently on plain HTTP** â€” `Sec-Fetch-Site` CSRF checking (`PreventRequestForgery` returns **403, not 419**), history encryption (`crypto.subtle` is secure-context-only), and secure cookies. `laravel-vite-plugin` auto-detects Herd's cert via `detectTls` (`valetTls` is deprecated).
+- **Gotchas**: **Horizon is confirmed broken** on native Windows â€” needs `ext-pcntl` *and* `ext-posix`, neither of which PHP-on-Windows has; Herd's maintainers say it's not solvable. `php artisan dev` is degraded: the tabbed `@laravel/multiplex` UI is macOS/Linux only and Pail needs `pcntl_fork`, so you get 3 of 4 processes. Queue workers: Supervisor is Linux-only, use NSSM. You do **not** need Vite `usePolling` on native Windows â€” every documented case is WSL2/VM/Docker. `resolve.tsconfigPaths` fails on Windows during the **SSR** build (Vite 8 + Rolldown, rolldown#8732). `Cannot find module '../rolldown-binding.win32-x64-msvc.node'` â†’ delete `node_modules` **and** `package-lock.json`, reinstall. Avoid project paths that are deep or contain spaces. NTFS case-insensitivity lets `import './button'` resolve `Button.tsx` locally and break on Linux CI.
 - **First used in**: E-Commerce Catalog System (planned)
 
-### Registry-Backed RBAC — `Gate::before` That Cannot Become a Bypass
+### Registry-Backed RBAC â€” `Gate::before` That Cannot Become a Bypass
 - **Stack**: Laravel 12 (any version with `Gate::before`), Inertia + Vue frontend
 - **Problem**: a granular permission system needs `$user->can('staff.create')` to work without
-  defining a Gate per slug — but the obvious `Gate::before` that grants it also short-circuits
+  defining a Gate per slug â€” but the obvious `Gate::before` that grants it also short-circuits
   every model-bound policy, including tenant scoping. That turns a convenience into an IDOR
   generator the moment multi-tenancy lands.
 - **Solution**: `before` answers **only** argument-free abilities, and returns `null` on a miss.
@@ -556,22 +556,22 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   });
   ```
   Verified in the framework source: `Gate::callBeforeCallbacks()` calls
-  `$before($user, $ability, $arguments)` — the third argument is real, not assumed.
+  `$before($user, $ability, $arguments)` â€” the third argument is real, not assumed.
   Pair it with a `BasePolicy` whose every ability routes through one `allows()` method, so the
   tenant check has exactly one place to be added later.
 - **Gotchas**: returning `false` instead of `null` on a miss silently kills every non-registry
   gate. The permission registry belongs in **code** (a `Permissions` class) with the table as its
-  projection — validating `permissions.*` against the code list is what stops a crafted payload
+  projection â€” validating `permissions.*` against the code list is what stops a crafted payload
   attaching an arbitrary string as a grant. And a superuser must hold every permission as
   **explicit rows**, never a wildcard or an `is_admin` flag: the moment a bypass exists, the
   granular registry is decoration.
-- **First used in**: larisHQ — PH02 (2026-09-01)
+- **First used in**: larisHQ â€” PH02 (2026-09-01)
 
-### The Grant Ceiling — a user may never hand out what they do not hold
+### The Grant Ceiling â€” a user may never hand out what they do not hold
 - **Stack**: any role/permission system with user-management permissions
 - **Problem**: `staff.create` looks like a modest permission. With role assignment unguarded it
   is **full compromise**: create a user, attach the all-powerful role, choose its password, log
-  in as it. The same hole exists one door along — if `roles.create` can author a role out of
+  in as it. The same hole exists one door along â€” if `roles.create` can author a role out of
   permissions its author lacks, role creation becomes the escalation path instead.
 - **Solution**: one predicate, enforced on both doors.
   ```php
@@ -584,12 +584,12 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   **authoring** against the posted permission list. Then narrow the forms to the same set, so the
   UI never offers a checkbox the validator will refuse.
 - **Gotchas**: this is invisible in a fresh install, because the seeded superuser holds
-  everything and passes trivially — it only bites the first real custom role. Test it in both
+  everything and passes trivially â€” it only bites the first real custom role. Test it in both
   directions: a rejection *and* an acceptance, or a too-strict ceiling ships unnoticed.
   Editing an existing role that already exceeds your ceiling correctly fails closed.
-- **First used in**: larisHQ — PH02 (2026-09-01)
+- **First used in**: larisHQ â€” PH02 (2026-09-01)
 
-### Subdomain Multi-Tenancy on Laravel 12 — the four things that actually bite
+### Subdomain Multi-Tenancy on Laravel 12 â€” the four things that actually bite
 - **Stack**: Laravel 12, Inertia 3, shared-schema tenancy (`tenant_id`), subdomain per tenant
 - **Problem**: `Route::domain('{tenant}.'.$domain)` plus a global scope looks like a twenty-line
   feature. Four framework behaviours make it not one, and every one of them fails at runtime in a
@@ -598,24 +598,24 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   1. **Resolve the tenant in a middleware *group*, never an alias.** `Authenticate` and
      `SubstituteBindings` are in the framework's middleware priority list, so route middleware runs
      *after* them. Resolve later than the guard and `EloquentUserProvider` looks a user up with no
-     tenant bound — the scope has nothing to apply. Prepend to `web`, and no-op when the route has
+     tenant bound â€” the scope has nothing to apply. Prepend to `web`, and no-op when the route has
      no `{tenant}` parameter.
   2. **`$route->forgetParameter('tenant')` once bound.** Otherwise Laravel passes the subdomain as
      the **first argument to every action in the group**, and every controller you ever write has
      to declare a parameter it never uses. The symptom is
      `destroy(): Argument #1 ($role) must be of type Role, string given`.
   3. **`URL::defaults(['tenant' => $slug])`, or `route()` throws.** Any named route inside the
-     domain group needs the domain parameter — including the `route('login')` the unauthenticated
+     domain group needs the domain parameter â€” including the `route('login')` the unauthenticated
      handler calls, which turns a redirect into a 500.
   4. **Set `redirectGuestsTo()` in `bootstrap/app.php`, not a service provider.** The framework
      registers its own `fn () => route('login')` inside `afterResolving(HttpKernel::class)`, which
      runs *after* providers boot and silently wins.
 - **Gotchas**: `EloquentUserProvider::retrieveById()` uses `newQuery()`, so global scopes **do**
-  apply to authentication — that is what makes `unique(tenant_id, email)` work, and it means a
+  apply to authentication â€” that is what makes `unique(tenant_id, email)` work, and it means a
   foreign session simply resolves to no user rather than erroring. A shared `SESSION_DOMAIN=.{domain}`
   cookie spans every subdomain: do **not** invalidate the session when a user lands on another
   tenant's host, or visiting a URL signs them out of their own.
-- **First used in**: larisHQ — PH03 (2026-09-01)
+- **First used in**: larisHQ â€” PH03 (2026-09-01)
 
 ### Tenant Scope: read open, write closed
 - **Stack**: any shared-schema multi-tenant ORM with global scopes
@@ -641,13 +641,13 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   An unscoped read shows too much and a test catches it. An unscoped write corrupts data and
   nothing catches it. Add a `RequireTenant` middleware on tenant route groups so a group added
   later without the domain constraint is a loud 500, not a quiet cross-tenant read.
-- **Gotchas**: keep `tenant_id` **out of `$fillable`** — and then remember that
-  `updateOrCreate(['tenant_id' => $id, …])` silently drops it from the new instance and your own
+- **Gotchas**: keep `tenant_id` **out of `$fillable`** â€” and then remember that
+  `updateOrCreate(['tenant_id' => $id, â€¦])` silently drops it from the new instance and your own
   write-refusal throws. Use `firstOrNew()` and assign explicitly. The lookup half of the attributes
   still scopes correctly; only the instantiation drops them.
-- **First used in**: larisHQ — PH03 (2026-09-01)
+- **First used in**: larisHQ â€” PH03 (2026-09-01)
 
-### Declared Settings Registry — code owns the keys, the table owns the overrides
+### Declared Settings Registry â€” code owns the keys, the table owns the overrides
 - **Stack**: Laravel (any), applies to any per-account settings store
 - **Problem**: "add a settings table" produces a free-form key/value store with no type, no
   default and no validation. A misspelled key then reads as *unset* and the caller falls back
@@ -668,23 +668,23 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   declared default. An undeclared key **throws** rather than returning null. The UI renders from
   the registry and the FormRequest generates its rules from it, so the screen cannot show a field
   the validator would reject, and the validator cannot accept a key nothing reads.
-- **Gotchas**: **memoise per account, not globally** — a queue worker handles several tenants in
+- **Gotchas**: **memoise per account, not globally** â€” a queue worker handles several tenants in
   one process and a flat cache serves one customer's settings to another. Starting with a single
   entry is correct and honest: a phase adds a key when it has something to read, and the phase
   that needs the value adds a key instead of building a store.
-- **First used in**: larisHQ — PH04 (2026-09-01)
+- **First used in**: larisHQ â€” PH04 (2026-09-01)
 
-### Configurable-Depth Hierarchy — adjacency list, strict adjacency, no closure table
+### Configurable-Depth Hierarchy â€” adjacency list, strict adjacency, no closure table
 - **Stack**: Laravel + MySQL/MariaDB; any ORM with a self-referencing table
 - **Problem**: "1 to 8 configurable levels, names chosen by the customer" is repeatedly built as
-  `level_1_id … level_8_id`, which hardcodes the maximum, wastes seven columns on a two-level
+  `level_1_id â€¦ level_8_id`, which hardcodes the maximum, wastes seven columns on a two-level
   customer, and makes "who is above this person" a different query per depth.
 - **Solution**: `levels` (number, customer-chosen name) + `members` (`parent_id`, `level_id`),
-  and **strict adjacency** — a member's parent must sit on exactly the level above. That single
+  and **strict adjacency** â€” a member's parent must sit on exactly the level above. That single
   rule buys three things:
   1. Cycles become *structurally impossible*: level numbers strictly decrease going up. Keep the
      bounded parent walk anyway as defence in depth, but do not describe it as the guard.
-  2. The tree renders from one query — group by `parent_id`, nest recursively. A closure table is
+  2. The tree renders from one query â€” group by `parent_id`, nest recursively. A closure table is
      maintenance for a depth-bounded problem that does not have it.
   3. A customer wanting a flatter network configures fewer levels, which is what the range is for.
   Enforce the maximum in **three** places: the service (so the customer gets a sentence), the HTTP
@@ -693,16 +693,16 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   DB::statement('ALTER TABLE network_levels ADD CONSTRAINT levels_range CHECK (level_number BETWEEN 1 AND 8)');
   ```
 - **Gotchas**: deletion is the sharp edge. Refuse while a member has **any** child, not just an
-  active one — detaching an inactive child leaves it below the top level with no parent, which
+  active one â€” detaching an inactive child leaves it below the top level with no parent, which
   adjacency says cannot exist. Make routine removal a status change instead. Levels may be added
   at the bottom and renamed freely (the id is the key, the name is a label), but a populated level
   can never be deleted or renumbered, and only the *deepest* level may be removed at all.
-- **First used in**: larisHQ — PH05 (2026-09-01)
+- **First used in**: larisHQ â€” PH05 (2026-09-01)
 
 ### Configurable Categories Without Code Branches (channels, tags, sources, types)
 - **Stack**: any; shown in Laravel + a pivot table
-- **Problem**: a requirement lists options by name — "Facebook Ads only", "Google Ads only", "a
-  mix of both", "any channel the customer adds" — and it reads like four features. Built that way
+- **Problem**: a requirement lists options by name â€” "Facebook Ads only", "Google Ads only", "a
+  mix of both", "any channel the customer adds" â€” and it reads like four features. Built that way
   it becomes an enum plus `if ($channel === 'facebook')`, and the fourth condition quietly becomes
   a lie.
 - **Solution**: the named options are **rows**, and the conditions are **states of one pivot**.
@@ -714,68 +714,68 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   | anything the customer adds | customer inserts a row; assignment is unchanged |
   Ship the named ones as **seed data in config**, not constants in code, and seed them **once** at
   provisioning. Then prove it with a test that **invents an option inside the test at runtime**,
-  assigns it, and asserts it works — and a second test that greps the application source for the
+  assigns it, and asserts it works â€” and a second test that greps the application source for the
   named options and requires zero hits.
-- **Gotchas**: seed once, never re-sync — a "create if missing" walk cannot distinguish "never
+- **Gotchas**: seed once, never re-sync â€” a "create if missing" walk cannot distinguish "never
   created" from "deleted on purpose", so it resurrects what the customer removed. Never delete an
   option that has been used; deactivate, because assignments and (later) snapshots reference it.
-  And **strip comments before running the grep guard** — the comment explaining why no branch
+  And **strip comments before running the grep guard** â€” the comment explaining why no branch
   exists contains the very words the guard forbids.
-- **First used in**: larisHQ — PH06 (2026-09-01)
+- **First used in**: larisHQ â€” PH06 (2026-09-01)
 
-### Stock Ledger — one writer, guarded decrements, reconcilable history
+### Stock Ledger â€” one writer, guarded decrements, reconcilable history
 - **Stack**: any SQL database; shown in Laravel + MariaDB
-- **Problem**: inventory goes wrong in two ways that both look fine in testing — a stock change
+- **Problem**: inventory goes wrong in two ways that both look fine in testing â€” a stock change
   that leaves no history, and two concurrent orders that each check availability, each see
   enough, and both take it.
 - **Solution**: one service is the *only* thing that changes a quantity, and every change writes
   its movement in the same transaction. The decrement is a **guarded conditional update**:
   ```php
   $updated = Stock::whereKey($id)->where('quantity', '>=', $qty)->decrement('quantity', $qty);
-  if ($updated === 0) { throw InsufficientStock::…; }   // someone got there first
+  if ($updated === 0) { throw InsufficientStock::â€¦; }   // someone got there first
   ```
   The check and the write are one statement, evaluated by the database, so two callers cannot
   both pass it. Back it with a `CHECK (quantity >= 0)` for anything that ever bypasses the
   service. Movements carry a **signed** quantity and no running balance, so "level == sum of
   movements" stays a real assertion rather than a comparison of two copies of one number.
-- **Gotchas**: a transfer must be one transaction wrapping a guarded decrement and an increment —
+- **Gotchas**: a transfer must be one transaction wrapping a guarded decrement and an increment â€”
   then a short source throws and *neither* side moves, which is the only honest meaning of
   "atomic". Keep the level as a stored column rather than summing history on read: availability
   has to be checked inside the guarded update, and summing under a lock is a different and much
   slower thing. And note what you have *not* tested: a transactional test harness cannot exercise
-  true parallelism, because a second connection blocks on row locks instead of racing — say so
+  true parallelism, because a second connection blocks on row locks instead of racing â€” say so
   rather than implying the concurrency is proven.
-- **First used in**: larisHQ — PH08 (2026-09-02)
+- **First used in**: larisHQ â€” PH08 (2026-09-02)
 
 ### Data Minimisation You Can Actually Enforce
 - **Stack**: any; shown in Laravel + Pest
 - **Problem**: "collect only what is necessary" is a sentence in a specification. Six months
   later the table has a date of birth, an identity number and a free-text notes field that
-  someone has been pasting medical details into — each added reasonably, none decided.
+  someone has been pasting medical details into â€” each added reasonably, none decided.
 - **Solution**: make the *absence* of columns testable.
   ```php
   it('collects only the fields the specification lists', function () {
       expect(Schema::getColumnListing('customers'))->toBe([
-          'id', 'tenant_id', 'code', 'name', 'email', 'phone', /* … */ 'created_at', 'updated_at',
+          'id', 'tenant_id', 'code', 'name', 'email', 'phone', /* â€¦ */ 'created_at', 'updated_at',
       ]);
   });
   ```
   Adding a field now fails the suite, so it has to be argued for in a pull request rather than
   slipped in. Pair it with a **removal path that actually erases**: delete the row when nothing
-  references it, and when history depends on it, anonymise in place — clear every personal field,
+  references it, and when history depends on it, anonymise in place â€” clear every personal field,
   keep the row and its internal code so totals still reconcile.
 - **Gotchas**: name the personal fields **once**, as a constant on the model, and have both the
-  anonymiser and the guard read it — otherwise the two drift and a field added to one is missed
+  anonymiser and the guard read it â€” otherwise the two drift and a field added to one is missed
   by the other. "Deactivate" is not erasure and should not be described as it. And keep an
   internal handle (a code) out of the personal list: orders are read by it, and it identifies a
   record rather than a person.
-- **First used in**: larisHQ — PH09 (2026-09-02)
+- **First used in**: larisHQ â€” PH09 (2026-09-02)
 
 ### Snapshot Every Input a Money Record Depends On
-- **Stack**: any transactional system — orders, invoices, payroll, commission
+- **Stack**: any transactional system â€” orders, invoices, payroll, commission
 - **Problem**: an order is written today and read in two years. If it *joins* to the product's
   price, the customer's tier, the salesperson's team or the item's cost, then every one of those
-  changing quietly rewrites history — and the rewrite is invisible, because the query still
+  changing quietly rewrites history â€” and the rewrite is invisible, because the query still
   returns a number that looks right.
 - **Solution**: at the moment the record is created, **copy** every input into it. Not just the
   obvious one:
@@ -788,20 +788,20 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
                marketing_channel_id
   ```
   The test that proves it is not "the order has a price" but **"change the price afterwards and
-  assert the order does not move"** — plus the same for every other copied input.
+  assert the order does not move"** â€” plus the same for every other copied input.
 - **Gotchas**: the cost snapshot is the one people miss, because nothing on the order screen shows
-  it — it surfaces a phase later when commission is computed from *today's* cost and quietly
+  it â€” it surfaces a phase later when commission is computed from *today's* cost and quietly
   overpays or underpays. Keep the cart free of prices entirely so the line is created exactly
   once; a draft carrying snapshots has to rewrite its own lines whenever the buyer changes. And
   make every attribution foreign key `restrict` on delete: the record must never lose the answer
   to a question it was designed to answer.
-- **First used in**: larisHQ — PH10 (2026-09-02)
+- **First used in**: larisHQ â€” PH10 (2026-09-02)
 
 ### Enforcing a Constraint on a SUM (payments, credit limits, quotas)
 - **Stack**: any SQL database; shown in Laravel + MariaDB
 - **Problem**: "recorded payments must never exceed the order total" reads like the stock problem
-  and is not. Stock lives in **one row**, so `UPDATE … WHERE quantity >= ?` decides atomically. A
-  payment total is a **sum across rows**, and no single-row condition can express it — so the
+  and is not. Stock lives in **one row**, so `UPDATE â€¦ WHERE quantity >= ?` decides atomically. A
+  payment total is a **sum across rows**, and no single-row condition can express it â€” so the
   obvious `if (sum + amount > total) reject;` is a read-then-write race, and two concurrent
   payments can both pass it.
 - **Solution**: lock the **parent** for the duration, then take the sum under that lock.
@@ -819,19 +819,19 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   Concurrent writers against the same parent queue instead of racing, and writers against
   *different* parents are unaffected.
 - **Gotchas**: pick the tool from the **shape of the constraint**, not from what worked last time
-  — a single-row guard and a parent lock are both correct, for different shapes. Use **signed
-  amounts** so payments and refunds are one table and one invariant (`0 ≤ sum ≤ total`) covers
+  â€” a single-row guard and a parent lock are both correct, for different shapes. Use **signed
+  amounts** so payments and refunds are one table and one invariant (`0 â‰¤ sum â‰¤ total`) covers
   both ends. Never store the running balance: the whole requirement is that it reconciles, and a
   stored copy turns that into a comparison of two copies of one number. And take the amount from
-  the user as **positive plus a direction** — a typed minus sign is an expensive typo.
-- **First used in**: larisHQ — PH11 (2026-09-02)
+  the user as **positive plus a direction** â€” a typed minus sign is an expensive typo.
+- **First used in**: larisHQ â€” PH11 (2026-09-02)
 
 ### First-Match Rule Chains (commission rates, pricing tiers, discount policies)
 - **Stack**: any; shown in Laravel + MariaDB
 - **Problem**: "the product rate wins, else the category rate, else the customer's own, else the
-  default" is usually built as one table with several nullable scope columns — and then two
+  default" is usually built as one table with several nullable scope columns â€” and then two
   things go wrong. A row sets *two* scopes and nobody knows which step it belongs to; and a plain
-  `UNIQUE(tenant, product_id, category_id, …)` silently permits two defaults, because SQL treats
+  `UNIQUE(tenant, product_id, category_id, â€¦)` silently permits two defaults, because SQL treats
   NULLs as distinct.
 - **Solution**: make both impossible in the schema.
   ```sql
@@ -843,19 +843,19 @@ Ziggy is displaced by `laravel/wayfinder` (still pre-1.0 at 0.1.21). Axios was r
   ADD COLUMN scope_key VARCHAR(40) AS (CASE
       WHEN product_id  IS NOT NULL THEN CONCAT('product:',  product_id)
       WHEN category_id IS NOT NULL THEN CONCAT('category:', category_id)
-      … ELSE 'default' END) STORED;
+      â€¦ ELSE 'default' END) STORED;
   UNIQUE (tenant_id, scope_key)
   ```
-  The generated column has one source — the scope columns — so it cannot drift. Resolve by
+  The generated column has one source â€” the scope columns â€” so it cannot drift. Resolve by
   fetching every candidate in one query and ranking in PHP by a `specificity()` derived from
   which column is set; ranking in SQL means a CASE expression that must be kept in step with the
   code's ordering.
-- **Gotchas**: build the test as the **whole chain, then dismantle it** — one test per step,
+- **Gotchas**: build the test as the **whole chain, then dismantle it** â€” one test per step,
   deleting the more specific rule each time, plus the empty case. `where('col', null)` compiles to
   `= NULL` and matches nothing, so add each `orWhere` only when there is a value. And snapshot the
   resolved rate **and its type** onto whatever the rule produced: the point of a rule chain is
   that it changes, and history must not change with it.
-- **First used in**: larisHQ — PH12 (2026-09-02)
+- **First used in**: larisHQ â€” PH12 (2026-09-02)
 
 ---
 
@@ -881,7 +881,7 @@ carried over from console use will still point wherever the console last set it.
 **Solution:** tag permission *groups* with a surface and derive `consoleSlugs()`/`portalSlugs()`;
 give the widest console role `consoleSlugs()`, not everything.
 **Payoff:** if the codebase already has a "a grant can never exceed the granter" rule filtering the
-role editor and the role picker, the split enforces itself — no console user holds a portal slug,
+role editor and the role picker, the split enforces itself â€” no console user holds a portal slug,
 so those pickers never offer one. State the rule explicitly as well, so a future template that
 carried the wrong slug cannot quietly reopen it.
 
@@ -890,7 +890,7 @@ carried the wrong slug cannot quietly reopen it.
 yet.
 **Solution:** walk `Route::getRoutes()`, reject the portal's own name prefix and shared auth, and
 assert the portal user is refused on each. **Add a third test asserting the enumeration is
-non-empty** — the failure mode of an enumerated guard is that it silently enumerates zero and
+non-empty** â€” the failure mode of an enumerated guard is that it silently enumerates zero and
 passes forever.
 
 ### 4. Crossing between two root-view shells needs a full page visit
@@ -904,7 +904,7 @@ portal user visiting `/login` is bounced to an admin route they cannot open.
 
 ### 5. Ship the grant path, or the surface is unreachable
 A portal is not delivered until an admin can *open* it. A service method that mints a login is not a
-feature until a route and a control call it — grep for a production caller before calling the phase
+feature until a route and a control call it â€” grep for a production caller before calling the phase
 done. This shipped as two complete portals that nobody could sign in to, because the login-issuing
 service had had no caller since the phase that wrote it.
 
@@ -923,8 +923,8 @@ Same shape as a permission or settings registry.
 ### 2. Derive the tenant from the audited record, never from the request
 `tenant_id = $model->tenant_id ?? ($model instanceof Tenant ? $model->id : null)`. No read of
 request state at all, which is what makes one audit helper work identically in a tenant request, an
-admin-console request that binds no tenant, a queued job and a console command. The alternative —
-filling it from the bound tenant — breaks on every surface that has none.
+admin-console request that binds no tenant, a queued job and a console command. The alternative â€”
+filling it from the bound tenant â€” breaks on every surface that has none.
 
 ### 3. Two actor columns beat one polymorphic pair
 When a system has exactly two identity tables (tenant users and platform operators) and a
@@ -938,18 +938,18 @@ filters `tenant_id = X`) and visible on the console that binds no tenant (the sc
 The isolation you already built answers the new question without a special case.
 
 **Gotcha:** a "refuse writes with no tenant" guard will reject that row. Make the guard ask
-`array_key_exists`, not `!== null` — it exists to catch *forgetting*, and an explicit null is an
+`array_key_exists`, not `!== null` â€” it exists to catch *forgetting*, and an explicit null is an
 answer. The NOT NULL constraint on genuinely tenant-owned tables is the real backstop.
 
 ### 5. Never deliver a new permission by re-running the role provisioner
 A provisioning routine that replays role templates rewrites names, descriptions and permission sets.
 Safe at creation, destructive afterwards. To give existing tenants a newly added permission, sync
-only the "holds everything" role — where a full sync is definitionally correct and the policy
-already forbids editing it — and leave every customised role alone.
+only the "holds everything" role â€” where a full sync is definitionally correct and the policy
+already forbids editing it â€” and leave every customised role alone.
 
 ### 6. Order any list whose timestamp has one-second resolution by a tiebreak
 `ORDER BY created_at DESC, id DESC`. With a UUID key the tiebreak is arbitrary but *stable*, which
-is what a reader needs — an unstable chronological order reshuffles the page on every load.
+is what a reader needs â€” an unstable chronological order reshuffles the page on every load.
 
 ### 7. Auditing anonymisation
 The one place where recording carelessly undoes the operation. Record the internal handle and the
@@ -965,10 +965,10 @@ event; never the values you just cleared.
 
 #### Ask the Provider What the Token Actually Holds
 
-- **Stack**: Any OAuth/token API — verified on Meta Threads (Laravel 12 + Inertia 3 + Vue 3.5)
+- **Stack**: Any OAuth/token API â€” verified on Meta Threads (Laravel 12 + Inertia 3 + Vue 3.5)
 - **Problem**: A permission granted by App Review changes what an endpoint *returns*
   without changing its **status code**. Threads `keyword_search` answers `200` whether or
-  not `threads_keyword_search` was approved — unapproved, it silently searches only the
+  not `threads_keyword_search` was approved â€” unapproved, it silently searches only the
   authenticated user's own posts. A short result list is indistinguishable from a quiet
   keyword. The tempting workaround is a checkbox in Settings where the operator records
   what App Review said. That is an assertion, and it decays: it is wrong the moment a
@@ -981,7 +981,7 @@ event; never the values you just cleared.
   The same call usually yields two more things worth having: the token's expiry, and the
   account id that write endpoints need.
 - **Gotchas**: Meta documents the *inspecting* token as belonging to "a Threads tester",
-  so introspection may be refused on a production app — degrade to the old wording and
+  so introspection may be refused on a production app â€” degrade to the old wording and
   say "unconfirmed" rather than failing the connection or claiming a scope. `is_valid`
   absent is not `is_valid: false`; only an explicit false means the provider disowned the
   token. Timestamps are Unix seconds, and `0` means "never expires", not 1970.
@@ -989,26 +989,102 @@ event; never the values you just cleared.
 
 #### A Token That Expires on a Calendar Needs a Job, Not a Button
 
-- **Stack**: Any long-lived-token API — verified on Meta Threads
-- **Problem**: A Threads long-lived token lasts 60 days, must be **≥24 hours old** before
-  it can be refreshed, and once lapsed *cannot be refreshed or exchanged at all* — only
+- **Stack**: Any long-lived-token API â€” verified on Meta Threads
+- **Problem**: A Threads long-lived token lasts 60 days, must be **â‰¥24 hours old** before
+  it can be refreshed, and once lapsed *cannot be refreshed or exchanged at all* â€” only
   replaced by hand. Nothing announces the lapse: ingestion keeps running and searches keep
   returning `200` with nothing in them. A "Reconnect" button does not help, because the
   failure mode is that nobody is looking.
 - **Solution**: A scheduled command that renews inside the last N days (14 gives a
   fortnight of retries before anything is lost), refuses when the token is younger than
-  the provider's minimum age, and refuses when the expiry is **unknown** — an expiry
+  the provider's minimum age, and refuses when the expiry is **unknown** â€” an expiry
   nobody has established is not grounds for a cron job to start rewriting credentials.
   Almost every run is a no-op, which is what makes it cheap to run daily. Exit non-zero on
   a failed *due* refresh so CI or the scheduler treats it as the incident it is.
 - **Gotchas**: Refresh/exchange endpoints are often **unversioned** root paths
   (`{host}/refresh_access_token`), so a shared client that builds URLs as
-  `host + '/' + version` genuinely cannot reach them — give them their own path rather
+  `host + '/' + version` genuinely cannot reach them â€” give them their own path rather
   than bending the client. These endpoints also take the token as a **query parameter**;
   there is no header form, so the usual "never put a token in a query string" rule cannot
-  apply here — document why. Restart the age clock on the new token, or the next run
+  apply here â€” document why. Restart the age clock on the new token, or the next run
   refreshes something the provider still considers too young.
 - **First used in**: Social Media Listening Tools (`ThreadsTokenService`)
+
+## Laravel 13 + Inertia 3 + Vue 3.5 + Bootstrap/AdminLTE (console, no TypeScript)
+
+### Version Baseline (verified live 2026-09-08)
+Laravel **13.30.1** Â· PHP 8.4 Â· `inertiajs/inertia-laravel` **3.3.3** Â·
+`@inertiajs/vue3` + `@inertiajs/vite` **3.7.0** Â· Vue **3.5.42** Â· Vite **8.2.2** Â·
+`laravel-vite-plugin` **3.2.0** Â· `@vitejs/plugin-vue` 6.x Â· Bootstrap **5.3.8** Â·
+admin-lte **4.9.1** Â· ApexCharts **7.1.0** + `vue3-apexcharts` Â· `sass-embedded`.
+The Laravel 13 skeleton now ships **Tailwind + `@tailwindcss/vite` by default** â€” uninstall
+both when the project ships Bootstrap, or two CSS frameworks compile into one bundle.
+`Inertia::always()` and `Inertia::once()` both confirmed present in 3.3.3.
+
+### AdminLTE 4 Layout Classes Collide With a Hand-Rolled Inertia Shell
+- **Stack**: AdminLTE 4.9.1, Bootstrap 5.3.8, Inertia 3, Vue 3.5
+- **Problem**: the mobile sidebar never appeared. The element was in the DOM, carried the
+  right `is-open` class, and computed `transform: matrix(1,0,0,1,0,0)` â€” and still sat
+  entirely off-screen at `x: -250`.
+- **Solution**: **do not reuse AdminLTE's own layout class names** (`.app-wrapper`,
+  `.app-sidebar`, `.app-main`, `.app-content`) for a hand-rolled shell. AdminLTE 4 styles
+  those itself and drives them from body classes plus its PushMenu JS, so two stylesheets
+  fight over one box: computed width was AdminLTE's `250px` rather than the authored
+  `15.5rem`, and its negative offset held the panel off-canvas. Namespace the layout
+  (`slt-*`, `app2-*`, anything) and keep AdminLTE's SCSS for what it genuinely provides â€”
+  cards, nav, forms, tables. Also drop the `adminlte.js` import and the
+  `layout-fixed sidebar-expand-lg` body classes when none of its JS is used.
+- **Gotchas**: the tell is a **computed width that is not the width you authored** â€” check
+  that first, it identifies the collision in one look. The reason to hand-roll at all is the
+  Safe/Unsafe Split above: Treeview writes `menu-open` classes and inline heights onto nodes
+  the framework owns. A hand-rolled treeview is also a net gain â€” it can auto-expand the
+  active branch by matching `usePage().url` against a typed menu config, which DOM state
+  cannot do.
+- **First used in**: Social Media Listening Tool (2026-09-08)
+
+### Sidebar Config as the Single Source of Truth, Asserted by Test
+- **Stack**: Laravel 13 + Inertia 3 (applies to any framework)
+- **Problem**: sidebar links and the router drift apart, and a dead link is found by a user.
+- **Solution**: one PHP class owns the nav tree, resolves `route()` names to paths
+  server-side (so the frontend never learns how routing works), and exposes a flat
+  `routeNames()` list. A feature test then walks the tree and asserts every link responds,
+  plus that every registered name exists. Dead navigation becomes a failing assertion.
+- **Gotchas**: resolve `href` in a private mapper and keep `routeNames()` reading the raw
+  *definition*, or the flattener runs `route()` twice for no reason.
+- **First used in**: Social Media Listening Tool (2026-09-08)
+
+### Third-Party Capability Is a Type Plus a Declaration, Never a Boolean
+- **Stack**: any multi-provider integration (social APIs, payment gateways, couriers)
+- **Problem**: one fat `Provider` interface forces every provider to implement methods it
+  cannot honour, so "can it?" becomes a runtime `try/catch` and the UI ends up guessing.
+- **Solution**: a **narrow base interface plus capability marker interfaces**
+  (`SupportsKeywordDiscovery`, `SupportsReply`, â€¦). `$provider instanceof SupportsReply`
+  is resolved by the language, and calling an unsupported method becomes unwritable.
+  Then add a **second, declarative map** â€” `capabilities(): Capabilities` returning a
+  four-state enum (`Supported` Â· `Unsupported` Â· `RequiresPermission` Â·
+  `RequiresVerification`) **with a human reason string per capability**, rendered verbatim
+  in the UI. `instanceof` answers "did we write it?"; only the declaration answers "is our
+  app approved for it?" and "have we confirmed it still exists?".
+- **Gotchas**: the reason string is the whole point â€” a greyed-out button with no
+  explanation is what the pattern exists to prevent. Capabilities belong in **code**, not a
+  table: they are properties of somebody else's API, not of our configuration, so they
+  should appear in a diff. Keep a test asserting every provider declares every capability
+  with a non-empty reason.
+- **First used in**: Social Media Listening Tool (2026-09-08)
+
+### Inertia Props Are Built From Arrays, and a Test Says So
+- **Stack**: Laravel + Inertia (any adapter)
+- **Problem**: Inertia serialises any `Arrayable` via `toArray()` â€” every non-hidden column,
+  every appended accessor, every loaded relation, recursively. `$hidden` is not a security
+  boundary, and Inertia's maintainers state there is no framework-level shield.
+- **Solution**: build props from explicit arrays or DTOs, never from a model instance, and
+  enforce it from commit one with a test that walks every page's prop bag recursively and
+  fails on any credential-shaped **key that carries a value**. Field *descriptors* may
+  legitimately name `app_secret` (a form has to label its inputs) â€” what must never appear
+  is a value against that name.
+- **Gotchas**: retrofitting this after the first leak means auditing every controller. It
+  costs ~40 lines on day one.
+- **First used in**: Social Media Listening Tool (2026-09-08)
 
 ---
 
@@ -1035,22 +1111,22 @@ Format:
 
 ---
 
-## Admin Template Design Language (AdminLTE 4 — Blade and Inertia alike)
+## Admin Template Design Language (AdminLTE 4 â€” Blade and Inertia alike)
 
 > The mechanics of AdminLTE live above (*Safe/Unsafe Split*, *`loadPaths` Is Mandatory*,
-> *AdminLTE 4 in a Blade App Without Node*). This section is the **visual** layer — the
+> *AdminLTE 4 in a Blade App Without Node*). This section is the **visual** layer â€” the
 > decisions that were being re-made, differently, on every project.
 > Process rules and the Screen Brief live in [20-design-protocol.md](./20-design-protocol.md).
 >
 > **Confidence:** the component map is read from AdminLTE 4's own demo pages and docs.
-> Verify a component against the installed version's demo before leaning on it — the
-> markup is stable across v3→v4 but the class list is not a contract.
+> Verify a component against the installed version's demo before leaning on it â€” the
+> markup is stable across v3â†’v4 but the class list is not a contract.
 
 ### 1. Reach for the template's component before writing markup
 - **Stack**: AdminLTE 4.3+, Bootstrap 5.3
 - **Problem**: every project hand-rolls a stat tile, a panel and a page header in slightly
   different utility classes. The result is inconsistent within itself, which is exactly what
-  makes a UI read as generated — a person reuses, a generator re-invents.
+  makes a UI read as generated â€” a person reuses, a generator re-invents.
 - **Solution**: map the need to the component that already exists, and only then consider markup.
 
   | Need | Component | Use when |
@@ -1061,21 +1137,21 @@ Format:
   | Actions belonging to a container | `card-tools` in the header | Never a loose button floating above the card |
   | Page title + breadcrumb | `content-header` | Every page, identically. Do not re-style per page |
   | Inline warning tied to content | `callout` | Not a toast, not a modal |
-  | Nav with children | `sidebar-menu` + `nav-treeview` | Keep depth ≤ 2; deeper belongs in-page |
+  | Nav with children | `sidebar-menu` + `nav-treeview` | Keep depth â‰¤ 2; deeper belongs in-page |
 
-- **Gotchas**: `small-box` is *loud* by design — four of them side by side is the single most
+- **Gotchas**: `small-box` is *loud* by design â€” four of them side by side is the single most
   recognisable generated-dashboard shape. Use at most two, for numbers someone actually acts
   on, and demote the rest to `info-box` or a plain table. If a screen needs a component the
   template lacks, build it **once**, in the shared component directory, in the template's own
-  class vocabulary — never inline on the page that needed it first.
+  class vocabulary â€” never inline on the page that needed it first.
 - **First used in**: larisHQ (Inertia+Vue), Basic Custom E-Commerce (Blade)
 
 ### 2. Override centrally, never per page
 - **Problem**: a screen carrying both AdminLTE classes and a pile of ad-hoc utility classes
   reads as two people arguing. It is instantly visible and it is why "fix the spacing" notes
-  keep coming back — the spacing was never systematic to begin with.
+  keep coming back â€” the spacing was never systematic to begin with.
 - **Solution**: one SCSS entry point. Override Bootstrap's variables (colour, spacing scale,
-  border radius, font stack) at the documented insertion point — **after functions, before the
+  border radius, font stack) at the documented insertion point â€” **after functions, before the
   AdminLTE import**, per *Bootstrap + AdminLTE 4 through Vite* above. Every page then inherits.
 - **Gotchas**: the moment a page needs a one-off override, that is evidence the variable is
   wrong or a shared component is missing. Fix it centrally; a per-page exception becomes the
@@ -1085,9 +1161,9 @@ Format:
 - **Problem**: an operator's daily order table and a twice-a-month settings form get the same
   roomy padding, so the table wastes half the screen and the form feels cramped and unloved.
 - **Solution**: pick the density in the Screen Brief and apply the matching pattern:
-  `dense-table` → `table-sm`, no card padding around the table, sticky header, right-aligned
-  numerics · `roomy-form` → standard card padding, one column, generous label spacing ·
-  `glance-dashboard` → ≤2 `small-box`, everything else demoted.
+  `dense-table` â†’ `table-sm`, no card padding around the table, sticky header, right-aligned
+  numerics Â· `roomy-form` â†’ standard card padding, one column, generous label spacing Â·
+  `glance-dashboard` â†’ â‰¤2 `small-box`, everything else demoted.
 - **Gotchas**: density follows **usage frequency**, not screen importance. The most important
   screen in the product is often the one used twice a year, and it should be roomy.
 
@@ -1098,18 +1174,18 @@ Format:
 - **Solution**: numerics right-aligned with `font-variant-numeric: tabular-nums` and a fixed
   decimal count; currency symbol once in the column header, not per cell; IDs, codes and hashes
   in the monospace stack; one date format defined centrally and used everywhere.
-- **Gotchas**: set `tabular-nums` on the column, not the page — proportional figures are correct
+- **Gotchas**: set `tabular-nums` on the column, not the page â€” proportional figures are correct
   in prose. And decide truncation per column *before* the first long value arrives: `text-truncate`
   with a `title`, never a layout that grows sideways.
-- **First used in**: larisHQ — agent ledger and commission tables
+- **First used in**: larisHQ â€” agent ledger and commission tables
 
 ### 5. The four states are part of the screen, not a follow-up ticket
 - **Problem**: screens ship with the happy path only, so empty, loading, error and
-  permission-denied are discovered by {USER_NAME} in review — every time.
+  permission-denied are discovered by {USER_NAME} in review â€” every time.
 - **Solution**: build empty (carrying the primary action that fills it), loading, error, and
   permission-denied alongside the populated state. An empty state without its call to action is
   a dead end, and it is the state a new tenant sees **first**.
-- **Gotchas**: write empty-state copy in the domain's voice — "No stockists under this agent yet"
+- **Gotchas**: write empty-state copy in the domain's voice â€” "No stockists under this agent yet"
   beats "No data available". This is the most-read and least-written copy in any admin panel.
 
 ---
@@ -1119,17 +1195,17 @@ Format:
 - **Problem**: A pentest/training lab must show the SAME exploit working (BEFORE) and then
   blocked (AFTER) on stage, ideally without git checkouts, restarts, or shipping a permanently
   vulnerable endpoint.
-- **Solution**: One env flag `SECURELAB_VULN` → `config/securelab.php` → a tiny
+- **Solution**: One env flag `SECURELAB_VULN` â†’ `config/securelab.php` â†’ a tiny
   `App\Security\Toggle::vulnerable()` read LIVE from config at request time. Each finding keeps
   its weak and fixed paths side by side (e.g. `VulnerableUserSearch` / `SecureUserSearch`, or an
   `if (Toggle::secure()) abort_unless(...)` guard, or `{!! !!}` vs `{{ }}` chosen in Blade). The
-  controller just picks the path. Flip `.env` + refresh to switch — `php artisan serve`
+  controller just picks the path. Flip `.env` + refresh to switch â€” `php artisan serve`
   re-bootstraps the framework every request, so Dotenv re-reads `.env` with no restart (as long
   as config is NOT cached). A coloured layout banner shows the current mode.
 - **Gotchas**: Default the flag to `false` in `.env.example` so a fresh clone is safe; the demo
   box's `.env` sets it `true`. Tests force either mode with `config(['securelab.vulnerable'=>...])`
-  and assert the exploit succeeds in one and fails in the other — that dual-mode test IS the
+  and assert the exploit succeeds in one and fails in the other â€” that dual-mode test IS the
   automated retest. Never give an "insecure file upload" finding a real execution sink: store on a
   private non-web disk and never execute, so even the weak path cannot compromise the host.
-  If you ever run `php artisan config:cache`, the live-flip breaks — clear it for the demo.
-- **First used in**: SecureLab (2026-09-10) — IDOR, SQLi, Stored XSS, insecure upload
+  If you ever run `php artisan config:cache`, the live-flip breaks â€” clear it for the demo.
+- **First used in**: SecureLab (2026-09-10) â€” IDOR, SQLi, Stored XSS, insecure upload

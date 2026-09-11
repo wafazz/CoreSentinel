@@ -1,25 +1,25 @@
-# Controlled Self-Evolution (CSE) Protocol
+﻿# Controlled Self-Evolution (CSE) Protocol
 
 > **Governed, Versioned & Evidence-Backed AI Evolution**  
 > AI agents are prohibited from autonomously altering core governance, security, or identity rules. All rule changes require a formal Controlled Evolution Proposal.
 
 ---
 
-## 🔒 Governance Prohibition Rules
+## ðŸ”’ Governance Prohibition Rules
 1. **No Autonomous Rule Mutations**: An AI agent cannot unilaterally modify system rules or security parameters without human/lead review.
 2. **Mandatory Evidence & Impact Analysis**: Every rule addition must present empirical session evidence and risk assessment.
 3. **Versioned Release**: Approved changes receive version increments (e.g. `v1.1.0`) and pass regression checks before deployment.
 
 ---
 
-## 🗺️ Controlled Evolution Pipeline
+## ðŸ—ºï¸ Controlled Evolution Pipeline
 
 ```text
-  Execution ➔ Experience (automatic) ➔ Candidate ➔ Evidence ➔ Confidence ➔ TRUSTED
-                                                                              │
-                              ══════════════ HUMAN BOUNDARY ══════════════════╪══
-                                                                              │
-  Proposal ➔ Impact Analysis ➔ Human Review ➔ Approval ➔ Versioned Change ➔ Regression Test ➔ Deploy
+  Execution âž” Experience (automatic) âž” Candidate âž” Evidence âž” Confidence âž” TRUSTED
+                                                                              â”‚
+                              â•â•â•â•â•â•â•â•â•â•â•â•â•â• HUMAN BOUNDARY â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•ªâ•â•
+                                                                              â”‚
+  Proposal âž” Impact Analysis âž” Human Review âž” Approval âž” Versioned Change âž” Regression Test âž” Deploy
 ```
 
 The left half runs on its own and ends at **TRUSTED**, which is advice. The right half is
@@ -27,11 +27,11 @@ governance and begins with a person. They share evidence and never share authori
 
 ---
 
-## 🔬 From Observation to Candidate
+## ðŸ”¬ From Observation to Candidate
 
 An observation is not a lesson, and a lesson is not a rule. The gap is deliberate: a system
 that turns every incident straight into governance produces a rulebook nobody reads and a
-review queue nobody reads either — and a reviewer who rubber-stamps has stopped being a control.
+review queue nobody reads either â€” and a reviewer who rubber-stamps has stopped being a control.
 
 ```bash
 coresentinel evolve observe        # derive candidates from what is already recorded
@@ -43,7 +43,7 @@ Four sources. Three of them are things somebody already wrote down:
 | Source | Signal | Needs a human first? |
 | :--- | :--- | :---: |
 | **Incidents** | A resolved incident's `learning` field | yes |
-| **Failures** | The failures memory layer — a fact there is a mistake that happened | yes |
+| **Failures** | The failures memory layer â€” a fact there is a mistake that happened | yes |
 | **Patterns** | A pattern whose occurrence count has risen | yes |
 | **Experiences** | A failure the system watched happen, more than once | **no** |
 
@@ -55,8 +55,8 @@ experience **describes what happened and stops there**.
 ### Experiences are captured automatically
 
 Nobody runs a command to record one. `coresentinel_core/experience/` subscribes to the event
-bus, and an outcome event — a gate result, a verification verdict, a task completion, an
-incident — becomes an experience.
+bus, and an outcome event â€” a gate result, a verification verdict, a task completion, an
+incident â€” becomes an experience.
 
 ```bash
 coresentinel evolve experiences                    # the log
@@ -77,7 +77,7 @@ Three properties hold it in place:
 A candidate needs **2 distinct sources** before it may be proposed. One incident is an
 anecdote; the second is what makes it worth a rule.
 
-- The same source **cannot corroborate itself** — a single noisy incident must not argue its
+- The same source **cannot corroborate itself** â€” a single noisy incident must not argue its
   way into the rulebook.
 - **Repetition is not corroboration.** One signature recurring in one context is one source,
   however often it recurs. A flapping gate is a single noisy incident wearing a different
@@ -91,17 +91,17 @@ anecdote; the second is what makes it worth a rule.
 ### Confidence, and why it carries its arithmetic
 
 Four terms, declared weights, and the breakdown stored beside the number. A score whose
-inputs are not recorded is a number nobody can argue with — it looks like a measurement and
+inputs are not recorded is a number nobody can argue with â€” it looks like a measurement and
 behaves like an opinion.
 
 | Term | Weight | What it measures |
 | :--- | ---: | :--- |
 | `evidence` | 0.35 | distinct sources, saturating at 3 |
 | `success` | 0.30 | successes / (successes + failures); 0.5 when neither |
-| `consistency` | 0.25 | 1 − contradicting / total |
+| `consistency` | 0.25 | 1 âˆ’ contradicting / total |
 | `recency` | 0.10 | decay on `last_seen`, floored at 0.30 |
 
-The bands are the memory engine's own — **0.90 Known, 0.50 Assumed** — reused rather than
+The bands are the memory engine's own â€” **0.90 Known, 0.50 Assumed** â€” reused rather than
 re-chosen, so a fact and a lesson age at the same rate and 0.85 does not mean two things.
 
 ```bash
@@ -114,7 +114,7 @@ This distinction is what makes automatic learning safe, and it is worth stating 
 
 | | What it is | How it is reached |
 | :--- | :--- | :--- |
-| **TRUSTED** | A **retrieval** tier. A cited line in a context pack an agent may disregard. It cannot block a gate, fail a build or write a file. | Confidence ≥ 0.90, ≥ 3 distinct sources, no unresolved contradiction. **No human needed** — because it compels nothing. |
+| **TRUSTED** | A **retrieval** tier. A cited line in a context pack an agent may disregard. It cannot block a gate, fail a build or write a file. | Confidence â‰¥ 0.90, â‰¥ 3 distinct sources, no unresolved contradiction. **No human needed** â€” because it compels nothing. |
 | **PROPOSED** | A **governance** act. It becomes a rule that constrains every future agent. | A person runs `evolve propose`. **No amount of evidence shortens this.** |
 
 Confidence promotes to TRUSTED. **Nothing promotes to PROPOSED.**
@@ -134,7 +134,7 @@ wrong" and "Redis is wrong *on this host*". Overriding where it should have narr
 a learning system produces confident nonsense out of real evidence.
 
 Supersession requires the challenger to **outscore** the incumbent. Letting recency alone
-win would make the last thing observed the truth, which is not learning — it is forgetting
+win would make the last thing observed the truth, which is not learning â€” it is forgetting
 with extra steps.
 
 ```bash
@@ -147,12 +147,12 @@ reason, so the shortcut is visible in the record.
 
 ---
 
-## ✅ Approval, and then Application
+## âœ… Approval, and then Application
 
 These are **two separate acts**, and the separation is the point.
 
 `approve` records a human decision and changes no file. Until v10.9 it printed *"Versioned
-Change Released"* while writing nothing — the pipeline stopped one step short of doing
+Change Released"* while writing nothing â€” the pipeline stopped one step short of doing
 anything, and said otherwise.
 
 ```bash
@@ -167,7 +167,7 @@ coresentinel evolve revert EVO-014     # and it is undone, byte for byte
 1. **The proposal must be `APPROVED`.** An evolution is applied by a human decision, never by
    reaching the end of a pipeline.
 2. **The change must be one CoreSentinel knows how to make safely.** Anything else is
-   *refused, not attempted* — blindly patching a governance file because a proposal asked
+   *refused, not attempted* â€” blindly patching a governance file because a proposal asked
    nicely is the failure this protocol exists to prevent.
 3. **The target is snapshotted**, byte for byte.
 4. **The change is written** and the registry version bumped.
@@ -188,10 +188,10 @@ what makes approving one a decision rather than a commitment.
 
 ---
 
-## ⚡ CLI Commands
+## âš¡ CLI Commands
 
 ```bash
-# The experience log — captured automatically, no command records it
+# The experience log â€” captured automatically, no command records it
 coresentinel evolve experiences
 coresentinel evolve experiences --prune --apply --max 2000
 
@@ -236,36 +236,36 @@ Track all self-improvements with version history.
 
 | Date | Type | What Changed | Trigger | Applied To |
 |------|------|-------------|---------|------------|
-| 2026-07-21 | Anti-Pattern | Never trust a native exe's exit code when sourcing SQL — grep stdout for `ERROR` | Reported "failures: 0" on a migration run that had actually failed | All projects (PowerShell) |
-| 2026-07-21 | Anti-Pattern | A grep that finds nothing is not proof of absence — state the scan scope with the claim | Declared "zero MySQL-8-only DDL" after a scan that omitted implicit TIMESTAMP defaults | All projects |
+| 2026-07-21 | Anti-Pattern | Never trust a native exe's exit code when sourcing SQL â€” grep stdout for `ERROR` | Reported "failures: 0" on a migration run that had actually failed | All projects (PowerShell) |
+| 2026-07-21 | Anti-Pattern | A grep that finds nothing is not proof of absence â€” state the scan scope with the claim | Declared "zero MySQL-8-only DDL" after a scan that omitted implicit TIMESTAMP defaults | All projects |
 | 2026-07-21 | Skill | Verify class autoloading empirically (throw/catch probe) instead of reasoning about PSR-4 | Confirmed a real `Exceptions.php` autoload bug in DAISY | All PHP projects |
 | 2026-07-21 | Skill | XAMPP local-setup recipe for no-framework PHP (port vhost, DocumentRoot at `public/`) | Stood up DAISY without admin elevation | All PHP projects |
 | 2026-07-21 | Skill | Check the test bootstrap for `.env` fallback BEFORE running a suite | `tests/bootstrap.php` would have migrated over the dev DB | All projects with test suites |
 | 2026-07-21 | Skill | `--ignore-platform-req` to install deps without mutating a tracked `composer.lock` | Lock file demanded PHP 8.3, local was 8.2, no edits authorised | All Composer projects |
 | 2026-07-21 | Add Rule | Recorded PowerShell 5.1 `Invoke-WebRequest` byte[] `.Content` gotcha in identity Environment | `.Trim()` failed on a signature check | All projects (PowerShell) |
-| 2026-07-21 | Add Skill | `explicit_defaults_for_timestamp=ON` as the MySQL 8 ↔ MariaDB compatibility lever | Migration 019 failed only on MariaDB | All MySQL/MariaDB projects |
-| 2026-07-22 | Anti-Pattern | Zero-fill a day series in the DB's timezone frame (anchor to `CURDATE()`), never with PHP `date()` while the buckets come from SQL `DATE()` | Analytics sparkline's newest bar mapped to a day SQL never emitted (UTC vs Asia/KL) — caught in Phase 5 review before ship | All time-series across a PHP↔DB boundary |
+| 2026-07-21 | Add Skill | `explicit_defaults_for_timestamp=ON` as the MySQL 8 â†” MariaDB compatibility lever | Migration 019 failed only on MariaDB | All MySQL/MariaDB projects |
+| 2026-07-22 | Anti-Pattern | Zero-fill a day series in the DB's timezone frame (anchor to `CURDATE()`), never with PHP `date()` while the buckets come from SQL `DATE()` | Analytics sparkline's newest bar mapped to a day SQL never emitted (UTC vs Asia/KL) â€” caught in Phase 5 review before ship | All time-series across a PHPâ†”DB boundary |
 | 2026-07-22 | Skill | Calendar-align the headline window to the plotted series so headline == sum(series); floor `AVG(TIMESTAMPDIFF(...))` with `resolved_at >= created_at` | Building the DAISY analytics KPI dashboard | All dashboards |
-| 2026-07-23 | Anti-Pattern | A test that writes to a shared table NOT in the global truncate list leaks state into sibling tests — truncate it in the test's own setUp | BillingTest asserted total 99.00 but got 119.00; a prior test's add-on row survived into `tenant_features` | All projects with a shared test DB |
+| 2026-07-23 | Anti-Pattern | A test that writes to a shared table NOT in the global truncate list leaks state into sibling tests â€” truncate it in the test's own setUp | BillingTest asserted total 99.00 but got 119.00; a prior test's add-on row survived into `tenant_features` | All projects with a shared test DB |
 | 2026-07-23 | Anti-Pattern | Under `hx-boost` or a nav-skeleton overlay, download & standalone-page links MUST opt out (`download`, `hx-boost="false"`, `target="_blank"`) or the page shell breaks | {USER_NAME}: PDF button left the platform page stuck on skeleton until refresh | All boosted/SPA-ish layouts |
 | 2026-07-23 | Skill | Embed images as base64 data-URIs so they render identically in the HTML view AND mPDF; verify the PDF via `Output('', STRING_RETURN)` + `%PDF` header check | Company logo on invoice view + PDF | All mPDF / dual HTML+PDF renders |
 | 2026-07-23 | Skill | Safe global CSS default: count usages first, then scope with `:not(:has(...))` guards and let inline-style specificity win, so existing markup can't regress | Default `.card` body padding across 171 cards (111 with headers) | All shared CSS component classes |
 | 2026-07-23 | Skill | Snapshot financial values (tax/price) onto the invoice row at generation; render branding (logo/company) live | DAISY invoices | All billing/invoicing |
-| 2026-08-04 | Update Rule | **Corrects the 2026-07-21 rule.** "Grep stdout for ERROR" is NOT enough — `mysql.exe` writes errors to **stderr**. Capturing only stdout reported a clean run on a migration that had crashed | Reported "no ERROR string in output" while 144 stderr error lines existed | All projects, all shells |
-| 2026-08-04 | Anti-Pattern | A wedged `ALTER TABLE` holds the table's metadata lock forever; `KILL` leaves it "Killed/Committing alter table" and graceful shutdown hangs — only a force-kill + restart clears it | Migration 029 wedged `voice_calls` in DAISY dev | All MySQL/MariaDB projects |
+| 2026-08-04 | Update Rule | **Corrects the 2026-07-21 rule.** "Grep stdout for ERROR" is NOT enough â€” `mysql.exe` writes errors to **stderr**. Capturing only stdout reported a clean run on a migration that had crashed | Reported "no ERROR string in output" while 144 stderr error lines existed | All projects, all shells |
+| 2026-08-04 | Anti-Pattern | A wedged `ALTER TABLE` holds the table's metadata lock forever; `KILL` leaves it "Killed/Committing alter table" and graceful shutdown hangs â€” only a force-kill + restart clears it | Migration 029 wedged `voice_calls` in DAISY dev | All MySQL/MariaDB projects |
 | 2026-08-04 | Skill | Verify a migration by querying `information_schema` for EVERY object it should create, not by reading the client's output at all | Proved all 16 objects of migration 029 landed after a partial-crash + re-run | All projects with SQL migrations |
-| 2026-08-04 | Anti-Pattern | `Glob("dir*")` does NOT look inside `dir/` — never conclude "the file doesn't exist" from a pattern that couldn't have matched it | Told {USER_NAME} `app/Exceptions*` was absent; the file existed one level down | All projects |
+| 2026-08-04 | Anti-Pattern | `Glob("dir*")` does NOT look inside `dir/` â€” never conclude "the file doesn't exist" from a pattern that couldn't have matched it | Told {USER_NAME} `app/Exceptions*` was absent; the file existed one level down | All projects |
 | 2026-08-04 | Anti-Pattern | PowerShell 5.1 `Set-Content -Encoding utf8` writes a **BOM**, which breaks `<?php`, shebangs, YAML and JSON | 7 test files fataled with "Namespace declaration has to be the very first statement" | All projects on Windows |
-| 2026-08-04 | Skill | A green suite proves nothing if the tests `require_once` what production expects to autoload — grep for setup workarounds when a bug "should" be caught by tests | 8 test files hid the ForbiddenException autoload bug for months | All projects |
-| 2026-08-04 | Anti-Pattern | `php -S` is single-threaded and `PHP_CLI_SERVER_WORKERS` is **POSIX-only** — silently ignored on Windows. Never use it for an app with SSE/long-poll | Whole DAISY UI appeared frozen; one SSE call blocked everything for 55s | All PHP projects on Windows |
-| 2026-08-04 | Skill | "Links dead on left-click but fine via right-click → open in new tab" = JS is intercepting the click (hx-boost/SPA) and its request never returns — look at server concurrency, not the markup | Diagnosed the frozen DAISY UI from this one symptom | All boosted/SPA-ish apps |
+| 2026-08-04 | Skill | A green suite proves nothing if the tests `require_once` what production expects to autoload â€” grep for setup workarounds when a bug "should" be caught by tests | 8 test files hid the ForbiddenException autoload bug for months | All projects |
+| 2026-08-04 | Anti-Pattern | `php -S` is single-threaded and `PHP_CLI_SERVER_WORKERS` is **POSIX-only** â€” silently ignored on Windows. Never use it for an app with SSE/long-poll | Whole DAISY UI appeared frozen; one SSE call blocked everything for 55s | All PHP projects on Windows |
+| 2026-08-04 | Skill | "Links dead on left-click but fine via right-click â†’ open in new tab" = JS is intercepting the click (hx-boost/SPA) and its request never returns â€” look at server concurrency, not the markup | Diagnosed the frozen DAISY UI from this one symptom | All boosted/SPA-ish apps |
 | 2026-08-04 | Skill | **When a vendor's docs are silent, read the vendor's own SDK source.** Pull the tarball from `registry.npmjs.org` (no `npm install`, no auth) and grep its URI-constants / request-builder files | NICE documents no verbs or response shapes; `@nice-devone/core-sdk` listed every Agent API path, confirmed POST, and named the response key | All third-party API integrations |
-| 2026-08-04 | Anti-Pattern | **Auth succeeding proves only that the credential is valid — never that the account can do the job.** After a token exchange, assert the *identity* in the token and the entitlements attached to it | Channel authenticated fine on a CXone key belonging to an agent who lacked the skill needed to be routed the call; looked configured, could never ring | All API integrations with per-user credentials |
+| 2026-08-04 | Anti-Pattern | **Auth succeeding proves only that the credential is valid â€” never that the account can do the job.** After a token exchange, assert the *identity* in the token and the entitlements attached to it | Channel authenticated fine on a CXone key belonging to an agent who lacked the skill needed to be routed the call; looked configured, could never ring | All API integrations with per-user credentials |
 | 2026-08-04 | Anti-Pattern | **Three strikes on blind-probing an API for a magic value, then go capture the real client's traffic.** Enumerating plausible values against a production endpoint burns time and writes to a live system | 11 candidate station values all returned the same 400; the answer is one DevTools capture of the vendor's own web app | All undocumented API parameters |
-| 2026-08-04 | Anti-Pattern | Git-bash `tar` on PATH reads `-C C:\...` as a remote host ("Cannot connect to C: resolve failed") — call `C:\Windows\System32\tar.exe` explicitly, or `cd` first | Extracting npm tarballs on Windows | All projects on Windows |
-| 2026-08-10 | Anti-Pattern | Never interpolate a Windows path into a `sed` replacement — GNU sed reads `\U` as "uppercase the rest of the line" and eats the other backslashes. Escape `\ & |` first | AutomationSentinel's `install.sh` rendered `C:\Users\FAKRUL~1.HAK\...` as `C:SERSFAKRUL~1.HAKAPPDATAocaltemp...` in 5 of 6 installed protocol files | All shell templating on Windows |
-| 2026-08-10 | Anti-Pattern | `$HOME/Desktop` does not exist when Windows redirects the Desktop into OneDrive — a bash installer probing it silently finds nothing while its PowerShell twin works | Bare `./install.sh` could never locate `memorycore.conf` on this machine; `install.ps1` did, via `[Environment]::GetFolderPath('Desktop')` | All cross-shell installers on Windows |
-| 2026-08-10 | Skill | Prove a "never overwrites" installer claim by hashing a user-edited file across a re-run, then running the `--force` path and asserting the **opposite** — same assertion, inverted expectation, so the guard test can't be a tautology | Verifying AutomationSentinel's installers | All installers / scaffolding scripts |
+| 2026-08-04 | Anti-Pattern | Git-bash `tar` on PATH reads `-C C:\...` as a remote host ("Cannot connect to C: resolve failed") â€” call `C:\Windows\System32\tar.exe` explicitly, or `cd` first | Extracting npm tarballs on Windows | All projects on Windows |
+| 2026-08-10 | Anti-Pattern | Never interpolate a Windows path into a `sed` replacement â€” GNU sed reads `\U` as "uppercase the rest of the line" and eats the other backslashes. Escape `\ & |` first | AutomationSentinel's `install.sh` rendered `C:\Users\FAKRUL~1.HAK\...` as `C:SERSFAKRUL~1.HAKAPPDATAocaltemp...` in 5 of 6 installed protocol files | All shell templating on Windows |
+| 2026-08-10 | Anti-Pattern | `$HOME/Desktop` does not exist when Windows redirects the Desktop into OneDrive â€” a bash installer probing it silently finds nothing while its PowerShell twin works | Bare `./install.sh` could never locate `memorycore.conf` on this machine; `install.ps1` did, via `[Environment]::GetFolderPath('Desktop')` | All cross-shell installers on Windows |
+| 2026-08-10 | Skill | Prove a "never overwrites" installer claim by hashing a user-edited file across a re-run, then running the `--force` path and asserting the **opposite** â€” same assertion, inverted expectation, so the guard test can't be a tautology | Verifying AutomationSentinel's installers | All installers / scaffolding scripts |
 | 2026-08-10 | Skill | Explicitly align agent identity ('Iris') across MemoryCore and project session-memory.md context | Prompted by single-keyword trigger ('Iris'); resolved by reading central MemoryCore profile and writing context | All projects |
 
 ## Learned Skills
@@ -275,9 +275,9 @@ Track techniques and patterns learned across all projects.
 - **Learned from**: DAISY 2.0 (NICE CXone)
 - **Pattern**: When integrating against an API whose docs list paths but not verbs, response
   shapes, or magic values, fetch the vendor's official client library and read it:
-  `Invoke-RestMethod https://registry.npmjs.org/@scope/pkg` → `.versions.<latest>.dist.tarball`
-  → download → extract with `C:\Windows\System32\tar.exe` (NOT git-bash's `tar`). Then grep for
-  a `*-constants.js` / `*-apis.js` file — vendors almost always centralise every endpoint in one —
+  `Invoke-RestMethod https://registry.npmjs.org/@scope/pkg` â†’ `.versions.<latest>.dist.tarball`
+  â†’ download â†’ extract with `C:\Windows\System32\tar.exe` (NOT git-bash's `tar`). Then grep for
+  a `*-constants.js` / `*-apis.js` file â€” vendors almost always centralise every endpoint in one â€”
   and for the service that builds the request. No `npm install`, no auth, no node_modules.
 - **Why**: NICE's published docs gave paths only; their own `core-sdk` gave every path, the
   confirmed HTTP verb, the response key, and an undocumented settings endpoint that turned out to
@@ -288,8 +288,8 @@ Track techniques and patterns learned across all projects.
 
 ### Anti-Pattern hint (paired): don't confuse authentication with authorisation
 - A credential that authenticates is not a credential that can *do the task*. Read the identity
-  out of the returned token (`id_token` claims) and query that identity's entitlements — skills,
-  permissions, licensed features — before concluding an integration is configured correctly.
+  out of the returned token (`id_token` claims) and query that identity's entitlements â€” skills,
+  permissions, licensed features â€” before concluding an integration is configured correctly.
 
 ### Skill: Prove class autoloading, don't reason about it
 - **Learned from**: DAISY 2.0
@@ -319,7 +319,7 @@ Track techniques and patterns learned across all projects.
   instead of silently papering over it.
 - **Applied to**: All Composer projects
 
-### Skill: MySQL 8 ↔ MariaDB TIMESTAMP compatibility
+### Skill: MySQL 8 â†” MariaDB TIMESTAMP compatibility
 - **Learned from**: DAISY 2.0
 - **Pattern**: `col TIMESTAMP NOT NULL` with no `DEFAULT` gets an implicit
   `DEFAULT '0000-00-00 00:00:00'` when it is not the first TIMESTAMP column. MySQL 8 defaults
@@ -343,7 +343,7 @@ Track techniques and patterns learned across all projects.
 - **Learned from**: DAISY 2.0
 - **Pattern**: When part of an analysis came from subagents and part from files read directly,
   say which is which before drawing conclusions from it.
-- **Why**: {USER_NAME} asked "do you know the full flow?" — the honest answer was "structure yes,
+- **Why**: {USER_NAME} asked "do you know the full flow?" â€” the honest answer was "structure yes,
   runtime no", and admitting that led straight to discovering the dead webhook consumer.
   Claiming full knowledge would have buried the most important finding in the project.
 - **Applied to**: All projects
@@ -352,7 +352,7 @@ Track techniques and patterns learned across all projects.
 - **Learned from**: DAISY 2.0 (invoices)
 - **Pattern**: Build a single renderer that returns one self-contained HTML fragment (own inline
   `<style>`), and feed the SAME string to the on-screen view and to mPDF. Embed images (logos) as
-  base64 `data:image/...` URIs so nothing has to fetch a file or URL — they render identically in
+  base64 `data:image/...` URIs so nothing has to fetch a file or URL â€” they render identically in
   the browser and in the PDF. Verify the PDF path with a throwaway smoke script:
   `$pdf = $mpdf->Output('', \Mpdf\Output\Destination::STRING_RETURN);` then assert
   `substr($pdf,0,4) === '%PDF'` and that the expected bytes/length are present.
@@ -361,12 +361,12 @@ Track techniques and patterns learned across all projects.
   actually produced a valid document instead of throwing.
 - **Applied to**: All projects rendering the same content as HTML and PDF
 
-### Skill: Change a shared CSS class safely (audit → scope with :has → let inline win)
+### Skill: Change a shared CSS class safely (audit â†’ scope with :has â†’ let inline win)
 - **Learned from**: DAISY 2.0 (default `.card` padding)
 - **Pattern**: Before adding a rule to a class used everywhere, COUNT the usages and the variants
   (`class="card"` = 171, `card-header` = 111, many with inline `padding`). Then scope the new rule so
-  it only touches the safe subset — `.card:not(:has(.card-header)):not(:has(.card-body)):not(:has(table))`
-  — and rely on inline-style specificity (1,0,0,0) beating the stylesheet, so any element that already
+  it only touches the safe subset â€” `.card:not(:has(.card-header)):not(:has(.card-body)):not(:has(table))`
+  â€” and rely on inline-style specificity (1,0,0,0) beating the stylesheet, so any element that already
   sets the property is untouched. `:has()` was already used in the codebase, which confirmed support.
 - **Why**: A blanket `.card { padding }` would have broken 111 header dividers and double-padded dozens
   of cards. The scoped rule fixes the real pain (flush content) with near-zero regression surface.
@@ -391,47 +391,47 @@ Track mistakes to never repeat.
   with error 1067. A table was silently missing; only the test suite caught it later.
 - **Impact**: Gave a confidently wrong all-clear. Had to retract it. Worse, if the suite had
   not happened to cover that table, a broken schema would have been signed off as good.
-- **Rule**: For native executables — especially `mysql`, `psql`, `mysqldump` — capture stdout
+- **Rule**: For native executables â€” especially `mysql`, `psql`, `mysqldump` â€” capture stdout
   and **grep it for `ERROR`**. Never report success on exit code alone. Verify the intended
   end state directly (`SELECT COUNT(*) FROM information_schema.tables`), not the process code.
 - **Applies to**: All projects, all shells
 
 ### Anti-Pattern: Grepping only stdout for `ERROR` (supersedes the 2026-07-21 rule)
 - **What happened**: Applied migration 029 with
-  `$out = & mysql.exe ... | Out-String`, then grepped `$out` for `ERROR` — exactly what the
+  `$out = & mysql.exe ... | Out-String`, then grepped `$out` for `ERROR` â€” exactly what the
   2026-07-21 rule prescribed. It printed **"no ERROR string in output"** and `exit=0`.
   The tool's own captured output held **144 lines** of
   `ERROR 2013/2006 ... Lost connection / MySQL server has gone away`. The pipe captured
   **stdout only**; `mysql.exe` writes every error to **stderr**.
 - **Impact**: Declared a migration clean when it had died a third of the way through, leaving
   `voice_calls` half-altered and its metadata lock wedged. The old rule *felt* satisfied,
-  which is what made it dangerous — a guard that silently checks the wrong stream is worse
+  which is what made it dangerous â€” a guard that silently checks the wrong stream is worse
   than no guard, because it manufactures confidence.
 - **Rule**: Never let a shell variable be the evidence. Either (a) run the client WITHOUT
   redirecting, so the harness surfaces stdout **and** stderr and you read it yourself, or
-  (b) merge streams explicitly. Then — always — **verify the end state directly**: query
+  (b) merge streams explicitly. Then â€” always â€” **verify the end state directly**: query
   `information_schema.COLUMNS` / `.STATISTICS` for every object the migration should have
   created and assert each one. Output is a hint; schema state is the fact.
 - **Applies to**: All projects, all shells, every native CLI (`mysql`, `psql`, `mysqldump`)
 
 ### Anti-Pattern: Assuming a hung `ALTER TABLE` will resolve, or that KILL clears it
 - **What happened**: An `ALTER TABLE voice_calls ADD COLUMN` hung. `KILL <id>` left the thread
-  in `Killed / Committing alter table to storage engine` — still holding the table's metadata
+  in `Killed / Committing alter table to storage engine` â€” still holding the table's metadata
   lock. Every later query on that table queued behind it, `mysqladmin shutdown` returned rc=0
   but the process never exited, and the server stopped accepting new connections (so a
   safety `mysqldump` was no longer possible).
 - **Impact**: Burned ~20 minutes and forced a force-kill of the user's shared dev database.
   The backup I wanted to take became impossible *because I waited too long to take it*.
 - **Rule**: Take the backup BEFORE the risky DDL, not after it goes wrong. If a thread sits in
-  `Committing alter table` after a KILL, stop waiting — it will not clear. Force-kill the
+  `Committing alter table` after a KILL, stop waiting â€” it will not clear. Force-kill the
   process and restart; InnoDB is crash-safe and recovers. Also: read the error log at
-  startup — if the instance *already* began with "Starting crash recovery", treat it as
+  startup â€” if the instance *already* began with "Starting crash recovery", treat it as
   degraded and suspect the server before suspecting your SQL.
 - **Applies to**: All MySQL/MariaDB projects
 
 ### Anti-Pattern: `php -S` for an app with SSE / long-polling (fatal on Windows)
 - **What happened**: Served DAISY with `php -S` and set `PHP_CLI_SERVER_WORKERS=4`, believing
-  that gave 4 workers. **That variable is POSIX-only — PHP ignores it on Windows** (it needs
+  that gave 4 workers. **That variable is POSIX-only â€” PHP ignores it on Windows** (it needs
   `fork()`). The server stayed single-threaded. Every page opens an `EventSource` to
   `/api/v1/events` which holds the one worker for its 55s window, so every other request queued
   behind it. {USER_NAME} reported the whole UI as unclickable.
@@ -439,14 +439,14 @@ Track mistakes to never repeat.
   Measured proof: page load **69.5s** with one SSE connection open vs **0.09s** once it closed;
   **0.09s** on Apache under the same conditions.
 - **Rule**: If an app has SSE, WebSockets, or long-poll, do not use the PHP built-in server at
-  all — use Apache/nginx. Never assume a concurrency flag took effect; **measure it**: hold the
+  all â€” use Apache/nginx. Never assume a concurrency flag took effect; **measure it**: hold the
   streaming endpoint open in one process and time an ordinary request in another. Carrying a
   tip from notes without checking it applies to the current OS is how this got in.
 - **Applies to**: All PHP projects, especially on Windows
 
-### Skill: Read "dead on click, works via right-click → new tab" as a concurrency symptom
-- **Pattern**: If a left-click does nothing but right-click → *Open in new tab* works, the
-  pointer IS hitting the element — so it is not an overlay or z-index problem. Something in JS
+### Skill: Read "dead on click, works via right-click â†’ new tab" as a concurrency symptom
+- **Pattern**: If a left-click does nothing but right-click â†’ *Open in new tab* works, the
+  pointer IS hitting the element â€” so it is not an overlay or z-index problem. Something in JS
   (`hx-boost`, a router, an SPA click handler) is calling `preventDefault()` and then its
   request never completes. Right-click bypasses JS entirely, which is why it works.
 - **Why**: This single observation splits the search space cleanly: it rules out CSS/overlay
@@ -456,16 +456,16 @@ Track mistakes to never repeat.
 
 ### Anti-Pattern: Concluding "it doesn't exist" from a search that could not have found it
 - **What happened**: Ran `Glob("app/Exceptions*")`, got no results, and told {USER_NAME} the
-  directory was "absent entirely" — then wrote that into session memory AND the project
+  directory was "absent entirely" â€” then wrote that into session memory AND the project
   profile. `app/Exceptions/Exceptions.php` existed the whole time; the pattern matched only
   entries named `Exceptions*` **at that level**, never inside the directory.
 - **Impact**: A confidently stated, recorded-in-two-places false fact about the user's
   codebase. It also nearly produced the wrong fix (create the classes from scratch) instead of
   the right one (split an existing multi-class file).
-- **Rule**: Before reporting absence, use a pattern that *could* find the thing —
+- **Rule**: Before reporting absence, use a pattern that *could* find the thing â€”
   `**/Exceptions*` or a content grep for `class ForbiddenException`. Better: when the question
   is "does this class exist", grep for its **definition**, not its path. And when a later
-  finding contradicts an earlier claim, correct the claim explicitly — including in any
+  finding contradicts an earlier claim, correct the claim explicitly â€” including in any
   memory file where it was recorded.
 - **Applies to**: All projects
 
@@ -478,13 +478,13 @@ Track mistakes to never repeat.
   at the namespace line and says nothing about encoding, so it reads as a syntax bug.
 - **Rule**: For any file a parser reads (PHP, JSON, YAML, shell, `.env`), write with
   `[System.IO.File]::WriteAllText($path, $text, (New-Object System.Text.UTF8Encoding($false)))`.
-  Verify with a byte check — first bytes must be the real content, not `239,187,191`.
+  Verify with a byte check â€” first bytes must be the real content, not `239,187,191`.
   In PS 7+, `-Encoding utf8NoBOM` exists; in 5.1 it does not.
 - **Applies to**: All projects on Windows
 
 ### Anti-Pattern: Trusting a green suite when the tests work around the bug
 - **What happened**: `RBAC::require()` fataled at runtime because `App\Exceptions\*` never
-  autoloaded — yet 4 tests asserted `expectException(ForbiddenException::class)` and passed.
+  autoloaded â€” yet 4 tests asserted `expectException(ForbiddenException::class)` and passed.
   Eight test files carried `require_once BASE_PATH.'/app/Exceptions/Exceptions.php'` in
   `setUp()`, manually loading what production expected PSR-4 to load. One even had a comment
   naming the defect. The suite was green for months while the feature was broken in prod.
@@ -493,7 +493,7 @@ Track mistakes to never repeat.
 - **Rule**: When a bug "should" have been caught by tests but wasn't, grep the tests for
   `require_once`/`include` of application code and for manual bootstrapping in `setUp()`.
   A workaround in test setup is a bug report in disguise. Fix the root cause and **delete the
-  workaround** — otherwise the next regression hides in the same place.
+  workaround** â€” otherwise the next regression hides in the same place.
 - **Applies to**: All projects with a test suite
 
 ### Anti-Pattern: Treating an empty grep as proof of absence
@@ -512,21 +512,21 @@ Track mistakes to never repeat.
   PSR-4 autoload, and how Composer's classmap optimiser treats multi-class files.
 - **Impact**: Would have produced a hedged, possibly wrong answer about a real bug.
 - **Rule**: When a question is cheaply testable, test it. A 6-line probe script beats a
-  paragraph of inference — and it is the difference between "I think this is broken" and
+  paragraph of inference â€” and it is the difference between "I think this is broken" and
   "this is broken, here is the error."
 - **Applies to**: All projects
 
 ### Anti-Pattern: Zero-filling a day series with PHP dates while the buckets come from SQL
-- **What happened**: An analytics dashboard ran its window filter and `GROUP BY DATE(created_at)` in MySQL, but generated the zero-fill series keys with PHP `date('Y-m-d', strtotime("-{$i} day"))`. MySQL commonly runs UTC while PHP was set to `Asia/Kuala_Lumpur` (UTC+8), so the two disagree on which calendar day "today" is — the newest sparkline bar mapped to a date the SQL `DATE()` never produced, misattributing today's activity every single day. The headline count (a raw range filter) stayed correct, so the chart silently disagreed with its own KPI number.
-- **Impact**: Caught in Phase 5 (Cato) before ship, but would have shipped a dashboard whose trend line contradicted its headline — the kind of "looks fine in the demo" bug that erodes trust in the whole reporting surface.
-- **Rule**: When zero-filling or day-bucketing a time series, generate the calendar in the SAME timezone frame as the aggregation. Anchor to the DB clock — `$today = SELECT CURDATE()`, then build the series backward from `$today` — or set the DB session TZ to match PHP. Never mix PHP `date()` day keys with SQL `DATE()` buckets. Bonus: calendar-align the headline window to the plotted range so `headline == sum(series)`, and floor duration averages (`resolved_at >= created_at`) so back-dated rows can't push an average negative.
-- **Applies to**: All projects doing time-series aggregation across a PHP↔DB boundary
+- **What happened**: An analytics dashboard ran its window filter and `GROUP BY DATE(created_at)` in MySQL, but generated the zero-fill series keys with PHP `date('Y-m-d', strtotime("-{$i} day"))`. MySQL commonly runs UTC while PHP was set to `Asia/Kuala_Lumpur` (UTC+8), so the two disagree on which calendar day "today" is â€” the newest sparkline bar mapped to a date the SQL `DATE()` never produced, misattributing today's activity every single day. The headline count (a raw range filter) stayed correct, so the chart silently disagreed with its own KPI number.
+- **Impact**: Caught in Phase 5 (Cato) before ship, but would have shipped a dashboard whose trend line contradicted its headline â€” the kind of "looks fine in the demo" bug that erodes trust in the whole reporting surface.
+- **Rule**: When zero-filling or day-bucketing a time series, generate the calendar in the SAME timezone frame as the aggregation. Anchor to the DB clock â€” `$today = SELECT CURDATE()`, then build the series backward from `$today` â€” or set the DB session TZ to match PHP. Never mix PHP `date()` day keys with SQL `DATE()` buckets. Bonus: calendar-align the headline window to the plotted range so `headline == sum(series)`, and floor duration averages (`resolved_at >= created_at`) so back-dated rows can't push an average negative.
+- **Applies to**: All projects doing time-series aggregation across a PHPâ†”DB boundary
 
 ### Anti-Pattern: Running a test suite before checking which DB it targets
 - **What happened**: Was one command away from running PHPUnit when `.env.test` did not exist.
   DAISY's bootstrap falls back to `.env` and then executes every migration.
 - **Impact**: Would have run 28 migrations against the freshly-seeded **dev** database.
-  Caught it by reading `tests/bootstrap.php` first — but only just.
+  Caught it by reading `tests/bootstrap.php` first â€” but only just.
 - **Rule**: Before the first suite run on any unfamiliar project, read the bootstrap and
   confirm the test database is isolated. Assume nothing from the config file names.
 - **Applies to**: All projects with a test suite
@@ -539,14 +539,14 @@ Track mistakes to never repeat.
   contamination. Cost a debug cycle to trace to setUp, not the assertion.
 - **Rule**: When a test writes to a table that isn't in the global truncate list, truncate it in that
   test class's own `setUp()` (I added `tenant_features`, `tax_rates`, `platform_settings`, `features WHERE
-  is_custom`). Each test must start from a known-empty state for EVERY table it touches — check the base
+  is_custom`). Each test must start from a known-empty state for EVERY table it touches â€” check the base
   harness's truncate list against the tables your test writes, and top it up locally.
 - **Applies to**: All projects with a shared/reused test database
 
 ### Anti-Pattern: Download / standalone links break a boosted or skeleton-overlay layout
 - **What happened**: The platform console shows a nav-skeleton overlay on any `<a>` click (assuming a page
   nav follows) and the tenant layout uses `<body hx-boost="true">`. A **PDF download** link triggers no
-  navigation (Content-Disposition), so the skeleton overlay never cleared — the page sat blank until refresh;
+  navigation (Content-Disposition), so the skeleton overlay never cleared â€” the page sat blank until refresh;
   under `hx-boost` it also tried to AJAX-swap the binary PDF / a full standalone HTML page into the shell.
 - **Impact**: {USER_NAME} hit a "stuck skeleton, must refresh" bug immediately after the PDF feature shipped.
 - **Rule**: Any link that downloads a file or navigates to a full standalone document (not an app fragment)
@@ -558,14 +558,14 @@ Track mistakes to never repeat.
 ### Anti-Pattern: Interpolating a Windows path into a `sed` replacement
 - **What happened**: AutomationSentinel's `install.sh` rendered its templates with
   `sed -e "s|{MEMORY_PATH}|$MEMORY_PATH|g"`. `MEMORY_PATH` in `memorycore.conf` is a
-  Windows path, so the replacement contained `\U`, `\L`, `\A`, `\D`, `\f`, `\c`…
+  Windows path, so the replacement contained `\U`, `\L`, `\A`, `\D`, `\f`, `\c`â€¦
   GNU sed treats `\U` on the right-hand side of `s///` as **uppercase everything
   that follows** and simply drops the backslashes it doesn't recognise.
   `C:\Users\FAKRUL~1.HAK\AppData\Local\Temp\claude\...` came out as
-  `C:SERSFAKRUL~1.HAKAPPDATAocaltempaudec--users-...` — wrong path *and* wrong case.
+  `C:SERSFAKRUL~1.HAKAPPDATAocaltempaudec--users-...` â€” wrong path *and* wrong case.
 - **Impact**: 5 of 6 installed protocol files carried a dead cross-reference link.
   Silent: exit code 0, "6 written", no warning. The PowerShell installer was fine
-  (`String.Replace` is literal), so it only broke for bash users — i.e. only sometimes.
+  (`String.Replace` is literal), so it only broke for bash users â€” i.e. only sometimes.
 - **Rule**: Escape the replacement before it reaches sed:
   `esc_repl() { printf '%s' "$1" | sed -e 's/[\&|]/\&/g'; }`
   and use a delimiter that isn't in the data. Better still, prefer a literal
@@ -581,18 +581,18 @@ Track mistakes to never repeat.
   `install.ps1` worked, because `[Environment]::GetFolderPath('Desktop')` resolves
   the redirect.
 - **Impact**: The documented happy path (`./install.sh` with no arguments) was broken
-  on the only machine it ships to, while its PowerShell twin passed — the kind of
+  on the only machine it ships to, while its PowerShell twin passed â€” the kind of
   asymmetry that reads as "bash is fine, I tested it".
 - **Rule**: Never hardcode `$HOME/Desktop` in a bash script on Windows. Glob the
   redirect: `"$HOME"/OneDrive*/Desktop/...`, and keep the plain path as a fallback.
-  When two installers claim parity, run **both** — a passing twin proves nothing
+  When two installers claim parity, run **both** â€” a passing twin proves nothing
   about the other.
 - **Applies to**: All cross-shell installers on Windows
 
 ### Anti-Pattern: Reporting a service found by port-scanning instead of by reading the config
 - **What happened**: At the Phase 1 gate I reported the dev database as **MariaDB 11.8.2 on
   port 3306**, having found a `mariadbd` listener with `lsof`. {USER_NAME}'s projects all point
-  at **port 3307, MariaDB 10.4.28** — a different instance entirely. I only noticed when
+  at **port 3307, MariaDB 10.4.28** â€” a different instance entirely. I only noticed when
   `mariadb -u root` on 3306 failed with access denied and I went looking at sibling `.env`
   files.
 - **Impact**: A confidently wrong fact in a gate report a stack decision was made on. It
@@ -600,7 +600,7 @@ Track mistakes to never repeat.
   engine does not have until 10.5.2), whereas on 11.8 it is merely preferred. Had I built to
   the reported version, the first `renameColumn` migration would have been a hard error.
 - **Rule**: A listening socket is a machine fact, not a project fact. To learn which database
-  a project uses, read a **sibling project's `.env`** — or the project's own — before running
+  a project uses, read a **sibling project's `.env`** â€” or the project's own â€” before running
   `lsof`. When both exist, say which one the projects actually target and why. Same shape as
   the "empty grep proves absence" anti-pattern: the tool answered a question I had not asked.
 - **Applies to**: All projects, every environment report
@@ -615,16 +615,16 @@ Track mistakes to never repeat.
   the same store the fake intercepts, the fake tests itself. Assert on the real rows instead
   (`$user->notifications()->where(...)->count()`). Fakes are for *outbound* effects you cannot
   observe; they are wrong for a mechanism whose evidence is persisted state.
-- **Applies to**: All projects — `Notification::fake`, `Mail::fake`, `Bus::fake`, `Event::fake`
+- **Applies to**: All projects â€” `Notification::fake`, `Mail::fake`, `Bus::fake`, `Event::fake`
 
 ### Skill: Let the seeded demo disagree with the app, then find out why
 - **Pattern**: After building, seed realistic demo data and read the app's own numbers back
   through a real request. "Today: 0.00" next to a week total that obviously included today was
-  the only visible symptom of `APP_TIMEZONE` being ignored — no test caught it, because every
+  the only visible symptom of `APP_TIMEZONE` being ignored â€” no test caught it, because every
   test used one clock consistently.
 - **Why**: A test suite proves internal consistency. Demo data crossing a real boundary (seed
   clock vs request clock, PHP vs DB) proves the boundary. Cross-check an invariant that must
-  hold across the two — here, *the plotted series must sum to the headline*.
+  hold across the two â€” here, *the plotted series must sum to the headline*.
 - **Applies to**: Any app with time-series or aggregate reporting
 
 ### Anti-Pattern: Trusting `update()` on a field that is not fillable
@@ -634,11 +634,11 @@ Track mistakes to never repeat.
 - **Impact**: A security-relevant control that appeared to work. Caught only because a test
   asserted the **resulting state** rather than the redirect.
 - **Rule**: When a field is deliberately outside `$fillable`, `update()` is not the API for it
-  — write a named method. And always assert the post-condition, never the response alone: a
+  â€” write a named method. And always assert the post-condition, never the response alone: a
   302 to the right place proves routing, not effect.
 - **Applies to**: All Laravel projects
 
-### Anti-Pattern: A settings field wired to the wrong store — a control nobody can set
+### Anti-Pattern: A settings field wired to the wrong store â€” a control nobody can set
 - **What happened**: Social Media Listening Tools, 2026-09-11. The Threads settings screen
   had a `keyword_search_granted` field. Its descriptor carried no `'store' => 'setting'`,
   so `PlatformSettingsController::fieldsFor()` fell through to its default and looked the
@@ -647,54 +647,54 @@ Track mistakes to never repeat.
   `social_accounts.settings` to decide whether Threads keyword search could see public posts
   at all. Reader and writer were pointed at two different stores.
 - **Impact**: The single most consequential flag on the platform was permanently `false` and
-  **unreachable** — no operator action could change it. Worse, the screen actively lied: the
+  **unreachable** â€” no operator action could change it. Worse, the screen actively lied: the
   readonly row rendered the placeholder *"Read from the platform after connecting"* while
   nothing in the codebase ever read it back. Every symptom pointed at App Review or at Meta,
   not at a one-word omission in a field descriptor.
 - **Rule**: A field descriptor that names *where a value is displayed from* and code that
   reads *where the value lives* are two declarations of the same fact, and they drift
-  silently because neither fails loudly when they disagree — an absent key is
+  silently because neither fails loudly when they disagree â€” an absent key is
   indistinguishable from an unset value. When adding a settings field, assert the round
   trip in a test: write it where the app writes it, then assert the **screen shows it**.
   And treat a placeholder that promises "read from the platform" as a claim requiring a
-  call that actually does so — if nothing reads it back, the honest widget is an input,
+  call that actually does so â€” if nothing reads it back, the honest widget is an input,
   not a disabled box.
 - **Applies to**: All projects with declarative form/field registries (Laravel + Inertia
   especially, where the descriptor and the reader sit in different files)
 
 ---
 
-## Basic Custom E-Commerce — 2026-08-27 (Laravel 12, client delivery)
+## Basic Custom E-Commerce â€” 2026-08-27 (Laravel 12, client delivery)
 
 ### Anti-Pattern: A plan that promises a control, and a runbook line that pretends to be it
-- **What happened**: `Planning.md` §17.4 said "Force an admin password change on first login."
+- **What happened**: `Planning.md` Â§17.4 said "Force an admin password change on first login."
   I wrote that sentence, approved it, built ten phases, wrote `DEPLOYMENT.md` repeating it as a
-  bullet — and **never implemented anything**. `AdminSeeder` shipped `admin@basic-ecom.test`
+  bullet â€” and **never implemented anything**. `AdminSeeder` shipped `admin@basic-ecom.test`
   with the password `password` and no mechanism to require changing it. It was caught only
   because {USER_NAME} highlighted that one line in the seeder during handoff review.
 - **Impact**: A live payment-handling store would have gone out with a known working admin
   credential and a deployment document *claiming* that credential was forced to change. The
-  document made the gap harder to see, not easier — anyone auditing the runbook would have
+  document made the gap harder to see, not easier â€” anyone auditing the runbook would have
   ticked it off.
 - **Rule**: When a plan states a **control**, it is a work item, not prose. At the phase that
-  should implement it, grep the plan for imperative security language — "force", "must",
-  "require", "never" — and confirm each has a file and a test behind it. A control that exists
+  should implement it, grep the plan for imperative security language â€” "force", "must",
+  "require", "never" â€” and confirm each has a file and a test behind it. A control that exists
   only in a document is a control that does not exist. Prefer the mechanism that cannot be
   skipped: a DB flag plus middleware, not an instruction to a human.
 - **Applies to**: Every project with a written plan or runbook
 
 ### Anti-Pattern: Phantom completion left in the traceability matrix
 - **What happened**: The `REQ-013` row listed `app/Http/Controllers/Admin/ShipmentController.php`
-  and "EasyParcelService booking methods" as implementation paths. **Neither existed** — the
+  and "EasyParcelService booking methods" as implementation paths. **Neither existed** â€” the
   feature was blocked and only its schema, model and enum were built. The row sat there through
-  Phases 8–11 and into the client handoff. I only found it because {USER_NAME} asked "complete?"
+  Phases 8â€“11 and into the client handoff. I only found it because {USER_NAME} asked "complete?"
   and I checked instead of answering from memory.
 - **Impact**: The client-facing traceability record claimed delivery of a scope item that was
-  never built. `53-documentation-protocol.md` §4.2 forbids exactly this, and I had written the
+  never built. `53-documentation-protocol.md` Â§4.2 forbids exactly this, and I had written the
   matrix myself.
 - **Rule**: A traceability matrix is an assertion about the filesystem, so **verify it against
   the filesystem** before any handoff: loop the listed paths and `test -f` each one. When a
-  requirement is partially built, split the row explicitly — "Built: … / NOT built: …" — never
+  requirement is partially built, split the row explicitly â€” "Built: â€¦ / NOT built: â€¦" â€” never
   leave the aspirational path list in place with a status chip beside it.
 - **Applies to**: Any project under Protocol 53
 
@@ -705,19 +705,19 @@ Track mistakes to never repeat.
   **wrote the file back unchanged with no error**. The container binding was never added; all
   15 payment tests failed at once with `BindingResolutionException`.
 - **Impact**: Ten minutes chasing a "container" bug that was a no-op edit. The failure was loud
-  only because a test suite existed — the same silent miss in a doc edit would have shipped.
+  only because a test suite existed â€” the same silent miss in a doc edit would have shipped.
 - **Rule**: `str.replace()` returns a copy and reports nothing. **Assert the anchor before
   replacing**: `assert old in s, "anchor missing"` / `sys.exit("MISS: ...")`. Re-read the file
-  after any formatter, linter or codemod runs — never edit against a remembered version of a
+  after any formatter, linter or codemod runs â€” never edit against a remembered version of a
   file a tool has since touched.
 - **Applies to**: All scripted file edits
 
-### Anti-Pattern: `Http::fake()` merges — it does not override
+### Anti-Pattern: `Http::fake()` merges â€” it does not override
 - **What happened**: In an end-to-end test I faked `*getBillTransactions` early with a
   placeholder amount, then called `Http::fake()` again later with the correct amount for the
   order that now existed. Laravel **merged** the stub sets; the first pattern still matched, so
-  the stale placeholder won. The payment refused to settle on an amount mismatch — which was
-  the code behaving **correctly** — and it presented as an application bug.
+  the stale placeholder won. The payment refused to settle on an amount mismatch â€” which was
+  the code behaving **correctly** â€” and it presented as an application bug.
 - **Impact**: Debugged the application for a failure caused entirely by the test harness. The
   dangerous version of this is the opposite outcome: a stale permissive stub making a broken
   guard look like it passes.
@@ -732,10 +732,10 @@ Track mistakes to never repeat.
   never pass: `ValidateCsrfToken` calls `runningUnitTests()` and skips verification entirely
   under `APP_ENV=testing`. I had written a test of Laravel's own test-mode behaviour and called
   it a security test.
-- **Impact**: Would have shipped as false assurance in the security suite — the worst kind of
+- **Impact**: Would have shipped as false assurance in the security suite â€” the worst kind of
   test, because its presence stops anyone writing the real one.
 - **Rule**: Before asserting a framework behaviour, ask what would have to break for this test
-  to fail — if the answer is "the framework", it is not your test. Assert the **project's
+  to fail â€” if the answer is "the framework", it is not your test. Assert the **project's
   decision** instead: that the form ships a token, and that the CSRF exclusion list contains
   exactly the one route intended and nothing else. Note that Laravel 11+ stores
   `validateCsrfTokens(except:)` in the **static** `$neverVerify`, not the instance `$except`.
@@ -747,12 +747,12 @@ Track mistakes to never repeat.
   suffix also collides roughly half the time by ~120 orders in a day (birthday problem), so the
   comment was describing the mitigation for a defect it was also concealing.
 - **Impact**: Caught by writing a test for sequential order numbers. Left alone, a busy day
-  would have produced duplicate-key failures at checkout — for real customers, at the worst
+  would have produced duplicate-key failures at checkout â€” for real customers, at the worst
   moment.
 - **Rule**: A docblock is an assertion; write it **after** the body or verify it against the
   body before committing. When a comment claims a safety property (retry, lock, idempotency,
   validation), there must be a test named for that property. Treat "N random digits" as a
-  collision source, not a uniqueness source — derive sequence from state and let a UNIQUE index
+  collision source, not a uniqueness source â€” derive sequence from state and let a UNIQUE index
   plus a real retry be the guard.
 - **Applies to**: All projects
 
@@ -773,7 +773,7 @@ Track mistakes to never repeat.
 - **What happened**: `cat > app/Services/CartService.php <<'EOF'` where `app/Services/` had never
   been created. The redirect failed, the file was not written, and the only signal was a
   `php -l` error on a missing file at the end of a long command.
-- **Impact**: Minor — one wasted round trip. Recorded because the same shape in a longer batch
+- **Impact**: Minor â€” one wasted round trip. Recorded because the same shape in a longer batch
   would leave a silently missing file among many written ones.
 - **Rule**: `mkdir -p` the target directory in the same command as any heredoc write to a new
   path, and verify with `php -l` or `test -f` immediately after.
@@ -781,12 +781,12 @@ Track mistakes to never repeat.
 
 ### Anti-Pattern: Reading state after mutating it, to decide what the mutation did
 - **What happened**: `CartController::store()` decided whether a quantity had been capped with
-  `$resulting < $this->cart->qtyFor($id) + $requested` — but `qtyFor()` was read **after**
+  `$resulting < $this->cart->qtyFor($id) + $requested` â€” but `qtyFor()` was read **after**
   `add()` had already written. The condition was always true, so every add reported "capped".
 - **Impact**: Cosmetic here, but the shape is the same one that produces wrong stock and wrong
   totals elsewhere.
 - **Rule**: Capture the before-value into a variable **before** the mutating call. If a function
-  needs to report what it changed, have it return that — do not reconstruct it from state the
+  needs to report what it changed, have it return that â€” do not reconstruct it from state the
   call has already altered.
 - **Applies to**: All projects
 
@@ -797,7 +797,7 @@ Track mistakes to never repeat.
   earlier the same day as "View composer registered only on `layouts.*`", and the review
   checklist item I wrote for `35-review-protocol.md` says in as many words: *"View composers
   registered for every namespace that renders the shared variable, not just `layouts.*`"*.
-- **Impact**: Caught by tests within a minute — but the log entry and the checklist did not
+- **Impact**: Caught by tests within a minute â€” but the log entry and the checklist did not
   prevent it, which is the point worth recording. Writing a rule down is not the same as
   reading it at the moment of the decision.
 - **Rule**: When a phase's own log already contains an anti-pattern for the exact mechanism
@@ -805,36 +805,36 @@ Track mistakes to never repeat.
   For view composers specifically: register against every namespace that renders the
   variable, and treat "the layout uses it" as insufficient evidence that only the layout
   uses it.
-- **Applies to**: All projects — and to the maintenance of this log itself
+- **Applies to**: All projects â€” and to the maintenance of this log itself
 
 ### Anti-Pattern: A `str.replace()` anchor pointing at the wrong section number
 - **What happened**: Inserted a decision record into `Planning.md` anchored on `### 12.3`,
-  believing §12 was the architecture section. §12 is **Database Design**; §12.3 is a table
-  list. The `assert` fired correctly — but only *after* an earlier edit in the same script
+  believing Â§12 was the architecture section. Â§12 is **Database Design**; Â§12.3 is a table
+  list. The `assert` fired correctly â€” but only *after* an earlier edit in the same script
   had already written to the file, and the commit ran anyway. Result: the stack table gained
   a row cross-referencing a section that does not describe it, the decision record was never
   written, and the docs changelog edit queued behind it was silently skipped.
 - **Impact**: A commit that claimed to record a decision and did not. Fixed in a follow-up,
   but the partial-write shape is the hazard: assertions protect the *edit*, not the *batch*.
 - **Rule**: Validate **every** anchor in a multi-file edit script **before** writing any
-  file — collect failures first, then apply. And verify the section a cross-reference points
+  file â€” collect failures first, then apply. And verify the section a cross-reference points
   at actually covers the subject; `grep -n '^### '` the target document rather than
   trusting a remembered outline.
 - **Applies to**: All scripted multi-file documentation edits
 
-### Anti-Pattern: Logging a rule, then not applying it — twice
+### Anti-Pattern: Logging a rule, then not applying it â€” twice
 - **What happened**: Recorded "validate **every** anchor in a multi-file edit script BEFORE
   writing any file" after a partial batch shipped a commit that claimed a decision it had not
   recorded. Then did the same thing again on the very next feature: an edit script asserted on
   a `Planning.md` anchor that did not match, **wrote the other file first**, and the commit
-  went out — a second commit claiming a decision it had not recorded. Separately, in the same
+  went out â€” a second commit claiming a decision it had not recorded. Separately, in the same
   session, repeated a view-composer defect that was already in this log *and* in the review
   checklist I had written for it.
-- **Impact**: Three repeats of two known defects, all caught, none shipped to production —
+- **Impact**: Three repeats of two known defects, all caught, none shipped to production â€”
   but the log demonstrably did not change behaviour. That is the finding worth keeping: a rule
   written after the fact is a record, not a control.
 - **Rule**: A recurring defect needs a **mechanism**, not a paragraph. For scripted edits that
-  means the script itself validates first and exits before any write — make that the template,
+  means the script itself validates first and exits before any write â€” make that the template,
   not the intention:
   ```python
   missing = [k for k, (old, _) in edits.items() if old not in files[k]]
@@ -846,26 +846,26 @@ Track mistakes to never repeat.
 
 ### Anti-Pattern: A published deliverable left behind the code it describes
 - **What happened**: Published a client handoff Artifact stating "199 tests / 564 assertions",
-  then changed client-visible behaviour three more times — the admin template, the dashboard
+  then changed client-visible behaviour three more times â€” the admin template, the dashboard
   metrics, and the entire order-status vocabulary. The artifact still claimed the old figures
   and said nothing about the workflow states the client would operate with daily. It was only
   caught by explicitly diffing the published document against reality.
 - **Impact**: A live client-facing link, quietly wrong, describing a workflow that no longer
   existed. Exactly the "documentation lying about code" failure recorded twice already this
-  project — but pointed outward, at the client, which is worse.
+  project â€” but pointed outward, at the client, which is worse.
 - **Rule**: A published artifact is a **deliverable with a URL**, not a snapshot. Any change to
   client-visible behaviour after publishing means re-checking it: diff the claims (version
   numbers, counts, feature lists, workflow names) against the code, then republish to the same
   URL. Add it to the end-of-change checklist alongside tests and docs.
 - **Applies to**: All published handoffs, reports and status artifacts
 
-## Learned Skills — Basic Custom E-Commerce
+## Learned Skills â€” Basic Custom E-Commerce
 
 ### Skill: Run the guard suites against the real engine, not just SQLite
 - **Learned from**: Basic Custom E-Commerce
 - **Pattern**: Keep the fast suite on SQLite in-memory, but run every suite that asserts a
-  **database-enforced** guarantee — guarded `UPDATE` affected-row counts, UNIQUE collisions,
-  collation behaviour — against the actual MySQL/MariaDB target before release. Here that meant
+  **database-enforced** guarantee â€” guarded `UPDATE` affected-row counts, UNIQUE collisions,
+  collation behaviour â€” against the actual MySQL/MariaDB target before release. Here that meant
   199 tests green on both engines on every phase, via one env-prefixed command.
 - **Why**: The stock-decrement and duplicate-payment guarantees are enforced by the database,
   not by PHP. A test that passes only on SQLite proves nothing about the thing it exists to
@@ -874,19 +874,19 @@ Track mistakes to never repeat.
 
 ### Skill: Deliver a blocked integration complete and inert, not absent
 - **Learned from**: Basic Custom E-Commerce (ToyyibPay, OQ-11)
-- **Pattern**: When a third-party contract cannot be verified, still build the whole path —
-  service, controller, settlement transaction, tests — with the unverifiable step returning an
+- **Pattern**: When a third-party contract cannot be verified, still build the whole path â€”
+  service, controller, settlement transaction, tests â€” with the unverifiable step returning an
   explicit refusal. Ship it switched off behind config, with the refusal reason logged verbatim
   and stated in the README, the deploy runbook and the handoff.
 - **Why**: The client gets everything that *can* be built, the remaining work is one confirmation
   rather than a phase, and nobody later mistakes the deliberate refusal for a defect. The
-  alternative — guessing the contract — converts an open question into a silent money bug.
+  alternative â€” guessing the contract â€” converts an open question into a silent money bug.
 - **Applied to**: Any integration blocked on an unobtainable specification
 
 ### Skill: Answer "is it complete?" by checking, not by recalling
 - **Learned from**: Basic Custom E-Commerce
 - **Pattern**: On any completion or handoff question, run the verification before composing the
-  answer — working tree clean, suites green on every target, and each claimed implementation
+  answer â€” working tree clean, suites green on every target, and each claimed implementation
   path confirmed to exist on disk. Then answer from that output.
 - **Why**: I had every reason to believe the project was complete, and it was not: one
   requirement's file list was fictional. The check took one command; the wrong answer would have
@@ -896,7 +896,7 @@ Track mistakes to never repeat.
 
 ---
 
-## larisHQ — PH02 Authentication & RBAC (2026-09-01)
+## larisHQ â€” PH02 Authentication & RBAC (2026-09-01)
 
 ### Anti-Pattern: Shipping a permission system whose smallest permission is the biggest one
 - **What I did**: wrote staff CRUD where the role list validated only as `exists:roles,id`. A
@@ -908,34 +908,34 @@ Track mistakes to never repeat.
   this user become?" was never asked at all.
 - **The rule**: in any RBAC build, the review question is not only *is each route guarded* but
   **what is the maximum privilege reachable from each individual permission**. Wherever one user
-  can hand another user access — role assignment, role authoring, invitations, API tokens —
+  can hand another user access â€” role assignment, role authoring, invitations, API tokens â€”
   a grant ceiling is mandatory: `array_diff($granted, $granter->permissions) === []`.
 - **Caught by**: my own Phase 5 review, before commit. Reproduced first, then fixed, then
   regression-tested in both directions.
 
 ### Anti-Pattern: A guard test that trips on the prose explaining the guard
 - **What I did**: wrote a test forbidding `is_admin`-style checks by grepping `app/` for the
-  token. It failed immediately — on the comment in `RoleTemplates.php` explaining why no
+  token. It failed immediately â€” on the comment in `RoleTemplates.php` explaining why no
   `is_admin` flag exists.
 - **The rule**: a source-scanning guard must scan **code**, not text. In PHP, strip
   `T_COMMENT`/`T_DOC_COMMENT` with `token_get_all()` before matching. Otherwise the honest thing
-  — documenting the rule where it matters — is what breaks the build, and the fix pressure is to
+  â€” documenting the rule where it matters â€” is what breaks the build, and the fix pressure is to
   delete the explanation.
 - **Applied to**: every anti-pattern guard test, in any language.
 
 ### Anti-Pattern: Assuming a framework helper still does what its name says
 - **What I did**: nearly wired unauthenticated redirects assuming `Authenticate::redirectTo()`
   finds the login route. On Laravel 12 it returns **null** unless `redirectUsing()` was called;
-  the redirect actually comes from the exception handler's `route('login')` fallback — so the
+  the redirect actually comes from the exception handler's `route('login')` fallback â€” so the
   route *must* be named `login` or every guest hits an exception instead of a login screen.
   Same session, same shape: `authorizeResource()` still exists and still calls
-  `$this->middleware()`, which Laravel 12 controllers no longer have — it is a fatal error, not
+  `$this->middleware()`, which Laravel 12 controllers no longer have â€” it is a fatal error, not
   a deprecation.
 - **The rule**: for auth, authorization and routing internals, read the installed vendor source
   before writing against it. Both of these read as working code and fail only at runtime, in the
   path you are least likely to exercise by hand.
 
-## Learned Skills — larisHQ
+## Learned Skills â€” larisHQ
 
 ### Skill: Gate the schema before writing the code, in writing
 - **Learned from**: larisHQ PH02
@@ -944,14 +944,14 @@ Track mistakes to never repeat.
   tenant-scoped, the `Gate::before` contract, `users.status` early, the frontend permission
   payload) were settled in one exchange and never revisited.
 - **Why**: schema is the most expensive thing to change after code exists, and the decisions that
-  look like implementation detail — where `tenant_id` goes, what `before` may answer — are the
+  look like implementation detail â€” where `tenant_id` goes, what `before` may answer â€” are the
   ones that decide whether the *next* phase is safe.
 - **Applied to**: every T2 phase with a migration.
 
 ### Skill: Prove the authorization claim over real HTTP, not only in the harness
 - **Learned from**: larisHQ PH02
 - **Pattern**: after the suite is green, log in as a genuinely limited role against the running
-  app and confirm the 403s — GET and POST both — and that no record was written. The feature
+  app and confirm the 403s â€” GET and POST both â€” and that no record was written. The feature
   tests said the same thing, but the HTTP pass also caught that sessions only work on a
   `*.larishq.test` host (`SESSION_DOMAIN`), which no test would ever have shown.
 - **Why**: the harness bypasses the cookie, the host, the CSRF token rotation and the real
@@ -961,7 +961,7 @@ Track mistakes to never repeat.
 
 ---
 
-## larisHQ — PH03 Multi-Tenancy (2026-09-01)
+## larisHQ â€” PH03 Multi-Tenancy (2026-09-01)
 
 ### Anti-Pattern: Reasoning about middleware order instead of running it
 - **What I did**: placed tenant resolution as a route-group alias and reasoned that group
@@ -970,36 +970,36 @@ Track mistakes to never repeat.
   priority list**, which reorders them ahead of anything not in that list. The guard was querying
   users with no tenant bound.
 - **How it surfaced**: not by review. A single test failed with
-  `destroy(): Argument #1 ($role) must be of type Role, string given` — a *different* bug — and the
+  `destroy(): Argument #1 ($role) must be of type Role, string given` â€” a *different* bug â€” and the
   stack trace in that failure showed the real ordering. One failing test paid for two findings.
 - **The rule**: middleware order is a runtime property, not a reading-order property. When
-  correctness depends on it, assert it — a test whose failure prints the stack is worth more than
+  correctness depends on it, assert it â€” a test whose failure prints the stack is worth more than
   any amount of confidence about the pipeline.
 
 ### Anti-Pattern: `$request->user()` after a second guard exists
 - **What I did**: shared `auth.permissions` from `$request->user()?->permissionSlugs()`. Correct
   with one guard. `Authenticate` calls `shouldUse($guard)`, so `auth:platform` makes `platform` the
-  default guard **for the whole request** — `$request->user()` then returned a `PlatformUser`, and
+  default guard **for the whole request** â€” `$request->user()` then returned a `PlatformUser`, and
   the shared Inertia prop called `permissionSlugs()` on a model that has no such method. A 500 on
   every page of the console that administers every customer.
 - **The rule**: the moment an application has two guards, `$request->user()` and bare `auth` stop
-  meaning anything specific. Name the guard everywhere — `Auth::guard('web')->user()`,
-  `auth:web`, `auth:platform` — including in shared view/prop data, which is the place it is
+  meaning anything specific. Name the guard everywhere â€” `Auth::guard('web')->user()`,
+  `auth:web`, `auth:platform` â€” including in shared view/prop data, which is the place it is
   easiest to forget and the place it breaks every page at once.
 
 ### Anti-Pattern: Writing the same fillable no-op twice in two phases
-- **What I did**: kept `tenant_id` out of `$fillable` (correct — it is a privilege column), then
-  used `updateOrCreate(['tenant_id' => $id, 'slug' => $slug], …)` in the provisioner *and* in a
+- **What I did**: kept `tenant_id` out of `$fillable` (correct â€” it is a privilege column), then
+  used `updateOrCreate(['tenant_id' => $id, 'slug' => $slug], â€¦)` in the provisioner *and* in a
   seeder. Mass assignment drops the key from the new instance, so the write-refusal I had just
   written threw on my own code.
-- **Why it matters**: `Privilege Columns Must Not Be Fillable — and the Silent No-Op That Follows`
+- **Why it matters**: `Privilege Columns Must Not Be Fillable â€” and the Silent No-Op That Follows`
   was already in this log from Daily Spend. I wrote the guard and then walked into its far side
   twice in one phase. Knowing a rule is not the same as recognising the shape at the call site.
 - **The rule**: whenever a column is excluded from `$fillable`, grep the codebase for
   `updateOrCreate`/`firstOrCreate`/`create` carrying that column in the *attributes* array. The
   lookup half works; the instantiation half silently does not.
 
-## Learned Skills — larisHQ PH03
+## Learned Skills â€” larisHQ PH03
 
 ### Skill: Let one failing test finish talking before fixing it
 - **Learned from**: larisHQ PH03
@@ -1022,36 +1022,36 @@ Track mistakes to never repeat.
 
 ---
 
-## larisHQ — PH04 HQ Business Setup (2026-09-01)
+## larisHQ â€” PH04 HQ Business Setup (2026-09-01)
 
 ### Anti-Pattern: A dotted data key inside a dot-notation path
-- **What I did**: named settings `commission.clawback_days` — readable, groupable, and idiomatic
-  — then generated validation rules as `settings.commission.clawback_days`. Laravel reads dots as
+- **What I did**: named settings `commission.clawback_days` â€” readable, groupable, and idiomatic
+  â€” then generated validation rules as `settings.commission.clawback_days`. Laravel reads dots as
   nesting, so that rule addressed `$data['settings']['commission']['clawback_days']`, a path that
   never exists. `required` failed, an error appeared under exactly the key I was asserting, and my
-  test went green. The posted value — `400`, well outside the declared `max:365` — was never
+  test went green. The posted value â€” `400`, well outside the declared `max:365` â€” was never
   checked at all, and `validated()` returned a nested array the controller could not consume, so
   **saving a setting over HTTP was broken**.
 - **How it surfaced**: an Inertia assertion could not address the prop, for the same reason. The
   failure I was annoyed by was the only thing pointing at the real one.
 - **The rule**: any key containing the framework's path separator must be escaped at every path
-  boundary — validation rules (`settings.commission\.clawback_days`), `data_get`, `old()`,
+  boundary â€” validation rules (`settings.commission\.clawback_days`), `data_get`, `old()`,
   Inertia's `where()`. And a green test that asserts *an error exists* proves nothing about
   **which** rule produced it; assert the valid case too, or the failure mode hides inside the
   success.
 - **Caught by**: my own test run, before commit.
 
 ### Anti-Pattern: Testing a store through its repository and never through its endpoint
-- **What I did**: covered the settings repository directly (`set()` then `get()` — green) and
+- **What I did**: covered the settings repository directly (`set()` then `get()` â€” green) and
   covered the endpoint only for rejection (403, 422). Nothing ever posted a *valid* value through
   the controller, which is precisely the path that was broken.
 - **The rule**: for every store or service with an HTTP surface, at least one test must travel the
-  whole route — request, validation, controller, persistence, read-back. Unit-testing the service
+  whole route â€” request, validation, controller, persistence, read-back. Unit-testing the service
   and permission-testing the endpoint can both pass while the seam between them is broken.
 
 ### Anti-Pattern: Reseeding roles without reseeding permissions
 - **What I did**: added ten permissions to the registry, then ran only `RoleSeeder` to refresh the
-  templates. It maps slugs to ids from the table, so the ten new slugs — absent from the table —
+  templates. It maps slugs to ids from the table, so the ten new slugs â€” absent from the table â€”
   were silently skipped, and the HQ Owner got a 403 on the screens the phase had just built.
 - **The rule**: a seeder that resolves foreign keys by natural key fails **silently** when the
   target row is missing. Run the whole seeder chain in order, and prefer a seeder that reports what
@@ -1059,36 +1059,36 @@ Track mistakes to never repeat.
 
 ---
 
-## larisHQ — PH05 Dynamic Hierarchy (2026-09-01)
+## larisHQ â€” PH05 Dynamic Hierarchy (2026-09-01)
 
 ### Anti-Pattern: `nullable` in front of a rule that has to decide what null means
 - **What I did**: wrote `'parent_id' => ['nullable', new ValidNetworkParent($level, $member)]`.
-  The rule's first branch says "a member below the top level must have a parent" — and Laravel
+  The rule's first branch says "a member below the top level must have a parent" â€” and Laravel
   skips **every rule after `nullable`** when the value is null, so that branch never ran. A member
   could be created orphaned below the top level, which is precisely the structural invariant the
   rule exists to protect.
 - **How it surfaced**: the test that asserted the refusal failed with "Session is missing expected
-  key [errors]" — the one test I nearly did not write, because the rule so obviously handled it.
+  key [errors]" â€” the one test I nearly did not write, because the rule so obviously handled it.
 - **The rule**: `nullable` means *"null is acceptable, stop checking"*. A custom rule that must
   interpret null cannot sit behind it. Use `present` (key must exist, may be null) and let the
-  rule decide — `validatePresent` returns true for a present-null key, so the rule runs.
+  rule decide â€” `validatePresent` returns true for a present-null key, so the rule runs.
 - **Caught by**: my own test run, before commit.
 
 ### Anti-Pattern: Ordering an audit trail by a one-second timestamp
 - **What I did**: `->latest('created_at')` on the audits relation. Three events written in one
   request share a second, so they came back in arbitrary order and the assertion failed against a
   trail that read differently each time.
-- **The rule**: any "history" ordering needs a tiebreaker the database guarantees —
+- **The rule**: any "history" ordering needs a tiebreaker the database guarantees â€”
   `ORDER BY created_at DESC, id DESC`. A log that reorders itself between reads is worse than no
   log, because it looks authoritative.
 
-## Learned Skills — larisHQ PH05
+## Learned Skills â€” larisHQ PH05
 
 ### Skill: Prove a configurable dimension at both ends and the boundary, not in the middle
-- **Learned from**: larisHQ PH05 (1–8 configurable levels)
+- **Learned from**: larisHQ PH05 (1â€“8 configurable levels)
 - **Pattern**: for anything the customer configures, write the same end-to-end test at the
   **minimum**, at a **typical** value, at the **maximum**, and at **maximum + 1** rejected. Here
-  that was 1 level, 2 levels, 8 levels, and a 9th refused — and the 9th refused separately by the
+  that was 1 level, 2 levels, 8 levels, and a 9th refused â€” and the 9th refused separately by the
   service, the HTTP layer and a database constraint.
 - **Why**: a single mid-range test passes on code that has a hardcoded assumption at either end.
   The 1-level case caught different things from the 8-level case: one has no parents at all, the
@@ -1097,16 +1097,16 @@ Track mistakes to never repeat.
 
 ---
 
-## larisHQ — PH06 Marketers & Channels (2026-09-01)
+## larisHQ â€” PH06 Marketers & Channels (2026-09-01)
 
 ### Anti-Pattern: Repeating a logged anti-pattern in a new costume
 - **What I did**: wrote a guard test grepping the source for `facebook` and `google ads` to prove
-  no channel-specific branch exists. It failed on my own doc comments — the ones explaining why no
+  no channel-specific branch exists. It failed on my own doc comments â€” the ones explaining why no
   branch exists. I had hit exactly this in PH02 with the `is_admin` guard, **written the fix
   (strip comments with `token_get_all`) and logged it as an anti-pattern in this very file**, four
   phases earlier in the same session.
 - **Why it happened**: I recognised the *rule* ("guards must scan code, not prose") but not the
-  *shape* at the call site, because the subject was different — permissions then, channel names
+  *shape* at the call site, because the subject was different â€” permissions then, channel names
   now. Logged lessons are indexed by their example, not by their structure.
 - **The rule**: when writing any source-scanning guard, go and read how the last one was written.
   The generalisation to hold is "a guard that greps source must strip comments first", and it
@@ -1115,12 +1115,12 @@ Track mistakes to never repeat.
 ### Anti-Pattern: A comment that describes intent the code does not implement
 - **What I did**: wrote `syncDefaultChannels()` to walk the config and create anything missing,
   with the comment *"Only ever adds: a channel an HQ deleted on purpose must not reappear on the
-  next sync."* The code did the exact opposite — a deleted channel was missing, so it was
+  next sync."* The code did the exact opposite â€” a deleted channel was missing, so it was
   recreated. The comment was a specification I had written and not implemented.
 - **How it surfaced**: the test I wrote from the comment failed. Had I written the test from the
   code instead, both would have agreed and both would have been wrong.
 - **The rule**: write the test from the **intent**, never from the implementation. When they
-  disagree, that is the test doing its job — and the fix goes in the code, not the comment. A
+  disagree, that is the test doing its job â€” and the fix goes in the code, not the comment. A
   comment stating a guarantee is a claim; if nothing enforces it, delete the claim or enforce it.
 
 ### Anti-Pattern: Declaring a flaky test fixed because it stopped failing
@@ -1128,41 +1128,41 @@ Track mistakes to never repeat.
   factories with bounded `fake()->unique()` pools, and was ready to move on. It then failed a
   second time.
 - **The rule**: a flake that has stopped reproducing is **not** a flake that has been fixed. Say
-  what was observed, at what rate, what was ruled out and what was changed as a precaution — and
+  what was observed, at what rate, what was ruled out and what was changed as a precaution â€” and
   record it as open. Reporting "fixed" on a disappearance trains exactly the wrong reflex, and the
   next person to see it starts from zero.
-- **Status**: still open in larisHQ — see `Planning.md` PH06 notes.
+- **Status**: still open in larisHQ â€” see `Planning.md` PH06 notes.
 
 ---
 
-## larisHQ — PH07 Catalogue & Pricing (2026-09-02)
+## larisHQ â€” PH07 Catalogue & Pricing (2026-09-02)
 
 ### Anti-Pattern: Rebuilding the application inside a test
 - **What I did**: wanted one test to exercise three hierarchy depths, so I looped and called
   `$this->refreshApplication()` between iterations. The new application opens a **new database
-  connection** while the previous one still holds an open `RefreshDatabase` transaction — and that
+  connection** while the previous one still holds an open `RefreshDatabase` transaction â€” and that
   transaction holds row locks on `permissions`, which every test's `beforeEach` seeds. The next
   seed blocked for 50 seconds and died with
   `SQLSTATE[HY000] 1205 Lock wait timeout exceeded`.
 - **Why it matters far beyond that test**: this was the **intermittent failure I had been chasing
-  since PH04** — the one that appeared roughly twice in twenty-five runs, moved between unrelated
+  since PH04** â€” the one that appeared roughly twice in twenty-five runs, moved between unrelated
   tests, and survived ten isolated runs and three random-order runs. It was never order-dependent
   and never a faker pool; it was lock contention on the one table every test writes, surfacing in
   whichever test happened to seed next.
 - **The rule**: never rebuild the container mid-test. To run one test against several
-  configurations, use a dataset (`->with([1, 3, 8])`) — each case gets a clean transaction.
+  configurations, use a dataset (`->with([1, 3, 8])`) â€” each case gets a clean transaction.
 - **The wider lesson**: when a flake moves between unrelated tests, stop looking at the tests and
   look at what they **share**. Here it was a single seeded table and a transaction that outlived
   its owner.
 
-## Learned Skills — larisHQ PH07
+## Learned Skills â€” larisHQ PH07
 
 ### Skill: Chase a flake to its shared resource, and say "open" until you have reproduced it
-- **Learned from**: larisHQ PH04–PH07
+- **Learned from**: larisHQ PH04â€“PH07
 - **Pattern**: three sightings across three phases, each in a different test. I recorded it as
-  open, wrote down what had been ruled out, and kept going — then reproduced it deliberately two
+  open, wrote down what had been ruled out, and kept going â€” then reproduced it deliberately two
   phases later while writing an unrelated test, and the stack trace named the cause in one line.
-- **Why**: had I written "fixed — hardened the factories" at the first disappearance, the real
+- **Why**: had I written "fixed â€” hardened the factories" at the first disappearance, the real
   cause would still be there and the next person would start from zero. Recording *what was
   observed, at what rate, and what was ruled out* is what made the eventual diagnosis a
   five-minute job instead of a fresh investigation.
@@ -1170,25 +1170,25 @@ Track mistakes to never repeat.
 
 ### Skill: Re-raise an assumed decision at the moment its cost becomes real
 - **Learned from**: larisHQ D043
-- **Pattern**: D043 was recorded in planning as "ASSUMED — CONFIRM" with the note that it must be
-  settled before PH12. I did not chase it for six phases — but the moment PH07 actually created
+- **Pattern**: D043 was recorded in planning as "ASSUMED â€” CONFIRM" with the note that it must be
+  settled before PH12. I did not chase it for six phases â€” but the moment PH07 actually created
   the two columns it describes, I put it in the schema gate as a plain business question with the
   consequence spelled out.
 - **Why**: asking at planning time competes with thirty other questions and gets a guess. Asking
   when the code is about to depend on it gets a real answer, because the stakes are visible and
   concrete.
-- **Applied to**: every assumption logged as "confirm later" — attach it to the phase that first
+- **Applied to**: every assumption logged as "confirm later" â€” attach it to the phase that first
   depends on it, and raise it there.
 
 ---
 
-## larisHQ — PH08 Inventory (2026-09-02)
+## larisHQ â€” PH08 Inventory (2026-09-02)
 
 ### Anti-Pattern: A unique index that includes a nullable column
 - **What I nearly did**: put `warehouse_id` and `network_member_id` on `stocks` as nullable
   columns with `UNIQUE(tenant_id, warehouse_id, network_member_id, variant_id)`. In MySQL and
-  MariaDB, **NULLs are distinct in a unique index**, so two rows for the same network member —
-  both with `warehouse_id IS NULL` — would both be accepted. The constraint reads as if it works
+  MariaDB, **NULLs are distinct in a unique index**, so two rows for the same network member â€”
+  both with `warehouse_id IS NULL` â€” would both be accepted. The constraint reads as if it works
   and enforces nothing on exactly the rows it was written for.
 - **The rule**: when a row holds *one of two things*, give that choice its own table with a
   `CHECK` that exactly one side is set, and reference it by a single non-nullable key. Then the
@@ -1196,10 +1196,10 @@ Track mistakes to never repeat.
 - **Caught by**: thinking through the constraint before writing it, prompted by having to justify
   the shape at the schema gate.
 
-### Anti-Pattern: Writing a heredoc into a directory that does not exist — again
+### Anti-Pattern: Writing a heredoc into a directory that does not exist â€” again
 - **What I did**: `cat > app/Http/Requests/Concerns/ResolvesStockHolder.php` without creating
   `Concerns/` first. The shell reported the failure, but the same command chain's *later* steps
-  had already patched two other files to import the trait — so the codebase referenced a file
+  had already patched two other files to import the trait â€” so the codebase referenced a file
   that did not exist.
 - **Why it matters**: this exact anti-pattern is already in this log from a previous project. The
   new detail is the failure mode: when a compound command writes a file **and** patches its
@@ -1207,70 +1207,70 @@ Track mistakes to never repeat.
 - **The rule**: `mkdir -p` before any heredoc into a new path, and when one command both creates
   and wires something, check the create succeeded before trusting the wiring.
 
-## Learned Skills — larisHQ PH08
+## Learned Skills â€” larisHQ PH08
 
 ### Skill: Name a scope extension as an extension, and price it before it is chosen
 - **Learned from**: larisHQ D071
-- **Pattern**: §13 described warehouse-only stock. Tracking what each stockist holds is a
-  reasonable thing for the owner to want and an easy thing to slide in as "obviously implied" —
+- **Pattern**: Â§13 described warehouse-only stock. Tracking what each stockist holds is a
+  reasonable thing for the owner to want and an easy thing to slide in as "obviously implied" â€”
   so I put it at the gate as an explicit choice, with what it costs spelled out: every member
   becomes an inventory location, transfers gain a downstream leg, reconciliation spans the
   network, and the portals owe each member a view. Fakrul chose it knowingly.
-- **Why**: the failure mode is not refusing scope, it is *absorbing* it silently — the work
+- **Why**: the failure mode is not refusing scope, it is *absorbing* it silently â€” the work
   happens, the specification no longer describes the system, and nobody decided anything. Naming
   it makes it a decision with an owner and a recorded cost.
 - **Applied to**: every requirement that is reasonable, unstated, and larger than it looks.
 
 ---
 
-## larisHQ — PH09 Customers (2026-09-02)
+## larisHQ â€” PH09 Customers (2026-09-02)
 
 ### Anti-Pattern: `$defaults + $overrides` in PHP
 - **What I did**: built an anonymiser as
-  `forceFill(array_fill_keys($personalFields, null) + ['name' => 'Removed customer', …])`.
+  `forceFill(array_fill_keys($personalFields, null) + ['name' => 'Removed customer', â€¦])`.
   PHP's `+` on arrays keeps the **left** operand's keys, so the `name` override was silently
   discarded and the code tried to write NULL into a NOT NULL column.
 - **The rule**: `+` is not `array_merge`. When combining defaults with overrides, the overrides go
-  on the **left** — or use `array_merge`, where the right wins. The failure is silent whenever the
+  on the **left** â€” or use `array_merge`, where the right wins. The failure is silent whenever the
   column happens to be nullable, which is most of the time: here it only surfaced because `name`
   is NOT NULL.
 
 ### Anti-Pattern: Trusting a framework's name guess after being burned by it
 - **What I did**: named a pivot `marketer_customer`, matching the domain and the planning
-  document. Laravel's `belongsToMany` guesses alphabetically — `customer_marketer` — and failed
+  document. Laravel's `belongsToMany` guesses alphabetically â€” `customer_marketer` â€” and failed
   at runtime. I had hit exactly this in PH06 with `marketer_channel`, fixed it the same way, and
   **written the lesson into session memory** three phases earlier.
 - **Why it keeps happening**: the note said "state the table explicitly when the schema names it
   otherwise", which requires noticing that this *is* such a case. The alphabetical rule is easy to
   check and I did not check it.
 - **The rule**: whenever a pivot's two model names are not already in alphabetical order, pass the
-  table name. Do not evaluate whether it is needed — pass it.
+  table name. Do not evaluate whether it is needed â€” pass it.
 
-## Learned Skills — larisHQ PH09
+## Learned Skills â€” larisHQ PH09
 
 ### Skill: Turn a policy sentence into a failing test
-- **Learned from**: larisHQ PH09 (§18 "no unnecessary personal data")
-- **Pattern**: requirements about what a system must *not* do have no natural home in code — there
+- **Learned from**: larisHQ PH09 (Â§18 "no unnecessary personal data")
+- **Pattern**: requirements about what a system must *not* do have no natural home in code â€” there
   is nothing to point at. Make the absence assertable: a test on the exact column list turns
   "collect only what is necessary" from an intention into something that breaks the build when
   violated.
 - **Why**: intentions decay silently and nobody is ever the person who decided to erode them. A
   test makes the erosion a visible choice with an author.
-- **Applied to**: any "must not" requirement — no unnecessary data, no cost prices in a payload,
+- **Applied to**: any "must not" requirement â€” no unnecessary data, no cost prices in a payload,
   no admin shortcut, no vendor-specific branch. Each of those became a guard test in this project,
   and each has since caught something.
 
 ---
 
-## larisHQ — PH10 Ordering (2026-09-02)
+## larisHQ â€” PH10 Ordering (2026-09-02)
 
 ### Anti-Pattern: A factory that can generate data the schema rejects
 - **What I did**: `RoleFactory` used `fake()->unique()->jobTitle()` for the name and slugged it
   into a `varchar(64)` column. Most job titles fit. "First-Line Supervisor-Manager of Landscaping,
-  Lawn Service, and Groundskeeping Worker" does not — so roughly one run in fifteen died with
+  Lawn Service, and Groundskeeping Worker" does not â€” so roughly one run in fifteen died with
   `1406 Data too long`, in whichever test happened to draw it.
 - **Why it mattered more than it looks**: this was a **second** intermittent failure with the same
-  symptom class as the PH07 lock-wait — random-looking, moving between unrelated tests. Having
+  symptom class as the PH07 lock-wait â€” random-looking, moving between unrelated tests. Having
   diagnosed one, it was tempting to assume any recurrence was the same thing. It was not.
 - **The rule**: every generated string must be bounded against the column it lands in. Faker's
   word-based generators have no length contract, and `unique()` does not add one. Assert it once:
@@ -1278,31 +1278,31 @@ Track mistakes to never repeat.
 - **The wider lesson**: after fixing one flaky cause, do not assume the next occurrence is the same
   cause. Read the new stack trace as if the first diagnosis had never happened.
 
-## Learned Skills — larisHQ PH10
+## Learned Skills â€” larisHQ PH10
 
 ### Skill: Prove immutability by changing the source, not by reading the copy
 - **Learned from**: larisHQ PH10 (D011, D076)
 - **Pattern**: a snapshot test that asserts `line.unit_price === 2000` proves the copy happened
   once. It says nothing about whether the value is a copy or a join, because both return 2000
   today. The test that means something is: place the order, **change the price to something
-  else**, and assert the order still reads 2000. Do it for every snapshotted input — price, tier,
+  else**, and assert the order still reads 2000. Do it for every snapshotted input â€” price, tier,
   cost, names.
 - **Why**: the whole point of a snapshot is behaviour under change, so the test has to contain a
-  change. Applied here it also caught what would have been a real bug a phase later — the landed
+  change. Applied here it also caught what would have been a real bug a phase later â€” the landed
   cost was not originally in my schema, and writing this test is what surfaced that D044's
   commission base had no stable input.
 - **Applied to**: any denormalised copy, cached total, or "as at" record.
 
 ---
 
-## larisHQ — PH11 Payments (2026-09-02)
+## larisHQ â€” PH11 Payments (2026-09-02)
 
 ### Skill: Chase a dangling cross-reference when you reach the phase it points at
-- **Learned from**: larisHQ D031 → PH11
+- **Learned from**: larisHQ D031 â†’ PH11
 - **Pattern**: D031 dropped "Refunded" as an order status six phases earlier, with the note that
   it *"belongs to PH11"*. PH11's own task list said nothing about refunds. Building only the task
   list would have left a documented pointer unhonoured and a returned order with no way to be
-  settled — and nobody would have noticed for months.
+  settled â€” and nobody would have noticed for months.
 - **Why**: decisions written in one phase routinely defer work into another, and the receiving
   phase's task list is usually written before that deferral exists. Re-read the decisions that
   name the phase you are starting, not just the phase's own tasks.
@@ -1312,41 +1312,41 @@ Track mistakes to never repeat.
   for the phase name before writing the first line of code.
 
 ### Skill: Let the shape of a constraint choose the concurrency tool
-- **Learned from**: larisHQ PH08 → PH11
+- **Learned from**: larisHQ PH08 â†’ PH11
 - **Pattern**: PH08 made overselling impossible with a guarded conditional update, and that
-  pattern was fresh and successful. PH11's constraint looks identical in English — "never exceed
-  the total" — but the quantity being constrained is a **sum across rows**, which no single-row
+  pattern was fresh and successful. PH11's constraint looks identical in English â€” "never exceed
+  the total" â€” but the quantity being constrained is a **sum across rows**, which no single-row
   `WHERE` can express. It needed a parent lock instead.
 - **Why**: reaching for the tool that worked last time is exactly how a read-then-write race gets
-  shipped with confidence. One row → conditional update. Sum across rows → lock the parent and
+  shipped with confidence. One row â†’ conditional update. Sum across rows â†’ lock the parent and
   aggregate under the lock. State which one applies and why, in the code.
 - **Applied to**: credit limits, quotas, capacity checks, anything phrased as "the total must not
   exceed".
 
 ---
 
-## larisHQ — PH12 Commission (2026-09-02)
+## larisHQ â€” PH12 Commission (2026-09-02)
 
 ### Anti-Pattern: Comparing ids from two different tables
-- **What I did**: wrote a test asserting D014 — that no commission entry belongs to a network
-  member — as
+- **What I did**: wrote a test asserting D014 â€” that no commission entry belongs to a network
+  member â€” as
   `CommissionEntry::whereIn('marketer_id', NetworkMember::pluck('id'))->count() === 0`.
   It failed, and the code was right: marketer ids and network member ids are separate sequences,
   so marketer 1 and member 1 collide numerically. The assertion was a category error that would
   have passed or failed by coincidence either way.
 - **The rule**: an id is only meaningful against its own table. To prove a foreign key cannot hold
   the wrong kind of thing, assert it **structurally** (the column does not exist) and
-  **referentially** (every value resolves to the intended model) — never by comparing raw ids
+  **referentially** (every value resolves to the intended model) â€” never by comparing raw ids
   across tables.
 - **Caught by**: the test failing on correct code, which is the useful direction for a test to be
   wrong in.
 
-## Learned Skills — larisHQ PH12
+## Learned Skills â€” larisHQ PH12
 
 ### Skill: Depart from an accepted proposal when implementing reveals what it costs
 - **Learned from**: larisHQ D078, D079
 - **Pattern**: P2 had been accepted months earlier and specified the manager override as a period
-  lump sum. Implementing the clawback lifecycle made the cost visible — a lump sum has no per-order
+  lump sum. Implementing the clawback lifecycle made the cost visible â€” a lump sum has no per-order
   entry to cancel when one order in the period is returned. Rather than build it as written or
   quietly change it, I put the trade-off at the gate with both shapes priced, and recorded the
   outcome as a decision that *refines* P2 rather than contradicting it.
@@ -1354,66 +1354,66 @@ Track mistakes to never repeat.
   negative commission base is a real state, and a negative commission would make the HQ's own
   pricing decision into a debt the marketer owes. Floored at zero, recorded, reason stated.
 - **Why**: an accepted proposal is a decision made with less information than you have while
-  building it. Neither silently following it nor silently changing it is right — surface what
+  building it. Neither silently following it nor silently changing it is right â€” surface what
   implementation revealed, and let the record show why the answer moved.
 - **Applied to**: any spec written before the thing it specifies existed.
 
 ---
 
-## Learned Skills — larisHQ PH13 (2026-09-02)
+## Learned Skills â€” larisHQ PH13 (2026-09-02)
 
 ### Skill: Write the timezone test as the scenario, not as the assertion
 - **Learned from**: larisHQ PH13
 - **Pattern**: "period boundaries are computed in the configured timezone" is easy to assert
-  trivially — `expect(config('app.timezone'))->toBe(...)` — and that proves almost nothing. The
+  trivially â€” `expect(config('app.timezone'))->toBe(...)` â€” and that proves almost nothing. The
   test that earns its place names the **scenario**: an order placed at 00:30 on the 1st in Kuala
   Lumpur is 16:30 on the last day of the previous month in UTC, so a UTC boundary silently files
   that sale under the wrong period.
 - **Why**: timezone bugs produce numbers that are wrong and look completely ordinary. Nobody
   audits a monthly total that is plausible. Writing the failing scenario into the test is what
   makes the bug *findable* rather than merely *prevented today*.
-- **Applied to**: any date bucketing — reporting periods, billing cycles, cut-off times, "today's"
+- **Applied to**: any date bucketing â€” reporting periods, billing cycles, cut-off times, "today's"
   anything.
 
 ### Skill: Reuse the schema shape you already proved, and say that you are
-- **Learned from**: larisHQ PH08 → PH12 → PH13
-- **Pattern**: three phases hit the same problem — a row that must reference exactly one of
+- **Learned from**: larisHQ PH08 â†’ PH12 â†’ PH13
+- **Pattern**: three phases hit the same problem â€” a row that must reference exactly one of
   several things, with uniqueness over that choice. The first (stock locations) cost real thought
   and a separate table. The second (commission rules) and third (targets) used a CHECK plus a
   STORED generated key, in minutes, with a comment naming the earlier decision.
 - **Why**: a solved shape recognised early is the cheapest thing in a codebase, and the comment
   pointing back is what makes it recognisable to the next person instead of looking like
-  coincidence. The failure mode is the opposite one — solving it a third distinct way, and leaving
+  coincidence. The failure mode is the opposite one â€” solving it a third distinct way, and leaving
   three patterns where one would do.
 - **Applied to**: any recurring structural problem. Name the earlier decision in the code, not just
   in the log.
 
 ---
 
-## larisHQ — PH14 Reports (2026-09-02)
+## larisHQ â€” PH14 Reports (2026-09-02)
 
 ### Anti-Pattern: Subtracting one unsigned column from another
 - **What I did**: computed a margin as `SUM((retail_price - unit_price) * quantity)` where all
   three columns are `unsignedInteger`. MySQL and MariaDB do **unsigned** arithmetic there, so the
-  moment `unit_price > retail_price` the expression does not go negative — it raises
+  moment `unit_price > retail_price` the expression does not go negative â€” it raises
   `SQLSTATE[22003] 1690 BIGINT UNSIGNED value is out of range` and the whole report 500s.
 - **The sharp edge**: casting the subtraction alone was **not enough**. Multiplying the signed
   result by an unsigned `quantity` promotes the whole expression back to unsigned, and it failed
   again with the same error. Every operand needs the cast.
-- **How it surfaced**: live data, not the test suite. My test had retail above the level price —
-  the normal case — so the underflow never occurred. The dev database happened to contain a
+- **How it surfaced**: live data, not the test suite. My test had retail above the level price â€”
+  the normal case â€” so the underflow never occurred. The dev database happened to contain a
   product priced above retail, which D045 explicitly permits, and that is what broke it.
 - **The rule**: if a column can legitimately be subtracted below zero, either store it signed or
   cast **every** operand in the expression. And when a comment claims a behaviour ("can be
-  negative; reported as it is"), write the test that exercises it — mine claimed exactly that and
+  negative; reported as it is"), write the test that exercises it â€” mine claimed exactly that and
   the code had never done it.
 
-## Learned Skills — larisHQ PH14
+## Learned Skills â€” larisHQ PH14
 
 ### Skill: Read a decision against the schema before building on it
-- **Learned from**: larisHQ D048 → D082
+- **Learned from**: larisHQ D048 â†’ D082
 - **Pattern**: D048 defined a figure as "computed from data the order already holds". Rather than
-  taking that at face value, I checked what the order actually held — and retail was not among the
+  taking that at face value, I checked what the order actually held â€” and retail was not among the
   snapshots. Building first would have produced a number that quietly changed whenever a product
   was repriced, and it would have looked right every day until someone compared two reports.
 - **Why**: a decision written months earlier describes the schema its author *expected*. The
@@ -1425,7 +1425,7 @@ Track mistakes to never repeat.
 ### Skill: Test the export separately from the screen
 - **Learned from**: larisHQ PH14
 - **Pattern**: the scoping rule was "a marketer's report covers only their assigned scope", and it
-  is easy to satisfy on the screen and miss on the CSV — the export is a second code path to the
+  is easy to satisfy on the screen and miss on the CSV â€” the export is a second code path to the
   same data, and it is the one that leaves the building.
 - **Why**: an export that ignores a scoping rule is the obvious way around it, and nobody notices
   because the screen looks correct. Assert the narrowing on the downloaded bytes, not just on the
@@ -1433,59 +1433,59 @@ Track mistakes to never repeat.
 - **Applied to**: any download, API endpoint, or print view that mirrors a scoped screen.
 
 
-## larisHQ — PH15 Portals (2026-09-04)
+## larisHQ â€” PH15 Portals (2026-09-04)
 
-Run at T2. Suite green, CS verify 100/100 and a live E2E pass **before** four of these were known —
+Run at T2. Suite green, CS verify 100/100 and a live E2E pass **before** four of these were known â€”
 three were found by the review and security gates, and the worst by `/code-review high` after the
 phase already looked finished. The gates earned their cost this phase more clearly than in any
 previous one.
 
 ### Anti-patterns
 
-**AP — Narrowing a list is not narrowing a resource.**
+**AP â€” Narrowing a list is not narrowing a resource.**
 A staff list got a `console()` scope so portal users would not appear on it. The resource route
 binding still resolved any user of the tenant, and the policy had no check, so `PUT /staff/{id}`
-with an admin role attached handed a portal user the entire console — and the role `sync()` revoked
+with an admin role attached handed a portal user the entire console â€” and the role `sync()` revoked
 their portal access in the same request. **The list query and the route model binding are two
 separate doors. Closing the visible one feels like the work.** Put the rule on the policy, where
 model-bound authorization actually passes.
 
-**AP — Repeating a docblock as the justification for calling the method.**
+**AP â€” Repeating a docblock as the justification for calling the method.**
 `syncRoles()` documents itself as "adds what is missing and leaves what an HQ has customised alone".
 It does not: it rewrites the name, description and permissions of every template. That claim was
 copied into a new caller's comment and would have silently reverted customised production roles on
 an unrelated action. **A docblock is a claim about code, not evidence. Read the body of anything you
-newly call from a runtime path — especially something previously only ever run at setup time.**
+newly call from a runtime path â€” especially something previously only ever run at setup time.**
 
-**AP — `?->` inside a query-builder argument is a null value, not a null guard.**
+**AP â€” `?->` inside a query-builder argument is a null value, not a null guard.**
 `where('user_id', $user?->getKey())` compiles to `user_id IS NULL` when the user is null. On a
-nullable FK — which was the *normal* state in this schema — it matched, and two visibility scopes
+nullable FK â€” which was the *normal* state in this schema â€” it matched, and two visibility scopes
 returned nothing instead of everything, contradicting their own documented contract. The sibling
 scope written the same day guarded with `$user === null` and was correct. **Guard the branch; do not
 let the query builder interpret your null.**
 
-**AP — One intent split across two transactions.**
+**AP â€” One intent split across two transactions.**
 A checkout service commits its own transaction and returns a draft; the caller then transitioned it
 to "placed". A failure in the second step left exactly the persisted, invisible draft the caller
 existed to prevent, while showing the user an error. **If step two is what makes step one correct,
 they are one transaction.**
 
-**AP — Shipping a surface with no way in.**
+**AP â€” Shipping a surface with no way in.**
 Two complete portals, tested and verified live, that no administrator could grant access to: the
 service that mints a login had had no caller since the phase that wrote it three phases earlier.
 Nothing failed, because nothing exercised the missing path. **Before declaring a user-facing surface
 done, grep for a production caller of the thing that lets a real user reach it.**
 
-**AP — Re-introducing a sink the codebase deliberately removed.**
+**AP â€” Re-introducing a sink the codebase deliberately removed.**
 Six `v-html` bindings added for paginator labels, in a project whose console carries a comment
 explaining why `v-html` was taken out. **When adding a second surface, read what the first one
-decided — the new surface inherits the codebase's rules, not a blank slate.**
+decided â€” the new surface inherits the codebase's rules, not a blank slate.**
 
-**AP — Writing a test and then skipping it.**
+**AP â€” Writing a test and then skipping it.**
 A skipped test with a plausible-sounding reason is worse than no test: it reads as coverage. It was
-skipped because a factory password was uncertain — thirty seconds of checking, not a reason.
+skipped because a factory password was uncertain â€” thirty seconds of checking, not a reason.
 
-### Learned Skills — larisHQ PH15
+### Learned Skills â€” larisHQ PH15
 
 - **Enumerating the router as a boundary test.** Turning "no admin route is reachable" from a
   hand-written list into a walk over `Route::getRoutes()`, with a non-empty assertion guarding the
@@ -1503,51 +1503,51 @@ skipped because a factory password was uncertain — thirty seconds of checking,
   was carried forward rather than ticked.
 
 
-## larisHQ — PH16 Notifications & Audit (2026-09-04)
+## larisHQ â€” PH16 Notifications & Audit (2026-09-04)
 
 Run at T2. The phase's defining discovery was archaeological rather than technical: a table written
 to since PH05 that nothing could read, and a whole class of actor the schema could not record.
 
 ### Anti-patterns
 
-**AP — A write path with no read path is not a feature.**
+**AP â€” A write path with no read path is not a feature.**
 `audit_logs` had thirteen call sites and had been recording faithfully for eleven phases. No route,
 no controller, no screen. Every phase gate passed because the tests asserted rows were *written*.
-**When a phase builds a store, check in the same phase that something can open it** — otherwise it
+**When a phase builds a store, check in the same phase that something can open it** â€” otherwise it
 is a table that costs writes and returns nothing.
 
-**AP — A second identity table the audit schema cannot hold.**
+**AP â€” A second identity table the audit schema cannot hold.**
 Platform Owner actions were unauditable because `user_id` was a foreign key to `users` and a
 Platform Owner lives in `platform_users`. The gap was invisible for eleven phases because nothing
 ever asked the audit log about a platform act. **When a system grows a second kind of actor, every
-table that records "who" needs revisiting — the FK will not complain, it will just never be set.**
+table that records "who" needs revisiting â€” the FK will not complain, it will just never be set.**
 
-**AP — A null that means "decided" read as a null that means "forgot".**
+**AP â€” A null that means "decided" read as a null that means "forgot".**
 A tenant-scoping trait refused any write with a null `tenant_id`, which was right while every
 audited record belonged to a subscriber. The moment one legitimately did not, the guard fired on a
-correct write — and it fired *after* the side effects, so a publish notified everybody and then
+correct write â€” and it fired *after* the side effects, so a publish notified everybody and then
 returned 500. `array_key_exists` asks the question the guard actually meant: did the caller set
 this at all? **A "fail closed" guard needs to distinguish absence from an explicit answer, or it
 eventually blocks the correct case.**
 
-**AP — Delivering a new permission by re-running the seeder that rewrites everything.**
-Adding a permission left existing tenants' roles behind, and the obvious remedy — re-run the role
-seeder — would have reverted every role those tenants had customised. **A provisioning routine and
+**AP â€” Delivering a new permission by re-running the seeder that rewrites everything.**
+Adding a permission left existing tenants' roles behind, and the obvious remedy â€” re-run the role
+seeder â€” would have reverted every role those tenants had customised. **A provisioning routine and
 a migration routine are different things even when they share code.** The fix narrowed the blast
 radius to the one role where a full sync is definitionally correct.
 
-**AP — A source-grep guard matching a substring.** `expo` matched `export` in four files. Third
-instance in this project, after `is_admin` and `facebook` — the first two were comments, this one
+**AP â€” A source-grep guard matching a substring.** `expo` matched `export` in four files. Third
+instance in this project, after `is_admin` and `facebook` â€” the first two were comments, this one
 was a prefix. **Word boundaries, comments stripped, every time.** A guard that cries wolf gets
 deleted rather than fixed, which loses the rule it was protecting.
 
-**AP — Ordering a list by a one-second timestamp when the primary key is a UUID.**
+**AP â€” Ordering a list by a one-second timestamp when the primary key is a UUID.**
 The notification inbox reshuffled on every load. The same project had already solved this for its
-audit relation with an id tiebreak and had written down why — and the lesson did not transfer
+audit relation with an id tiebreak and had written down why â€” and the lesson did not transfer
 because the new table's key was random rather than sequential. **A stable arbitrary order beats an
 unstable chronological one; the reader needs the list to stay still.**
 
-### Learned Skills — larisHQ PH16
+### Learned Skills â€” larisHQ PH16
 
 - **Taking an unrecoverable requirement to the gate instead of guessing.** Two spec sections were
   gone. Deriving a list and asking for confirmation cost one question and gave the *next* phase
@@ -1559,47 +1559,47 @@ unstable chronological one; the reader needs the list to stay still.**
   widen the guard's exclusion list.
 - **Auditing without becoming the leak.** The one place where recording carelessly undoes the thing
   being recorded is anonymisation. Record the handle, never the cleared values.
-- **Reading the body of a method before trusting its docblock** — carried over from PH15's finding
+- **Reading the body of a method before trusting its docblock** â€” carried over from PH15's finding
   and applied deliberately this phase.
 
 
-## larisHQ — PH15/PH16 review round (2026-09-04)
+## larisHQ â€” PH15/PH16 review round (2026-09-04)
 
 `/code-review high` on the combined working tree returned **eleven findings** after both phases had
 a green suite, CS verify 100/100 and a live end-to-end pass. The two severe ones are the entry that
 matters.
 
-**AP — A test that documents a dead end instead of catching it.**
+**AP â€” A test that documents a dead end instead of catching it.**
 Revoking portal access kept the account linkage on purpose, which made the grant path refuse to run
-again — so revoke was permanent and the UI offered no way back. A test asserted the linkage
+again â€” so revoke was permanent and the UI offered no way back. A test asserted the linkage
 survived and stopped there. It described the behaviour accurately and asked nothing about whether
 the behaviour was usable. **A test that only asserts the mechanism did what it was told is not
 coverage of the feature.** After writing one, ask what the user does next; if there is no answer,
 that is the bug.
 
-**AP — An undo with no redo.** More generally: any operation that deliberately preserves state in
+**AP â€” An undo with no redo.** More generally: any operation that deliberately preserves state in
 order to be reversible needs the reversing action shipped in the same change. Preserving the
 linkage was the *right* call; leaving it unreachable made it worse than deleting.
 
-**AP — Notifying before the write commits.** A notification placed before a service call that
-commits its own transaction can announce something that then fails — here, an email telling a
+**AP â€” Notifying before the write commits.** A notification placed before a service call that
+commits its own transaction can announce something that then fails â€” here, an email telling a
 member they were approved and could sign in, while the record stayed pending and the middleware
 would refuse them. Every other call site in the same system was already ordered correctly, which is
 what made the inverted one easy to write and hard to see.
 
-**AP — A request-scoped singleton with no reset.** A context object filled only on *some* routes has
+**AP â€” A request-scoped singleton with no reset.** A context object filled only on *some* routes has
 nothing to clear it on the way out, so it leaks into later requests under Octane and inside tests.
 Binding it to the identity it was resolved for removes the dependency on container lifetime
-entirely — a stale context simply stops matching. Compare a context set by middleware on *every*
+entirely â€” a stale context simply stops matching. Compare a context set by middleware on *every*
 request, which does not have this problem and therefore does not suggest the fix.
 
-**AP — Loosening a guard without noticing which backstop it relied on.** A "refuse writes with no
+**AP â€” Loosening a guard without noticing which backstop it relied on.** A "refuse writes with no
 tenant" check was relaxed to allow a deliberate null, with a comment reasoning that the NOT NULL
-column constraint was the real safety net — in the same change that made that very column nullable.
+column constraint was the real safety net â€” in the same change that made that very column nullable.
 **When you justify weakening a check by pointing at another check, verify the other check still
 exists.**
 
-**AP — Two surfaces totalling the same money differently.** One screen filtered cancelled rows out
+**AP â€” Two surfaces totalling the same money differently.** One screen filtered cancelled rows out
 of a commission total; a new screen summed everything. Both were defensible in isolation, and
 together they told one marketer two numbers. Put the definition on the model, once.
 
@@ -1609,15 +1609,15 @@ together they told one marketer two numbers. Put the definition on the model, on
   was checked against the code before acting; the two severe ones reproduced exactly as described,
   and the reasoning in the report was sound enough to adopt wholesale. Some reviews are not.
 - **Running the review on the combined tree.** Two phases reviewed together surfaced the
-  interaction bugs — an announcement link broken by a middleware added in the *other* phase — that
+  interaction bugs â€” an announcement link broken by a middleware added in the *other* phase â€” that
   neither phase's own review would have found.
 
 ---
 
-## LS-SecureLab â€” Intentionally-vulnerable lab, done as a real T2 build (2026-09-10)
+## LS-SecureLab Ã¢â‚¬â€ Intentionally-vulnerable lab, done as a real T2 build (2026-09-10)
 
 **Learned Skill**: A security *training* lab is still a T2 build, not a toy. SecureLab touched
-auth/authz, migrations, and file upload â€” three absolute T2 surfaces â€” so it ran the full gate
+auth/authz, migrations, and file upload Ã¢â‚¬â€ three absolute T2 surfaces Ã¢â‚¬â€ so it ran the full gate
 set even though "it is supposed to be insecure." The trick is separating *intended* weaknesses
 (4 planted, isolated, toggled findings) from *accidental* ones (everything else must be correct):
 role kept out of `$fillable`, CSRF on, passwords hashed, session regenerate on login, ownership
@@ -1632,10 +1632,74 @@ click into `php artisan test`. Backed by a live HTTP replay in both modes for on
 literal tripped a safety hook that misread it as a `Remove-Item` on a protected path. Fix: put
 non-trivial regex/exploit scripts in a scratchpad `.ps1` (or a `.md` written with the file tool)
 and run/append the file, rather than inlining regex in the tool command. Same shape as other
-"shell metacharacter in an inline command" gotchas â€” move it to a script.
+"shell metacharacter in an inline command" gotchas Ã¢â‚¬â€ move it to a script.
 
 **Anti-Pattern (avoided, worth recording)**: For the insecure-upload finding, the tempting demo
 is a webshell. That would be a code-execution sink and violates the safety scope. Correct move:
-demonstrate unsafe *handling* only â€” private non-web disk, no execution â€” so the finding is real
+demonstrate unsafe *handling* only Ã¢â‚¬â€ private non-web disk, no execution Ã¢â‚¬â€ so the finding is real
 (Medium) but the host can never be compromised.
 
+---
+
+## Social Media Listening Tool â€” Phase 1 Foundation (2026-09-08)
+
+Greenfield, T2 Full. Laravel 13 + Inertia 3 + Vue 3.5 + Bootstrap/AdminLTE, MySQL target.
+Planning + interactive UI foundation. CS verify 100/100, 15 tests / 345 assertions.
+
+### Anti-Patterns
+
+**AP-SML-01 â€” Answering a third-party pricing question from memory.**
+At session start my understanding of X's API was "Free / Basic $200 / Pro $5,000 / Enterprise"
+â€” fixed monthly subscription tiers. Scout's live check found X **replaced that entire model
+with pay-per-use credits in February 2026**, closed the legacy tiers to new signups, and
+discontinued the free tier. Not a stale number: a stale *model*. Had I written the plan from
+memory, the client would have been quoted a pricing structure that no longer exists, and the
+architecture would have missed that every X mention now carries a marginal cost â€” which is a
+schema and scheduler consequence, not a footnote.
+**Rule**: third-party pricing, quotas, and permission names are the fastest-decaying facts
+in any integration plan. Verify every one before it enters a document, and mark the
+confidence of each source â€” first-party docs vs third-party summaries â€” *in the document*,
+so the reader knows which rows are load-bearing. Three of the six platforms in this project
+had a constraint that materially changed the design and that I would have got wrong or
+vague from memory (X's model, Threads' 500-query allowance, YouTube's 100-units-per-search).
+
+**AP-SML-02 â€” Reusing a vendor template's own layout class names for a hand-rolled shell.**
+Built the console shell on `.app-wrapper` / `.app-sidebar` / `.app-main` â€” AdminLTE 4's own
+class names â€” while hand-rolling the sidebar. The mobile sidebar then never appeared: right
+class, `transform: none`, still at `x: -250`, because AdminLTE's stylesheet was setting its
+own width and offset on the same selectors. Cost a debugging round that a namespace prefix
+would have prevented.
+**Rule**: when hand-rolling something a vendored template also provides, namespace it. The
+diagnostic tell is **a computed width that is not the width you authored** â€” check that
+first and the collision identifies itself immediately.
+
+**AP-SML-03 â€” Verifying against the dev server and believing it was the build.**
+Ran the browser verification while a stray Vite dev server held `public/hot`, so every
+screenshot exercised HMR-served assets rather than `public/build`. The production build was
+fine, but that was luck, not evidence â€” the claim "the built app renders" was not actually
+tested until the dev server was killed and the pass repeated.
+**Rule**: before claiming a browser check verifies the shipped build, confirm `public/hot`
+is absent. A dev server can be running that this session did not start.
+
+### Learned Skills
+
+1. **Split acquisition modes before designing a listening system.** "Social listening"
+   implies keyword search across the open platform. Only three of six target platforms offer
+   anything of the kind, and **Facebook and LinkedIn offer none at any tier** â€” those are
+   owned-channel monitoring only. Naming the two modes (Discovery vs Owned-channel) early
+   kept the schema, the provider interfaces and the UI honest; designing as if all six do
+   Discovery is the single most likely way that class of product fails.
+2. **A capability is a type plus a declaration with a reason string.** See the pattern
+   library entry. The reason string is what turns a greyed-out button into an answer.
+3. **A "silent success" is more dangerous than a loud failure.** Threads' keyword search
+   quietly narrows to the caller's own posts when `threads_keyword_search` is not granted â€”
+   HTTP 200, structurally valid, near-empty. No exception ever fires. Providers must assert
+   their granted scopes at connect time rather than trust a successful-looking response.
+   Worth looking for this shape in every third-party integration.
+4. **Record what a table is NOT for, and why.** `social_authors` and a time-series
+   `engagement_metrics` were both designed and then deliberately deferred with the trigger
+   condition that would revive them. That is cheaper than either building them early or
+   rediscovering the argument in six months.
+5. **Ordering integrations by external lead time, not by importance.** LinkedIn is last to
+   build and first to apply for, because its partner approval is the longest pole and it is
+   entirely outside our control.
