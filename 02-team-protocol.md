@@ -223,10 +223,18 @@ silently do nothing.
    and `sed` Windows-path anti-patterns: a platform assumption baked into a rule,
    producing silent wrongness on the other platform. (EVO-004)
 8. **Escalate to Iris** when blocked — don't guess and don't silently drop scope.
-9. **Never read a large protocol file whole.** `Planning.md` (~126 KB),
-   `55-self-evolution.md` (~59 KB), `README.md` (~46 KB) and `11-pattern-library.md`
-   (~43 KB) each cost more context than the rest of the Core combined. Grep them or
-   section-read them; never `cat` them. Likewise, if a check is already deterministic
+9. **Never read a large protocol file whole.** `Planning.md` (~165 KB),
+   `55-self-evolution.md` (~121 KB), `11-pattern-library.md` (~87 KB) and `README.md`
+   (~50 KB) each cost more context than the rest of the Core combined. Grep them or
+   section-read them; never `cat` them.
+
+   *(Sizes measured 2026-09-11. They only ever grow — Phase 8 appends to three of the
+   four every project. The 2026-08 figures in this rule had drifted to roughly half the
+   real cost before anyone checked, which understates exactly the thing the rule exists
+   to warn about. Re-measure when you next touch this rule; never trust the number
+   against a file that is appended to by protocol.)*
+
+   Likewise, if a check is already deterministic
    in `coresentinel.py` or `sentinel-validator.py`, **run the script instead of
    reasoning through it** — a script's verdict is cheaper and more reliable than a
    model's.

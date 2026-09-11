@@ -164,7 +164,7 @@ Reviewed at Phase 8.
 | Skills were only ever hand-authored | **Partly closed 2026-09-10.** `coresentinel_core/learning/skills.py` drafts a `SKILL.md` from clustered trusted knowledge (≥ 3 lessons in one context, ≥ 8 observations behind them) into `memory/skill_candidates/`. It **never writes to `~/.claude/skills/`** — CoreSentinel does not own that surface, and installing a skill changes how an agent approaches every matching task, which is a person's decision. `evolve review` lists the drafts. |
 | A drafted skill has nobody reviewing it | **Open.** Drafts accumulate in `memory/skill_candidates/` and only `evolve review` mentions them. Until one is actually read and installed, the pipeline's last step is unexercised — and a draft nobody reads is a draft that rots. |
 | 17 squad specialists are prose roles, not agent definitions | Open. Only `muse` exists in `~/.claude/agents/`. Roles are played in-context, which is valid but means "parallel" in Phase 3/5/6 is sequential in practice. Say so honestly in gate reports. |
-| `claude-in-chrome` named in Phase 4 but not installed | Open (2026-08-20, darwin). E2E browser journeys have no instrument; `run` covers app-level only. |
+| `claude-in-chrome` named in Phase 4 but not installed | **Closed 2026-09-11 (win32)** — skill listed and the extension connected, so Phase 4 screenshots are reachable. It was genuinely absent on darwin 2026-08-20 and listed-but-unconnected there 2026-09-04; treat availability as **per host**, check it with one `tabs_context_mcp` call, and say which host you checked. See §2. |
 | Two conflicting 17-agent rosters | See [02-team-protocol.md](./02-team-protocol.md) § Roster Authority. |
 
 ---

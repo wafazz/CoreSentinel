@@ -662,6 +662,30 @@ Track mistakes to never repeat.
 - **Applies to**: All projects with declarative form/field registries (Laravel + Inertia
   especially, where the descriptor and the reader sit in different files)
 
+### Anti-Pattern: Allocating a sequential ID from a stale copy of the index
+- **What happened**: CoreSentinel itself, 2026-09-11. Two machines each registered new projects
+  by taking "the next number" from `00-identity.md`. One took 11 and 12 for Restaurant POS and
+  Social Media Listening Tool and pushed; the other, without pulling, took 11 and 12 for Weekly
+  Drop Playbook and SecureLab. On merge, `Projects/11-*` and `Projects/12-*` each named two
+  different projects. Three files conflicted on top of it, all because both sides appended at the
+  same insertion point.
+- **Impact**: Recoverable but not free — it cost a renumber of three files, an index rewrite, and
+  a judgment call about whether two similarly-named Social Listening entries were one project or
+  two. The dangerous version is the one that *doesn't* conflict: had the two sides picked
+  different filenames under the same number, git would have merged both cleanly and the
+  collision would have sat in the index unnoticed.
+- **Rule**: **Pull before allocating any sequential identifier** — project numbers, migration
+  numbers, phase IDs, anything whose next value is read off shared state. `git fetch && git log
+  HEAD..origin/main --stat` costs one call and is the only thing that makes the number real.
+  On collision, the **published side keeps its numbers** and the local side renumbers behind it;
+  numbers already on the remote may be referenced from places you cannot grep. And when two
+  entries look like the same project, confirm against **root path and stack version** before
+  merging them — near-identical names routinely belong to separate codebases, as
+  `06-basic-ecom` / `09-basic-ecommerce-php` and now `12-social-listening` /
+  `15-listening-console` both show.
+- **Applies to**: CoreSentinel's own `Projects/` index, and any multi-machine repo where an
+  append-only list hands out the next number
+
 ---
 
 ## Basic Custom E-Commerce â€” 2026-08-27 (Laravel 12, client delivery)

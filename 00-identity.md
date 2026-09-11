@@ -50,7 +50,11 @@
 - [Weekly Drop Playbook](./Projects/13-weekly-drop-playbook.md) - 30-week internal R&D drop programme, every demo run live against *The Lab*, a Laravel 12 + Vue 3.5 sandbox broken on purpose (17 planted flaws, one per week) - `Desktop/Weekly Drop Playbook` - **internal, Daythree R&D, 35% of KPI** - registered 2026-09-10; Week Zero half done (sandbox built, pain log + W01/W02 rehearsal outstanding); 0/30 drops presented
 - [SecureLab](./Projects/14-securelab.md) - Intentionally vulnerable internal web-app pentest lab for the "Secure by Testing" talk; 4 findings (IDOR/SQLi/Stored XSS/insecure upload) with a runtime BEFORE/AFTER `SECURELAB_VULN` toggle (Laravel 12 + PHP 8.3 + SQLite + Blade, no Node) - `Desktop/Internal Pentest/SecureLab` - **internal, Daythree learning/KPI** - **DELIVERED 2026-09-10**, 27 tests, all 4 findings retested & closed
 - [Listening Console](./Projects/15-listening-console.md) - Six-platform social listening & reply console, credentials encrypted per platform (Laravel 12 + PHP 8.2 + Inertia 3.3 + Vue 3.5 + AdminLTE 4 + MySQL) - `Downloads/Social Media Listening Tools` - **internal/own tool** - registered 2026-09-11; Threads connection settled (scope read-back + 60-day token refresh); not bound to the Core, Threads OAuth still outstanding - separate codebase from [12-social-listening](./Projects/12-social-listening.md)
-<!-- Copy ./Projects/_template.md to ./Projects/<nn>-<name>.md, then link it above -->
+<!-- Copy ./Projects/_template.md to ./Projects/<nn>-<name>.md, then link it above.
+     PULL FIRST. <nn> is allocated from this list, so a stale copy hands out a number
+     another machine has already taken — that happened on 2026-09-11 and cost a renumber
+     of three files. On collision the published side keeps its numbers. See the
+     "Allocating a sequential ID from a stale copy of the index" anti-pattern in 55. -->
 
 ## Protocols & References (Arranged in Process Order: 00 to 61)
 01. [Sentinel Identity](./01-sentinel-identity.md) - QA automation mode ("Iris test")
