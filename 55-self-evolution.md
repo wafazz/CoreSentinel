@@ -97,9 +97,29 @@ behaves like an opinion.
 | Term | Weight | What it measures |
 | :--- | ---: | :--- |
 | `evidence` | 0.35 | distinct sources, saturating at 3 |
-| `success` | 0.30 | successes / (successes + failures); 0.5 when neither |
+| `success` | 0.30 | successes / (successes + failures); **not measured when there are no successes** |
 | `consistency` | 0.25 | 1 âˆ’ contradicting / total |
 | `recency` | 0.10 | decay on `last_seen`, floored at 0.30 |
+
+**A term nobody measured is left out, not scored against.** When a term's input says nothing,
+it reports as not measured, drops out of the average, and its weight is shared across the
+terms that did have something to say. `coresentinel_score.py` already works this way: a
+signal it cannot evaluate on this machine is excluded from the denominator rather than
+counted as a failure.
+
+This was wrong in the first release, and the arithmetic said so. `success` fell back to a
+fixed 0.5, so a candidate with no outcome data could reach at most 0.85 against a 0.90 bar,
+and a lesson drawn from failures alone scored 0.0 on the term and capped at 0.70. The only
+producer of candidates is `experience/analysis.py`, and it records a candidate *only* for a
+recurring failure - so every candidate the system actually produced sat below the threshold
+it was measured against. TRUSTED was unreachable by arithmetic rather than by judgement, and
+the permanently empty tier read as a young store instead of a closed door. Corrected
+2026-09-11; the tally counts how often the *operation* failed, which corroborates a failure
+lesson rather than disproving it.
+
+Nothing about the evidence floor changed. `evidence` still counts distinct sources and
+promotion still demands three of them, so a flapping check seen two hundred times is still
+one source and still cannot promote itself.
 
 The bands are the memory engine's own â€” **0.90 Known, 0.50 Assumed** â€” reused rather than
 re-chosen, so a fact and a lesson age at the same rate and 0.85 does not mean two things.

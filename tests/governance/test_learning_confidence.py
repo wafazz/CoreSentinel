@@ -49,16 +49,26 @@ class TestTheTerms:
         assert confidence.evidence_term(3) == 1.0
         assert confidence.evidence_term(50) == 1.0
 
-    def test_an_unknown_success_rate_is_neither_for_nor_against(self):
-        """Scoring it 1.0 would make "never seen it work" read as "always works"."""
-        assert confidence.success_term(0, 0) == 0.5
+    def test_an_unknown_success_rate_is_not_a_verdict(self):
+        """Scoring it 1.0 would make "never seen it work" read as "always works".
+        Scoring it 0.5 was the other error: a term nobody measured was dragging
+        every total down by half its weight. It stands aside instead."""
+        assert confidence.success_term(0, 0) is confidence.INDETERMINATE
 
-    def test_a_lesson_from_failures_alone_still_scores(self):
+    def test_a_lesson_from_failures_alone_abstains_rather_than_scores_zero(self):
         """"This keeps breaking" is a reliable observation about a thing that
-        never works. `evidence` and `consistency` have to carry it."""
-        assert confidence.success_term(0, 9) == 0.0
+        never works. The tally counts how often the *operation* failed, so every
+        failure corroborates such a lesson — reading them as a 0.0 success rate
+        scored the lesson down for being true."""
+        assert confidence.success_term(0, 9) is confidence.INDETERMINATE
         result = confidence.score(distinct_sources=3, successes=0, failures=9)
         assert result["confidence"] > 0.5
+        assert result["indeterminate"] == ["success"]
+
+    def test_a_real_success_rate_is_still_measured(self):
+        assert confidence.success_term(9, 0) == 1.0
+        assert confidence.success_term(3, 1) == 0.75
+        assert confidence.success_term(0, 1) is confidence.INDETERMINATE
 
     def test_consistency_falls_as_evidence_disagrees(self):
         assert confidence.consistency_term(0, 10) == 1.0
@@ -73,6 +83,67 @@ class TestTheTerms:
 
     def test_the_weights_sum_to_one(self):
         assert sum(confidence.WEIGHTS.values()) == pytest.approx(1.0)
+
+
+class TestAnUnmeasuredTermIsNotALowScore:
+    """The TRUSTED ceiling bug.
+
+    `success` carried 0.30 and fell back to a fixed 0.5, so a candidate with no
+    outcome data topped out at 0.85 against a 0.90 bar — and a failure-derived
+    lesson, which is the only kind `experience/analysis.py` ever produces, topped
+    out at 0.70. Nothing the system actually recorded could reach the tier it was
+    being measured against. The tier looked empty because the store was young; it
+    was empty because the arithmetic forbade it.
+    """
+
+    def _score(self, sources, successes=0, failures=9, contradicting=0):
+        # `last_seen` is left unset on purpose, so `recency` sits at its floor
+        # and these assertions do not drift with the wall clock. Trust is being
+        # reached here on the *weakest* recency the engine can report.
+        return confidence.score(distinct_sources=sources, successes=successes,
+                                failures=failures, contradicting=contradicting,
+                                total_observations=9)
+
+    def test_a_corroborated_failure_lesson_can_now_reach_trust(self):
+        scored = self._score(sources=3)
+        assert scored["confidence"] >= confidence.TRUSTED_CONFIDENCE
+        assert confidence.qualifies_for_trust(scored, 3) is True
+
+    def test_the_old_ceiling_is_gone(self):
+        """Before the fix this configuration maxed at 0.70, however many
+        independent sources agreed and however recently they were seen."""
+        assert self._score(sources=99)["confidence"] > 0.70
+        assert self._score(sources=99)["confidence"] >= confidence.TRUSTED_CONFIDENCE
+
+    def test_the_redistributed_weights_still_sum_to_one(self):
+        scored = self._score(sources=3)
+        assert sum(scored["weights"].values()) == pytest.approx(1.0)
+        assert scored["weights"]["success"] == 0.0
+        assert scored["declared_weights"] == confidence.WEIGHTS
+
+    def test_a_measured_term_keeps_its_declared_weight(self):
+        scored = self._score(sources=3, successes=9, failures=1)
+        assert scored["weights"] == confidence.WEIGHTS
+        assert scored["indeterminate"] == []
+
+    def test_repetition_still_buys_nothing(self):
+        """The guard the fix must not relax: one source is one source."""
+        scored = self._score(sources=1, failures=200)
+        assert confidence.qualifies_for_trust(scored, 1) is False
+
+    def test_the_corroboration_floor_still_holds(self):
+        scored = self._score(sources=2)
+        assert confidence.qualifies_for_trust(scored, 2) is False
+
+    def test_a_contradiction_still_blocks_trust(self):
+        scored = self._score(sources=5, contradicting=3)
+        assert confidence.qualifies_for_trust(scored, 5, contradicting=3) is False
+
+    def test_explain_names_what_it_could_not_measure(self):
+        text = confidence.explain(self._score(sources=3))
+        assert "not measured" in text
+        assert "success" in text
+        assert "redistributed" in text
 
 
 class TestTheArithmeticIsCarried:
