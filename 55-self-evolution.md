@@ -1839,6 +1839,32 @@ more than the successes.
   workaround belong together; separating them guarantees the next caller rediscovers it.
 - **Applies to**: any codebase using `$fillable` as a privilege boundary.
 
+### Anti-Pattern: A declared capability whose permission is never requested
+
+- **What happened**: a provider class implemented the mentions interface and declared the
+  capability as *requires permission: `threads_manage_mentions`* — and the OAuth
+  `requestedScopes()` never asked for that scope. The consent screen therefore never offered it,
+  the scope read-back could never discover it, and the feature reported "missing permission" with
+  no reconnect able to clear it. Nothing threw. Nothing was logged. Every other signal — the
+  interface, the declaration, the UI, the planning document's submission list — said the feature
+  was built.
+- **Impact**: the documentation was *right*, which is what kept it invisible. Reading either side
+  alone shows a correct system; only comparing the two shows a dead feature. It would have been
+  found by a customer, or by a reviewer watching a screencast of an empty screen.
+- **Rule**: wherever a capability names the permission it needs, assert in **both** directions:
+  every named permission is actually requested (or is allowlisted as deliberately deferred, *with
+  a reason in code*), and every requested permission is named by some capability (or listed as
+  infrastructural). The second direction is the one a provider's app review polices — it demands a
+  justification per permission, and a scope no feature uses cannot be demonstrated, which risks
+  the whole submission rather than just that scope.
+- **Watch for two spellings of one permission.** Google's scopes are declared by short name and
+  requested as full `https://www.googleapis.com/auth/...` URLs. Comparing the strings directly made
+  the guard pass-through-failing for that provider: the same blindness, in the opposite direction.
+  Normalise before comparing, and assert the traversal found a plausible *number* of declarations —
+  a guard that silently inspects nothing is worse than no guard, because it reads as coverage.
+- **Applies to**: OAuth scopes, feature flags gated on an entitlement, plan limits naming a
+  permission key, anything where one place declares a requirement and another place requests it.
+
 ### Anti-Pattern: Trusting a subagent's finding about code I can read myself
 
 - **What happened**: the security review reported that `AuditLog` and `WebhookEvent` queries in
