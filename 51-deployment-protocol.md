@@ -372,3 +372,36 @@ Two things make this worth writing rather than skipping:
    test becomes decoration. Assert the parsed list is non-empty.
 2. **Prove it fails.** Introduce a queue with no worker and watch the assertions go red, each
    naming the consequence. A guard never seen to fail is an unverified guard.
+
+### A4.7 Production posture — the settings that are wrong silently (added 2026-09-12)
+
+Everything in A4.3 checks that the machinery *runs*. These four check that it runs **safely**,
+and every one of them leaves the site serving pages perfectly while it is wrong. Add them to
+the post-deploy script, not to a wiki page.
+
+```bash
+php artisan tinker --execute='echo config("app.debug") ? "on" : "off";'            # must be off
+php artisan tinker --execute='echo count((array) config("app.trusted_proxies"));'  # must be > 0
+php artisan tinker --execute='echo config("app.url");'                             # https, real host
+php artisan tinker --execute='echo config("session.secure") ? "yes" : "auto/no";'
+```
+
+- **`APP_DEBUG` is the one that leaks rather than breaks.** The site behaves normally right up
+  until the first unhandled exception, which renders the resolved environment — `APP_KEY`, every
+  third-party client secret, the database password — to whoever triggered it. Nothing about a
+  working site reveals the setting, so it must be asserted, never assumed.
+- **`TRUSTED_PROXIES` empty is not a tuning problem.** Behind Nginx every request appears to come
+  from the loopback, which silently falsifies any audit column fed by `Request::ip()` and
+  collapses every IP-keyed rate limiter into one bucket shared by the whole customer base. See
+  the *Trust the Reverse Proxy* pattern in `11-pattern-library.md` for the config-cache trap that
+  makes the obvious fix fail only in production.
+- **`APP_URL` on http or localhost fails at the provider, not here.** Every OAuth redirect URI,
+  email verification link and signed URL is built from it, and a registered redirect URI must
+  match character for character.
+- **Session cookie `Secure`**: leaving it to auto-detect is only correct once the proxy is
+  trusted, because an untrusted request looks like plain http. Set it explicitly in production.
+
+**Also worth a line in the runbook**: the recovery procedure for work abandoned by a dead
+worker — what state it lands in, and the instruction *not* to retry it before checking the
+third party, since the side effect may already have happened. See *Reaping an Abandoned Claim*
+in `11-pattern-library.md`.

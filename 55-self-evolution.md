@@ -1906,3 +1906,118 @@ more than the successes.
   customer authorisation / provider* is the single highest-value screen in an integration
   product, because it is the first question support has to answer and a wall of
   undifferentiated errors never answers it.
+
+---
+
+## SociaPulse — production hardening (2026-09-12, 268 → 297 tests)
+
+A session spent entirely on the gap between "all features built and tested" and "safe to put
+in front of customers". Five findings, none of which a feature test could have caught, because
+every one of them behaves perfectly in development. Two of the entries below are bugs I made
+while fixing the others.
+
+### Anti-Pattern: A tool that stops running reads exactly like a tool that found nothing
+
+- **What happened**: the project's front end had *no type checking at all* and had never had
+  any. `vue-tsc` resolves `typescript/lib/tsc`, a subpath the TypeScript 7 native rewrite no
+  longer exports, so it died on a single line of `ERR_PACKAGE_PATH_NOT_EXPORTED`. Meanwhile
+  `npm run build` stayed green, because vite *transpiles* TypeScript rather than checking it —
+  so 23 components under `strict: true` were bundled unread. `vue-tsc@3.3.11`, still the latest
+  published, declares peer `typescript >=5.0.0`, which `^7` satisfies, so npm never warned.
+- **Impact**: three independent signals all said "fine". It had been recorded as an open
+  decision rather than a defect, which is how a dead check survives a review.
+- **Rule**: a check that can fail *to run* needs a test that it ran, not a comment saying it
+  should. Pin the version, name the script, and assert the CI step invokes it — then break each
+  one and watch the suite go red. Distrust any silence from a tool you did not just see fail.
+- **Applies to**: type checkers, linters, scanners, coverage gates — anything whose success
+  output is empty and whose absence therefore looks identical to success.
+
+### Anti-Pattern: Keying on an identifier I assumed rather than read
+
+- **What happened**: mine. Writing middleware to rate-limit Fortify's unbounded auth endpoints,
+  I mapped route name `register` to a limiter. Fortify names the registration **POST**
+  `register.store`; `register` is the GET that renders the form. So the map bound the view route,
+  a method guard then excluded it, and the endpoint stayed wide open — while the middleware was
+  demonstrably installed and every other endpoint in the same map worked.
+- **Impact**: caught only because the test asserted a **429 from the real endpoint** instead of
+  asserting the middleware was attached. An attachment assertion would have passed forever.
+- **Rule**: assert the *effect* at the boundary, never the wiring. And when code dispatches on a
+  string owned by someone else — a route name, an event name, a queue name, a header — add a
+  test that the string resolves to a real thing. An unmatched key almost always means "no rule
+  applies", which fails open and silently.
+- **Applies to**: all projects. Any lookup table keyed on a third party's identifiers.
+
+### Anti-Pattern: Configuring from a lifecycle stage that does not have the config yet
+
+- **What happened**: also mine. I put `trustProxies(at: config('app.trusted_proxies'))` in
+  `bootstrap/app.php`'s `withMiddleware` closure. That closure runs **before the config is
+  loaded**: instant fatal, `Class "config" does not exist`. The obvious repair is `env()` — which
+  works locally and is the far worse bug, because `php artisan config:cache` skips loading
+  `.env` entirely, so on a cached production build it returns null, trusts no proxy, and breaks
+  **only in production**.
+- **Impact**: the loud failure was the lucky outcome. The tempting fix would have shipped a
+  configuration that silently evaporated on exactly the machines that mattered.
+- **Rule**: `env()` belongs in config files and nowhere else — that is not style, it is the
+  difference between working and not working under `config:cache`. When a framework hook runs
+  too early for config, find the static configurator meant for a service provider's `boot()`
+  rather than reaching for `env()`.
+- **Applies to**: Laravel 11/12 `bootstrap/app.php`, and any framework with a bootstrap phase
+  that precedes configuration.
+
+### Anti-Pattern: A column written on every write and read by nothing
+
+- **What happened**: `content_targets.claimed_at` was stamped by the atomic claim on every
+  publish and consumed by no query anywhere in the codebase. It marked a real hole: a worker
+  killed between claiming a row and reporting back left the target in `publishing` — which is
+  not in `claimable()`, not terminal, and not in `needsHuman()`. No tick could move it, and the
+  health screen never showed it. The customer watched a post say "publishing" indefinitely and
+  nobody was told. A *dispatch* lease had been built for precisely this failure one stage
+  earlier; the claim stage had no equivalent.
+- **Impact**: the most severe of the five, and the only one that silently loses customer work.
+- **Rule**: grep for writes with no reads. A persisted value nobody consumes is usually the
+  recovery data for a failure path that was never finished — the author saw the hazard clearly
+  enough to record the evidence and stopped there.
+- **Applies to**: all projects. Especially any two-phase claim/complete over a queue.
+
+### Anti-Pattern: Cross-cutting middleware placed where the interesting responses do not go
+
+- **What happened**: security headers registered on the `web` group covered rendered pages and
+  missed both responses most reachable by a stranger — a **404** never enters the web group at
+  all (no route matched, so there is no route pipeline), and an **auth redirect** is rendered
+  from an `AuthenticationException` thrown straight past anything above it in the stack. Both
+  came back with no headers.
+- **Rule**: for anything that must hold on *every* response, test the error paths first — 404,
+  the unauthenticated redirect, the 500 — and register globally, not on a route group. The happy
+  path is the one case that proves the least.
+- **Applies to**: security headers, request ids, CORS, any response decorator.
+
+## Learned Skills — SociaPulse hardening
+
+- **Ask what the reverse proxy costs you.** An untrusted proxy is filed as a deployment
+  footnote and is not one. `Request::ip()` was feeding the **audit log**, so every audited
+  action would have recorded Nginx instead of the actor — wrong in a way that still reads as
+  evidence — and it was the key for **every auth rate limiter**, so the whole customer base
+  shared one bucket and the eleventh person to register would have been refused along with
+  everyone after them. Before trusting an IP-keyed anything, ask what is between it and the
+  client, and assert that two hosts behind one proxy do not share a limit.
+- **A negative test earns its place when it stops a fix from overreaching.** The reaper test
+  that mattered most asserts an **11-minute claim is left alone**, because the worker's own
+  `--timeout` is 600s and a reaper that fires early reports live publishes as abandoned. For
+  any threshold, write the test on the safe side of it and name the number it is tied to.
+- **"We do not know" is a shippable state, and is often the right one.** A worker killed
+  mid-publish is indistinguishable from a provider call that never answered, so the recovery
+  moves the post to `unverified` and hands it to a human rather than re-queueing it. Retrying
+  would risk a second post to a real audience with no way to take it back. Where an action is
+  irreversible and the outcome is genuinely unknown, escalating to a person beats both retrying
+  and failing.
+- **Rate-limit what costs money, not just what authenticates.** Fortify bounds the login POST
+  and nothing else; registration and password reset shipped open. The password broker's own
+  `throttle => 60` reads like coverage and bounds only re-sends to a *single address*. The real
+  damage is not the email bill — a sender flagged as a spam source stops delivering everything,
+  including the verification emails registration itself depends on, so one abused endpoint takes
+  out signup for every real customer.
+- **Decline to half-ship a Content-Security-Policy.** A correct policy for an Inertia + vite app
+  has to be built against the real build output and tested screen by screen; a guessed one either
+  breaks the app or gets loosened to `unsafe-inline` until it means nothing. A policy that means
+  nothing is worse than an absent one, because it reads as covered on every checklist afterwards.
+  Say so in the code, in the place someone will look.

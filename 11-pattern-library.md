@@ -1457,3 +1457,106 @@ Format:
 - **Laravel 12's skeleton has no `app/Http/Middleware/` directory** — `mkdir` before writing
   the first one, or the heredoc silently fails.
 - **First used in**: SociaPulse (2026-09-12)
+
+### Reaping an Abandoned Claim — to "Unknown", Never Back to the Queue
+
+- **Stack**: any two-phase claim/complete over a queue (Laravel + Redis/database queues here)
+- **Problem**: a worker that atomically claims a row and then dies — OOM killer, host reboot, or
+  simply exceeding its own `--timeout` — leaves that row in the in-progress state forever. If
+  the in-progress state is (correctly) excluded from the claimable set, no later tick can pick
+  it up; if it is not terminal, nothing finishes it; and if it is absent from whatever powers
+  the health screen, nobody is ever told. The customer watches "in progress" indefinitely.
+- **Solution**: stamp `claimed_at` in the same atomic statement that takes the claim, and reap
+  rows whose claim is older than a threshold **on an existing periodic tick** — no new scheduled
+  command, so the deploy contract is unchanged. Move them to an explicit **"outcome unknown"**
+  state that the health surface already treats as needing a human.
+- **Gotchas**: (1) **Do not re-queue.** A worker killed mid-call is indistinguishable from a
+  call that never answered — the side effect may well have landed, so retrying risks doing it
+  twice, which for a publish, a payment or an email cannot be undone. (2) The threshold must sit
+  **clear of the worker's own timeout** (15 min against `--timeout=600` here), and the test that
+  protects you is the negative one: a claim *inside* the timeout must be left alone, or the
+  reaper reports live work as abandoned. (3) Tie the two numbers together in a comment at both
+  ends; raising the worker timeout alone silently breaks it.
+- **Smell that finds this bug**: a timestamp column written on every claim and read by no query
+  anywhere. The author saw the hazard clearly enough to record the evidence and stopped there.
+- **First used in**: SociaPulse (2026-09-12)
+
+### Trust the Reverse Proxy Before Anything Keys on an IP
+
+- **Stack**: Laravel 11/12 behind Nginx/Caddy/ALB/Cloudflare (applies to any framework)
+- **Problem**: with TLS terminated at a proxy, every request arrives from the loopback over
+  plain http. This is filed as a deployment footnote and is not one: `Request::ip()` is
+  typically feeding the **audit log** (so every action records the proxy rather than the actor —
+  wrong in a way that still reads as evidence) and is the **key for every rate limiter** (so the
+  entire user base shares one bucket; an N-per-hour signup limit refuses customer N+1 and
+  everyone after them). `isSecure()` is also false, which decides the session cookie's `Secure`
+  flag when it is left to auto-detect.
+- **Solution**: set trusted proxies from a **config file** and apply them in a service provider's
+  `boot()` via `TrustProxies::at()` / `withHeaders()`. Trust `X-Forwarded-For/Host/Port/Proto`.
+  Default to the loopback pair for a same-host proxy; a CDN or load balancer adds its ranges.
+- **Gotchas**: `bootstrap/app.php`'s `withMiddleware` closure runs **before config is loaded** —
+  `config()` there fatals outright. `env()` *does* resolve there, which makes it the worse trap:
+  `php artisan config:cache` skips loading `.env`, so an `env()` call in that closure returns
+  null on a cached production build and the proxy goes untrusted **only in production**.
+- **Test that proves it**: two requests from one `REMOTE_ADDR` with different `X-Forwarded-For`
+  must not share a rate-limit bucket — and a forwarded header from an *untrusted* source must be
+  ignored, or every IP-keyed limit becomes bypassable by setting a header.
+- **First used in**: SociaPulse (2026-09-12)
+
+### Rate-Limit What Costs Money, Not Only What Authenticates
+
+- **Stack**: Laravel Fortify (the shape is general)
+- **Problem**: Fortify rate-limits the login POST and nothing else. Registration,
+  `password.email` and `password.update` ship with `guest` alone — unauthenticated and unbounded.
+  The password broker's own `throttle => 60` reads like coverage but bounds re-sends to a
+  **single address**, which an attacker walking a list of addresses never encounters.
+- **Solution**: named limiters for each, applied by a middleware that dispatches on **route
+  name** from inside the package's own route group (`config('fortify.middleware')`) — the only
+  seam that reaches routes a package defines. Key the reset request **twice**: per IP (stops one
+  host walking a list) and per email (stops many hosts mailbombing one person). Prefer per-hour
+  buckets to per-minute: a per-minute bucket looks stricter and is weaker, since one request
+  every sixty seconds stays under it forever.
+- **Gotchas**: (1) Fortify names the registration POST `register.store`, **not** `register` —
+  keying on `register` binds the GET that renders the form and leaves the POST open, silently,
+  because an unmatched name simply passes through. Assert each mapped name resolves to a real
+  POST route. (2) `ThrottleRequests::handle` only resolves a *named* limiter when
+  `func_num_args() === 3`; a fourth argument reinterprets the name as a max-attempts count,
+  which casts to `0` and closes the endpoint to everybody. (3) An **unregistered** limiter name
+  fails the same way — an outage, not a gap — so assert every name is registered.
+- **Why it matters more than the bill**: a transactional sender flagged as a spam source stops
+  delivering *everything*, including the verification emails registration itself depends on. One
+  abused endpoint takes out signup for every real customer.
+- **First used in**: SociaPulse (2026-09-12)
+
+### Response-Wide Middleware Belongs in the Global Stack, Not a Route Group
+
+- **Stack**: Laravel 11/12 (the reasoning is framework-general)
+- **Problem**: anything that must hold on *every* response — security headers, request ids, CORS
+  — registered on the `web` group covers rendered pages and misses the two responses most
+  reachable by someone who is not a customer: a **404** never enters the group at all (no route
+  matched, so there is no route pipeline), and an **auth redirect** is rendered from an
+  exception thrown straight past anything sitting above it in the stack.
+- **Solution**: `$middleware->append(...)` — global. Then test the error paths *first*: 404, the
+  unauthenticated redirect, the 500. The happy path is the case that proves the least.
+- **Companion note (security headers)**: send HSTS only when `$request->isSecure()` — asserting
+  it unconditionally pins `localhost` to https in a developer's browser for a year, and browsers
+  ignore it on plain http anyway. Leave `preload` off: it is close to irreversible and commits
+  every future subdomain, which is a decision about the domain, not a middleware default.
+- **First used in**: SociaPulse (2026-09-12)
+
+### A Check That Can Fail *To Run* Needs a Test That It Ran
+
+- **Stack**: any toolchain gate — type checkers, linters, scanners, coverage gates
+- **Problem**: tools whose success output is empty fail identically to succeeding. A project
+  shipped with **no front-end type checking at all**: `vue-tsc` resolves `typescript/lib/tsc`,
+  a subpath the TypeScript 7 native rewrite dropped, so it died on one line of
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`, while `vite build` stayed green because vite *transpiles*
+  TypeScript without checking it. `vue-tsc@3.3.11` still declares peer `typescript >=5.0.0`,
+  which `^7` satisfies, so npm never warned either. Three signals, all reading "fine".
+- **Solution**: pin the dependency **exactly** (a caret range floats into the breaking major and
+  the failure mode is a checker that stops running, not one that complains), expose the check as
+  a named script, invoke it in CI, and write a test asserting all three still hold. Then break
+  each one and watch the suite go red.
+- **Gotchas**: distrust silence from a tool you have not just watched fail. Prove the checker
+  works by injecting a deliberate error before believing a clean run.
+- **First used in**: SociaPulse (2026-09-12)
