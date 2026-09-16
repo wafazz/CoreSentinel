@@ -1088,6 +1088,513 @@ both when the project ships Bootstrap, or two CSS frameworks compile into one bu
 
 ---
 
+
+## Laravel 12 + Vue 3 SPA + Sanctum cookie auth (REST, no Inertia)
+
+First used in: **WebAppsBI** (2026-09-13). The Core's other Laravel + Vue projects all
+use Inertia; this is the first REST + standalone SPA build, and the auth model behaves
+differently enough to be worth its own section.
+
+### Version Baseline (verified on the machine, 2026-09-13)
+Laravel 12.69.2 · PHP 8.4.10 · Sanctum 4.3 · Vue 3.5.42 · TypeScript 5.9.3 ·
+Vite 7.3.6 · @vitejs/plugin-vue 6.0.8 · Pinia 4.0.3 · Vue Router 4.6.4 ·
+Bootstrap 5.3.8 · AdminLTE 4.9.1 · PostgreSQL 16.14 · Redis 8.4.0 · Pest 3.8.7
+
+### Sanctum SPA: the stateful-domain mismatch that fails one request late
+- **Stack**: Laravel 12 + Sanctum 4 SPA cookie auth
+- **Problem**: `POST /auth/login` returns **200**, and the very next authenticated
+  request returns **401**. Nothing in the logs explains it.
+- **Cause**: `SANCTUM_STATEFUL_DOMAINS` does not contain `APP_URL`'s **host *and port***.
+  Sanctum decides statefulness from the Origin/Referer header; when the request is not
+  stateful, session middleware never runs, so `Auth::attempt()` succeeds in memory and
+  nothing is persisted. Serving on `:8383` while the list says `:8000` is enough.
+- **Solution**: assert it in the health check, not in a runbook:
+  ```php
+  $needle = $port ? "{$host}:{$port}" : $host;
+  $covered = in_array($needle, config('sanctum.stateful', []), true)
+          || in_array($host, config('sanctum.stateful', []), true);
+  ```
+- **Gotchas**:
+  - The failure is *one request later* than the mistake, so it reads like a session-driver
+    or cookie bug. It is neither.
+  - A defensive `if ($request->hasSession())` guard around `session()->regenerate()` turns
+    the loud `Session store not set` 500 into this silent 401. Keep the guard (it is right
+    for genuinely stateless calls) **but pair it with the check above**.
+
+### Testing a Sanctum SPA: the suite must send an Origin header
+- **Problem**: feature tests pass while exercising a code path the real SPA never takes.
+  `postJson()` sends no Origin/Referer, so Sanctum treats every test request as stateless
+  and session behaviour (fixation defence, `logoutOtherDevices`, logout) is never tested.
+- **Solution**: in `tests/TestCase::setUp()`, `$this->withHeader('Origin', config('app.url'))`.
+- **Gotchas**: once requests become stateful the suite needs a real `APP_KEY` in
+  `phpunit.xml` — session cookies are encrypted, and the missing key only surfaces at
+  that moment, presenting as an unrelated 500.
+- **Also**: switching authenticated users with two `actingAs()` calls in one
+  session-based test leaves the first session in place and returns 401, masking whatever
+  403 the test was actually asserting. Split into one test per actor.
+
+### A custom API error renderer must map STATUS, not exception class
+- **Problem**: `Gate::authorize()` throws `AuthorizationException`, but Laravel converts
+  it to an `HttpException` **before** a custom `render()` callback sees it. Matching on
+  `$e instanceof AuthorizationException` therefore never fires, and every 403 silently
+  degrades to a generic error code.
+- **Solution**: derive the stable `error.code` from `$e->getStatusCode()`:
+  `401 → UNAUTHENTICATED`, `403 → FORBIDDEN`, `404 → NOT_FOUND`, `429 → RATE_LIMITED`.
+- **Gotchas**: the frontend must switch on `error.code`, never on `message`.
+
+### A semantic 503 needs a client that treats it as data
+- **Problem**: `/health` returns 503 when degraded so uptime monitoring can alarm. The
+  admin screen whose entire purpose is diagnosing a degraded system then rendered
+  "unexpected response", because the HTTP interceptor throws on any non-2xx.
+- **Solution**: `validateStatus: (s) => s === 200 || s === 503` on that one call.
+- **Gotchas**: this is a general shape — any endpoint whose non-2xx body is the payload
+  needs an explicit opt-in at the client, or the interceptor eats the useful part.
+
+### Bootstrap + AdminLTE 4 through Vite with Dart Sass modules
+- **Problem**: `@use` must precede every other rule, but Bootstrap's variable overrides
+  must precede its `@import`. Putting `@use 'base'` after the vendor imports fails with
+  *"@use rules must be written before any other rules"*.
+- **Solution**: a `_vendor.scss` partial that does `@use 'tokens'`, then the `$primary`
+  etc. overrides, then the `@import`s. `app.scss` becomes two lines — `@use 'vendor';`
+  then `@use 'base';` — which also gives the correct cascade order for free.
+- **Gotchas**: `loadPaths: ['node_modules']` is still mandatory. AdminLTE 4's Sass entry
+  is `admin-lte/src/scss/adminlte.scss` (its `package.json` `sass` field), not `dist`.
+
+### Pest arch tests are the only layering rule that survives
+- **Solution**: assert the dependency directions rather than documenting them.
+  ```php
+  arch('domain does not depend on the framework')
+      ->expect('App\Domain')->not->toUse(['Illuminate\Http', 'App\Services', 'App\Http']);
+  arch('controllers contain no raw database access')
+      ->expect('App\Http\Controllers')->not->toUse(['Illuminate\Support\Facades\DB']);
+  ```
+- **Gotchas**: the DB rule immediately caught a health-check controller querying directly.
+  The fix was to extract a `HealthService` — which is the right design anyway. Resist
+  adding an exemption; the rule earns its keep by being absolute.
+
+### Route-coverage test: the authorisation rule that outlives the phase that wrote it
+- **Solution**: enumerate `Route::getRoutes()`, skip an explicit public allow-list, and
+  assert every remaining API route gathers an `auth:` middleware. A new endpoint shipped
+  without it fails the build.
+- **Gotchas**: twelve phases later nobody remembers the access model, but a red suite is
+  impossible to ignore. Pair it with a table-driven cross-tenant probe once scoping exists.
+
+
+### Company-scoped access in a single-tenant app — one resolver, or none
+
+- **Stack**: Laravel 12 + PostgreSQL 16. First used in **WebAppsBI** PH-02 (2026-09-13).
+- **Problem**: not multi-tenancy (one database, one app) but *row-level company scoping*:
+  a user may read some companies and not others, with an optional hierarchy.
+- **Solution**: exactly one resolver, and no second path to the same answer.
+  ```php
+  $permitted = $this->permittedCompanyIds($user);        // from the SESSION
+  $scope     = $requested === [] ? $permitted
+                                 : array_intersect($requested, $permitted);
+  if ($scope === []) throw new DomainException('COMPANY_FORBIDDEN', ..., 403);
+  ```
+- **Gotchas**:
+  - **Return 403, never an empty result set.** An empty list is indistinguishable from
+    "no data": it informs no legitimate user, deters no attacker, and cannot be asserted in
+    a test. The 403 is the only outcome that is checkable.
+  - **Descendant inheritance must be opt-in per grant.** Defaulting it on is the convenience
+    that quietly hands a regional manager the whole group.
+  - Bump a `users.access_version` on every grant change and make it part of any cache key,
+    so a revoked user cannot be served a result computed under their old entitlements.
+
+### Two-dimensional authorisation: permission × scope, and the half that gets forgotten
+
+- **Problem**: authorisation here is *what action* AND *whose rows*. A `hasAny($user, $perm)`
+  helper answers only the first, and reads as though it answered both.
+- **Solution**: name them so the wrong one is uncomfortable to reach for —
+  `hasAny()` (company-agnostic screens only) and `hasAnyForCompany($user, $companyId, $perm)`.
+  Every policy method asserts **both**:
+  ```php
+  return $this->access->canAccess($user, $company->id)
+      && $this->permissions->hasAnyForCompany($user, $company->id, Permission::COMPANY_VIEW);
+  ```
+- **Gotchas**: scope and permission expansion **must use the same traversal code**. When each
+  had its own, a descendant-including grant expanded scope but not permissions — the user
+  reached the subsidiary's route and was then refused by its policy. One `CompanyTree` class,
+  called by both. Two copies of a traversal rule is one copy too many.
+
+### Derived columns must be derived in the model, not by whichever caller remembers
+
+- **Problem**: `companies.depth` is derived from `parent_id`. It was correctly kept out of
+  `$fillable`, and the controller set it by hand. A seeder then mass-assigned `parent_id`,
+  `depth` stayed 0, and the tree rendered flat — **while the entire test suite passed**,
+  because every test went through the careful controller.
+- **Solution**:
+  ```php
+  protected static function booted(): void {
+      static::saving(function (self $m): void {
+          if ($m->isDirty('parent_id') || ! $m->exists) {
+              $m->depth = HierarchyGuard::depthFor($m->parent_id);
+          }
+      });
+  }
+  ```
+- **Gotchas**: "the controller sets it correctly" is a property of the controller, not of the
+  data. The second writer always arrives — here, immediately, as the seeder. Found by looking
+  at the screen, not by any test.
+
+### Bounded tree walks — never recurse until done
+
+- **Problem**: descendant expansion and ancestor cycle-checking both walk a tree that user
+  input can reshape. An unbounded walk over a malformed tree is an infinite loop in production.
+- **Solution**: bound every walk by `MAX_DEPTH` and treat exceeding it as corruption:
+  a named `HIERARCHY_CORRUPT` error, refusing the write rather than adding to the mess.
+  Guard cycles by walking **up** from the proposed parent and refusing if it reaches the
+  moving node; guard depth by checking `newDepth + heightOf($subtree)`, not just `newDepth` —
+  otherwise a shallow move drags a deep subtree past the ceiling.
+- **Gotchas**: PostgreSQL can express "not its own parent" as a CHECK; it cannot express "no
+  cycles". The deeper guarantee has to live in code, so it must live in a guard that every
+  write path calls.
+
+### A table-driven cross-tenant probe is the regression suite
+
+- **Solution**: a Pest `dataset()` of `[method, uri, payload]` × actor classes
+  (owner / other-tenant admin / no-access / unauthenticated), plus one test that enumerates
+  the router and fails when a route binding `{company}` lacks the scope middleware.
+- **Gotchas**: the router-enumeration test is the one that survives. Twelve phases later
+  nobody remembers the access model, but a red build is impossible to ignore.
+
+
+### Visibility as the atomic unit — how a long import stays safe
+
+- **Stack**: Laravel 12 + PostgreSQL. First used in **WebAppsBI** PH-03 (2026-09-13).
+- **Problem**: an import of 100k+ rows cannot run in one transaction (lock duration, WAL
+  bloat, and one bad row losing everything), yet a partial import must never be readable.
+- **Solution**: move atomicity up a level. Rows are written under a `dataset_id` whose status
+  is `processing`; **analytics reads only `status = 'active'`**. Activation is one small
+  transaction that archives the predecessor and promotes the successor.
+  ```sql
+  CREATE UNIQUE INDEX datasets_one_active_per_company_period
+  ON datasets (company_id, period_start, period_end)
+  WHERE status = 'active' AND deleted_at IS NULL;
+  ```
+- **Gotchas**:
+  - The partial unique index is the real guard, not the service. Catch the
+    `QueryException` on that index name and return **409**, not 500 — a lost race is a
+    conflict, not a crash.
+  - Rollback becomes `DELETE FROM facts WHERE dataset_id = ?`, and it can take as long as it
+    needs because nothing is waiting on it.
+  - Test the guard by writing `status = 'active'` **directly via the query builder**, bypassing
+    the service. If that succeeds, the guarantee lives in the service and not in the database.
+
+### A state machine that names what IS possible
+
+- **Problem**: a status column with good intentions eventually lets a half-imported dataset go
+  live. "Invalid transition" alone tells the user nothing about what to do.
+- **Solution**: one `ALLOWED` map, and an error carrying the legal moves:
+  ```php
+  throw new DomainException('INVALID_DATASET_TRANSITION',
+      sprintf('A dataset that is %s cannot become %s.', $from->label(), $to->label()),
+      409, ['from' => ..., 'to' => ..., 'allowed' => self::allowedFrom($from)]);
+  ```
+  The detail view returns `meta.allowed_transitions`, so the UI renders exactly the actions
+  that will succeed rather than offering ones the server will refuse.
+- **Gotchas**: write the illegal transitions as an explicit test list, each named for the bug
+  it prevents (`processing → active`, `archived → active`, `failed → completed`). A test that
+  only walks the happy path proves the machine exists, not that it refuses anything.
+
+### Null is not false — a derived boolean that cannot yet be answered
+
+- **Problem**: `countsReconcile()` returned `bool`. Mid-import, `imported + rejected ≠ total`
+  is *true*, so every in-flight dataset rendered "counts do not reconcile" — turning the one
+  signal that should mean "this import is broken" into noise on every row.
+- **Solution**: return `?bool`. `null` for any state where the question has no answer yet, and
+  the UI shows progress (`5,100 / 8,000`) instead of a verdict. Callers check `!== true`, so
+  `null` can never be mistaken for a pass.
+- **Gotchas**: this is the same rule as null-vs-zero for metrics, one type over. Any derived
+  boolean computed from in-flight data needs a third state, and the *caller* has to be written
+  for three outcomes — `if (!$x)` silently treats unknown as failure.
+
+### Never ship a default password in a seeder
+
+- **Problem**: `Hash::make('ChangeMe!2026')` in `DatabaseSeeder` is a committed credential. It
+  reaches every clone, every CI log and every repository backup. `must_change_password` only
+  helps if the legitimate admin signs in before anyone else — on a fresh deploy that window is
+  exactly when nobody is watching.
+- **Solution**: read `ADMIN_PASSWORD` from the environment; when absent, `Str::password(24)`
+  and print it once to the operator. Then guard it:
+  ```php
+  expect($contents)->not->toMatch('/Hash::make\([\'"][^\'"]+[\'"]\)/');
+  ```
+- **Gotchas**: run the scan over *every* file in `database/seeders/`, not just the main one —
+  demo and test seeders are where the literal reappears.
+
+
+## Untrusted spreadsheet ingestion (PhpSpreadsheet 5.x + Laravel Excel 4.x)
+
+First used in **WebAppsBI** PH-04 (2026-09-13). Verified against
+`maatwebsite/excel 4.0.2` and `phpoffice/phpspreadsheet 5.9.0`.
+
+### Laravel Excel 4.x is not the rewrite people fear
+- The concerns a chunked import needs — `WithChunkReading`, `WithHeadingRow`,
+  `WithReadFilter`, `WithStartRow`, `WithLimit`, `SkipsEmptyRows`, `ToCollection` — all
+  still exist in 4.0.2. Requirements moved (`php ^8.3`, `illuminate ^12||^13`,
+  `phpspreadsheet ^5.8`), not the API surface.
+- **Still verify before writing code.** The check cost one `ls vendor/.../Concerns/` and
+  retired a HIGH risk that had been carried for four phases.
+
+### Build every reader in one factory, hardened by construction
+```php
+$reader->setReadDataOnly(true);          // styles/drawings are most of the memory
+$reader->setIgnoreRowsWithNoCells(true); // no phantom Sheet1
+$reader->setAllowExternalImages(false);  // an image URL in an upload is SSRF
+$reader->setReadFilter($boundedWindow);  // bounded rows AND columns
+```
+- **Gotcha**: a reader constructed anywhere else will miss one of these, and the one it
+  misses is the one that matters. One factory, no exceptions.
+
+### Measure a zip bomb from the central directory, never by decompressing
+```php
+for ($i = 0; $i < $zip->numFiles; $i++) {
+    $stat = $zip->statIndex($i);
+    $compressed += $stat['comp_size'];
+    $uncompressed += $stat['size'];
+}
+```
+- Guard the **absolute** expansion first, then the ratio: a modest ratio on a huge archive
+  is still a huge archive. 200:1 sits far above real Excel output and far below a bomb.
+- `EncryptedPackage` in the archive is the reliable tell for a password-protected `.xlsx`.
+- **Gotcha**: assert in the test that refusing it was *cheap* (peak memory delta), not only
+  that it was refused — otherwise a future change could start decompressing and still pass.
+
+### `rangeToArray()` pads to the bound you asked for
+- A 5-column sheet read with a 256-column guard returns **251 empty columns**. Those become
+  phantom columns in a mapping UI.
+- Trim trailing columns blank in *every* row of the window. **Keep** a blank column between
+  two populated ones — it is a real column, and removing it shifts every header after it,
+  silently re-pointing a saved mapping.
+
+### Never evaluate a formula from an uploaded file
+- `getCalculatedValue()` is execution of attacker-authored input. Pass
+  `calculateFormulas: false` and read the cached value Excel wrote.
+- It is also the **honest** answer: the cached value is what the author last saw and signed
+  off. Recomputing can silently disagree with their own figures.
+- State it in the response (`meta.formulas_evaluated: false`) so the UI can tell the user.
+
+### Detect the header row by *two* filled cells, not one
+- Real finance workbooks open with a title block. A single-cell row is that title. Scanning
+  for the first row with **≥ 2** non-blank cells skips it reliably.
+- Detection is a suggestion, never a decision: re-render the preview on every header-row
+  change so the user sees column names appear. That is the cheapest correctness feedback in
+  an import flow — picking row 1 instead of row 4 collapses the table visibly.
+
+### Flag BOTH occurrences of a duplicate header
+- Marking only the second leaves the user unable to tell which column is which.
+- Disambiguate deterministically (`amount`, `amount_2`) so a saved mapping keeps pointing at
+  the same column next month.
+
+### `$request->validate()` does not cast
+- The `integer` rule *validates* a query-string param and still hands back the string `"1"`,
+  which fails an `int` parameter type at runtime. Cast once at the boundary
+  (`(int) $validated['x']` or `$request->integer('x')`), never downstream.
+
+### A named rejection with a fix, not "invalid file"
+- One enum per reason, each carrying `message()` **and** `fix()`. `"412 rows rejected"` is a
+  wall; `"company 'Acme SDN' is not registered — add it as an alias"` is a task.
+- Assert in a test that **no** rejection message contains a path separator: parser exceptions
+  leak file paths, and translating them is where that leak happens.
+
+
+## Mapping arbitrary spreadsheet columns onto fixed fields
+
+First used in **WebAppsBI** PH-05 (2026-09-13). The screen this produces is the
+highest-stakes minute a finance user spends in a BI product: a wrong mapping puts
+revenue in the expense column and every number downstream is wrong.
+
+### Declare the date format. Never detect it per row.
+- **Problem**: `03/04/2026` is 3 April under `d/m/Y` and 4 March under `m/d/Y`. Both parse.
+  Both look right. Auto-detection corrupts a year of data and the corruption is invisible
+  until someone notices Q1 and Q2 are swapped.
+- **Solution**: the format is part of the mapping, applied strictly, and the UI renders what
+  the chosen format makes of a **real value from that column**:
+  `31/01/2026 reads as 31 January 2026`.
+- **Gotchas**:
+  - `DateTimeImmutable::createFromFormat()` is lenient: it reads `31/02/2026` as 3 March.
+    Check `getLastErrors()` and treat **any warning** as a failure, or impossible dates roll
+    silently into real ones.
+  - Excel stores dates as serials, so a data-only read returns `45678`, not a date. That is
+    the common case, not the edge.
+
+### Parse money to an exact decimal STRING, never a float
+- `numeric(20,4)` in PostgreSQL, string across the API, `bcmath` for scaling. A float
+  anywhere on that path loses precision before the database ever sees it.
+- Handle, because real exports contain all of them: `1,234.56`, `1.234,56`, `(1,234)`
+  (accounting negative), `RM 1,234`, `12.5%`, `1234-` (mainframe trailing minus), and
+  numbers stored as text.
+- **Round before truncating**: `bcadd($v, '0.00005', 8)` then `bcadd($v, '0', 4)`, or
+  `0.00005` becomes `0.0000`. And never emit `-0.0000`.
+
+### A parse result has THREE states, not two
+- **value**, **blank** (`-`, `n/a`, `nil`, empty → `null`), **error** (present but
+  unparseable). Collapsing blank into error rejects every sparse workbook; collapsing error
+  into blank silently discards real numbers.
+- Blank is `null`, never `0`: "not reported" and "reported as zero" are different facts.
+
+### Fuzzy header matching: cap the absolute edit distance, not just the ratio
+- **Problem**: `Status` matched `state` (Region) at 0.67 — two edits over six characters.
+  A similarity ratio is meaningless on short words, and the score makes a bad guess look
+  considered.
+- **Solution**: `levenshtein(a,b) <= max(1, intdiv(len, 4))` **in addition to** the ratio.
+  Real typos still match (`Revenu` → revenue 0.86); `Status` correctly gets nothing.
+- **Also**: score every header against every field first, then assign **greedily by
+  confidence**. Assigning in header order lets a weak early match claim a field that a later
+  column matches exactly.
+- A bad suggestion is worse than none. Below the threshold, offer nothing.
+
+### Suggestions are presented, never applied
+- Show the confidence. Auto-applying is how revenue reaches the expense column with nobody
+  having decided anything.
+
+### Template versions are immutable; the dataset snapshots what it used
+- Editing writes **version N+1** and repoints `current_version_id`. It never mutates N.
+- The dataset also stores the definition it was mapped with, so an import stays explainable
+  a year later even if the template was since edited or deleted.
+
+### Applying a saved template to a drifted workbook needs a reconciliation REPORT
+- Headers drift. Last month's template against two renamed columns still "works" — it just
+  points somewhere else. That is the most likely route to a silently wrong import.
+- Report four outcomes: matched exactly · matched after normalisation (case/spacing, absorbed
+  but **still reported**) · missing and required (**blocking**) · missing and optional
+  (warning). Plus headers the template does not cover.
+- Block when a *measure* is lost, not only when an identity field is — a template that maps
+  only company and date imports nothing.
+
+### Where a unique index protects user-supplied text, pair it with a validation rule
+- The index alone turns "that name is taken" into a **500**. Keep the index (it is the real
+  guarantee under a race) and add `Rule::unique` for the field-level message.
+
+### Design the mapping so a new client is data, not code
+- Synonyms, date formats, separators, sign handling, currency tokens and row filters all live
+  in config or in the mapping definition. Adapting to a client's real workbook should mean
+  editing a template, not editing PHP.
+
+
+## Bulk import into a PostgreSQL fact table
+
+First used in **WebAppsBI** PH-06/07 (2026-09-13).
+
+### Decide every row in PHP before issuing any SQL
+- **Problem**: PostgreSQL aborts the **entire transaction** on a failed statement, unlike
+  MySQL. A bad row reaching an `INSERT` inside a 2,000-row chunk transaction discards the
+  1,999 good rows batched with it.
+- **Solution**: the normaliser issues no SQL at all. It returns either a complete set of
+  values or a named rejection, and only then does the chunk transaction run.
+- **Gotchas**: this rules out "insert and catch the exception per row" entirely. Where a
+  genuine race remains (a unique index on a dimension), wrap that one statement in a
+  `SAVEPOINT` rather than letting it poison the chunk.
+
+### Make visibility the atomic unit, not the write
+- Rows are written under the importing `dataset_id`; analytics reads only `active` datasets.
+  A failed import is therefore *invisible* rather than destructive, and rollback is a
+  `DELETE` that can take as long as it needs because nothing is waiting on it.
+- **Test it by fingerprinting**: serialise the active dataset's rows before and after a
+  failing import and assert byte equality. Asserting "no exception was thrown" proves nothing.
+
+### Never create a master record from an import
+- Resolve company/customer/product by code, then exact name, then alias. **No match rejects
+  the row.** A record created from a typo silently becomes real, and every figure filed
+  against it vanishes from the consolidated view with nobody noticing.
+- Distinguish "does not exist" from "exists but belongs elsewhere" — they need different fixes.
+- Dimension auto-creation is acceptable where declared per column, but flag the row
+  (`created_by_import`) so an accidental "Leasng" is visible as something the import invented.
+
+### Group rejections by reason, and give each one a fix
+- `"412 rows rejected"` is a wall. `"412 rows: company 'Acme SDN' is not registered — add it
+  as an alias"` is a task someone finishes in a minute.
+- Sort groups by how fixable they are, not by count.
+- Raw rejected values belong in an access-controlled table, **never** in the application log —
+  a rejected row still contains the client's data.
+
+### Resume a chunked job from a persisted cursor
+```php
+if ($cursor > 0) {
+    Fact::where('dataset_id', $id)->where('source_row_number', '>=', $resumeAt)->delete();
+    Rejection::where('dataset_id', $id)->where('source_row_number', '>=', $resumeAt)->delete();
+}
+```
+- **Gotcha**: test idempotency by re-running a job that already *completed*, not only one that
+  crashed mid-way. A redelivery after success is the common case on a busy queue.
+
+### Poll on "not finished", never on "currently running"
+- A job dispatched but not yet picked up still shows its pre-dispatch status. A UI polling on
+  `status === 'processing'` concludes nothing is happening and stops — then sits stale until
+  the user reloads. The bug only appears when the worker is not instantaneous, i.e. always.
+- Track `queued` separately and poll until the record reaches a **terminal** state.
+
+### An empty state derived from a count must ask whether the count is meaningful yet
+- Zero rejections on a dataset that was never imported is not "every row imported". Zero-because-
+  nothing-ran and zero-because-nothing-failed are different facts and must not share a message.
+
+### PostgreSQL schema details worth copying
+- `GENERATED ALWAYS AS (EXTRACT(YEAR FROM d)) STORED` for period parts: grouping by month must
+  not mean `EXTRACT()` over millions of rows per dashboard load. They are **not writable** —
+  an insert naming them fails, which a test should assert.
+- `CHECK (a IS NOT NULL OR b IS NOT NULL OR c IS NOT NULL)` to forbid a row with an identity
+  and no figures.
+- Store money as `numeric(20,4)`; Laravel's `decimal:4` cast returns a **string**, which is
+  what you want all the way to the API.
+
+
+## A controlled analytics layer (registry, not query builder)
+
+First used in **WebAppsBI** PH-08 (2026-09-13).
+
+### The registry IS the security boundary
+- A request carries a **key**; the SQL fragment lives in a code-owned registry entry. Nothing
+  the caller supplied is ever interpolated into a query.
+- Validate keys with `Rule::in(Registry::keys())` in the FormRequest, so an unknown key is a
+  422 that never reaches query construction.
+- This gives real flexibility — any permitted metric × dimension × aggregation — with **zero**
+  dynamic identifiers. Test it with injection payloads through *every* keyed field: metric,
+  dimension, aggregation, comparison, and the drill-down sort column.
+
+### Walk the whole registry in a test, or half of it has never run
+- A registry entry is a query that only exists when someone selects it. `period_month`
+  shipped with a `GROUP BY` that omitted its label expression — valid PHP, invalid SQL,
+  silent until executed.
+- Two tests pay for themselves: **every dimension grouped**, and **every metric under each
+  aggregation it declares**. They are four lines each and catch a whole class of bug.
+- PostgreSQL specifics: any selected non-aggregate must appear in `GROUP BY`. An expression
+  built only from grouped columns is fine; a *different* expression over the same column is not.
+
+### Metric honesty — the rules that stop a BI tool lying plausibly
+```sql
+sum(profit) / nullif(sum(revenue), 0)   -- margin is UNDEFINED on no revenue, not 0%
+```
+- **Growth with no base period, or a zero base, is `null`** — not `+100%`, not `0%`.
+- **A sum over no rows is `null`**, not `0`. Return a `meta.empty` flag so the UI can say
+  "no data for this period" rather than showing a confident zero.
+- **A genuine zero must stay distinguishable** from no data. Test both.
+- **Refuse to total across currencies.** MYR + SGD is wrong in every currency. Return
+  per-currency subtotals and a message instead — a refusal that is still useful.
+- **Bucket a truncated tail explicitly** into `other`, never drop it silently.
+- When a comparison cannot be computed, say `comparison_available: false` rather than omitting
+  the key — absence is ambiguous, an explicit false is not.
+
+### Cache keys that make staleness unreachable, not merely expired
+```
+analytics:v1:{user.access_version}:{query fingerprint}:{active-dataset fingerprint}
+```
+- Activating a dataset changes the fingerprint, so old entries can never be hit again. TTL is
+  a safety net, never the invalidation strategy.
+- The access version in the key means a revoked user cannot be served a figure computed under
+  their old entitlements — cheaper and more reliable than trying to evict per user.
+
+### Every response states its provenance
+- `meta.datasets`, `meta.row_count`, `meta.currency`. Any figure on screen can name the file
+  it came from without a round trip, which is what makes drill-down credible.
+
+### Batch endpoint: resolve scope once, fail per widget
+- A twelve-widget dashboard is one request. Scope resolution happens once; each query is
+  cached independently.
+- **Partial failure is per query.** One misconfigured widget returns its own error while the
+  other eleven render. Classify it distinctly (`INVALID_WIDGET_CONFIG`) — reporting it as
+  `SERVER_ERROR` sends the user hunting for a fault that is a widget setting.
+
 ## How to Add Patterns
 
 After completing a significant feature, ask yourself:
@@ -1560,3 +2067,433 @@ Format:
 - **Gotchas**: distrust silence from a tool you have not just watched fail. Prove the checker
   works by injecting a deliberate error before believing a clean run.
 - **First used in**: SociaPulse (2026-09-12)
+
+### A Content-Security-Policy for Inertia + Vite that needs no script nonce
+
+- **Stack**: Laravel 12 · Inertia · Vite · Vue 3 · Bootstrap/AdminLTE
+- **Problem**: the reflex CSP for an SPA-ish app is nonces everywhere, which means publishing a
+  nonce in the DOM for the client to read — and an injected script can read it back and authorise
+  itself, which is most of what the policy was for.
+- **Solution**: look at the rendered HTML first. A built Inertia page has **no inline executable
+  script**: Vite emits external `<script type="module" src>`, and Inertia hands the page over in a
+  `<script type="application/json" data-page>` block, which is never *prepared for execution* and
+  so is not a `script-src` subject at all. That makes `script-src 'self'` — no nonce, nothing
+  published — both the strictest and the simplest policy.
+  A nonce is still needed for the `<style>` elements Inertia injects at runtime (progress bar,
+  error modal); it honours `createInertiaApp({ nonce })`, read from a `<meta name="csp-nonce">`.
+  Publishing *that* costs nothing precisely because `script-src` names no nonce.
+  Keep `'unsafe-inline'` on **`style-src-attr`** only — Bootstrap and Popper position dropdowns by
+  writing `style` *attributes*, which cannot carry a nonce — so the nonce still governs `<style>`
+  elements and CSS-injection cannot read the page out through selector matching.
+  Generate the nonce and call `Vite::useCspNonce()` **before** `$next($request)`; set the header
+  after. Register the middleware **globally**, or 404s and auth redirects go out bare.
+- **Gotchas**: the dev-server relaxation must be gated on `Vite::isRunningHot() && ! app()->isProduction()`
+  — a stray gitignored `public/hot` (a crashed dev server, a deploy that rsynced `public/`) would
+  otherwise hand a customer the loose policy. **Browser consoles do not report CSP violations to
+  automation tools**: violations are browser-generated errors, not `console.*` calls, so an empty
+  console is not evidence. Verify with a visual diff and an in-page `securitypolicyviolation`
+  listener, and break the policy on purpose once to confirm the instrument reports it.
+- **First used in**: SociaPulse (2026-09-12)
+
+### Claim-and-reap for any queued write to a third party
+
+- **Stack**: Laravel queues · PostgreSQL (any DB with a conditional UPDATE)
+- **Problem**: a worker that dies mid-send leaves a row in a state nothing can move. If the
+  completion timestamp is written *after* the provider answers, it cannot serve as the guard —
+  the dangerous window is exactly the one where it is still null.
+- **Solution**: three states and two thresholds.
+  **Claim** in one conditional `UPDATE ... WHERE status = 'queued'`, checking the affected-row
+  count — read-then-write lets two workers both observe `queued`.
+  **Reap `sending`** after a threshold comfortably above the worker's own `--timeout`, into an
+  `unverified` state that is **never re-sent**: a worker that died mid-send is indistinguishable
+  from an unacknowledged success, and re-sending puts a second message in front of a real
+  audience. Let the operator overrule it with an explicit acknowledgement **checked server-side**.
+  **Reap `queued` too, but much later** (e.g. 60 min vs 15) and into a plainly *failed* state:
+  nothing reached the provider, so re-sending is safe, and the long threshold protects a merely
+  backed-up queue. Skipping this is what makes an in-flight guard a permanent lock-out.
+  Close the state set with a DB CHECK constraint and assert the enum and the constraint agree.
+- **Gotchas**: tie both thresholds to the worker timeout and **test that raising one without the
+  other fails** — otherwise ordinary long work gets reported as abandoned. Capture any field the
+  audit row needs *before* the write that clears it.
+- **First used in**: SociaPulse (2026-09-12), publish path then reply path
+
+### A restore drill that can actually fail
+
+- **Stack**: PostgreSQL · any app with application-level encryption
+- **Problem**: a documented restore procedure that nobody runs, whose pass condition checks
+  configuration rather than capability, certifies a recovery point that cannot recover.
+- **Solution**: script it, and make each step refuse to pass vacuously.
+  Take the keys **from their own store, passed as a file** — never the app's `.env`, which proves
+  only that the running machine can read its own tokens. Restore into a scratch database, refuse
+  if the scratch name is empty or equals the live one, and arm the cleanup `trap` **before**
+  creating it so a failed restore cannot leave production data lying around.
+  Point the real application at the restored copy with environment variables (Laravel's dotenv is
+  immutable and yields to the environment) and **decrypt every stored credential** — not "is a key
+  configured", which a wrong, truncated or foreign key passes. Fail when there are **no**
+  credentials: a drill against an empty table proves the database came back, not the keys.
+  Then prove the drill fails: re-run it with a deliberately wrong key and check the exit code.
+- **Gotchas**: **match client tools to the server's major version** — several are usually
+  installed and `PATH` picks silently; `pg_dump` refuses across versions but `pg_restore` can
+  appear to work. Read the server version from the app and refuse on mismatch. Gitignore the dump
+  directory: a dump holds every tenant's data and every encrypted credential.
+- **First used in**: SociaPulse (2026-09-12), AC-22
+
+### Runtime overrides for controls that must not wait for a deploy
+
+- **Stack**: Laravel 12 · PostgreSQL (any framework with a config layer)
+- **Problem**: kill switches, spend ceilings and rate limits read from `config()` are unreachable
+  in the incident they exist for — the remedy is an SSH session, a config cache rebuild and a
+  restart. But moving them wholly into the database loses the safe, reviewable, version-controlled
+  default.
+- **Solution**: **config is the default and the floor; a `platform_settings` row is an override.**
+  `isOverridden($key) ? get($key) : config($key)` — tested with `array_key_exists`, never `??`,
+  because a stored `null` ("deliberately cleared") is not an absent row ("never set"). Deleting the
+  row is the recovery path: no migration, no rollback, the deployed configuration applies again.
+  Keys are **code-owned** in a registry that refuses undeclared ones, or the table accumulates rows
+  that look saved and are never read. Resolve most-specific-first (`switch:x:publish` →
+  `switch:x:*` → config's `['*' => false, 'publish' => true]`), or a provider-wide override
+  silently swallows a per-capability rule.
+- **Gotchas**: cache the whole map under one key and drop it on write — these are read in hot
+  loops (per account, per tick), so a query per check is one query per account per tick. Enforce
+  the ordering rules rather than documenting them: enabling a *metered* capability with no ceiling
+  set is refused, while disabling anything is always allowed — **never put a precondition in front
+  of the safe direction**. Audit every change with before/after, and show on the screen whether a
+  value is an override or the shipped default, or the operator cannot tell a decision from a
+  default.
+- **First used in**: SociaPulse (2026-09-12), REQ-71 kill switches and the X spend ceiling
+
+### One Locale, Resolved at the Boundary — Never `Intl(undefined)`
+
+- **Stack**: any UI rendering money, numbers or dates that two people will compare
+- **Problem**: `new Intl.NumberFormat(undefined, …)`, `toLocaleString()` and
+  `toLocaleDateString()` with no locale all mean *whichever locale this machine is set to*.
+  The same report then renders `1,234.56` on one desk and `1.234,56` on the next — the same
+  number, read as a different sum. It reviews as an innocuous default and it is a dependency
+  on the reader's laptop.
+- **Solution**: one configuration value (a `display.locale` setting, defaulted per client),
+  delivered on the session-bootstrap call the SPA already makes, applied **once** in a single
+  formatting module that every component imports. No component calls `Intl` directly. Ship a
+  compile-time-safe fallback constant for the window before the bootstrap response lands.
+- **Gotchas**: (a) Intl separates a currency symbol from its digits with a **non-breaking
+  space** (U+00A0) — normalise it in assertions or they fail against strings that look
+  identical; (b) compact notation differs between Node and Chrome for the same input, so a
+  test/browser mismatch on formatting is a *locale* bug until proven otherwise — that
+  disagreement is how this one was found; (c) the locale changes the currency symbol, not just
+  the separators (`en-MY` renders MYR as `RM`), so confirm the client wants that; (d) bare
+  `.toLocaleString()` on integer row counts is the same defect, lower stakes — sweep for it.
+- **Test that matters**: format the same value under three locales and assert they differ in
+  the expected way. Asserting one locale's output only proves the formatter runs.
+- **First used in**: WebAppsBI (2026-09-13, `NFR-18`, DEC-035)
+
+### Cross-Filter That Exempts Its Own Source
+
+- **Stack**: any dashboard where clicking a chart filters the other charts
+- **Problem**: applying the selection uniformly narrows the *source* widget too, which redraws
+  as a single 100% category. The numbers are right and the screen is a dead end — the control
+  used to choose a category has erased every other category, so the only way out is a "clear"
+  link the user is not looking at. Every test passes, because no test clicks twice.
+- **Solution**: keep the cross-filter as a **transient layer** over the base filter model,
+  never written into saved filters or the URL. Resolve each widget's filters through one
+  function that drops the cross-filter when the widget groups by the same dimension. Show the
+  selection as *state* — chosen item at full opacity, the rest dimmed (~0.2), never removed —
+  and make a second click on the chosen item the way out, in addition to an explicit chip.
+- **Gotchas**: the exemption belongs in the store keyed by dimension, not in any one chart, or
+  the next clickable widget reintroduces the bug. The source widget's own totals then stay
+  unfiltered and will legitimately differ from the KPI strip — that is correct, and worth a
+  moment's thought before someone "fixes" it.
+- **First used in**: WebAppsBI (2026-09-13, `REQ-DASH-013`, DEC-034)
+
+### Log Redaction as a Channel Tap (Laravel + PostgreSQL)
+
+- **Stack**: Laravel 11/12 · Monolog 3 · PostgreSQL (any driver whose errors quote values)
+- **Problem**: client data reaches `laravel.log` through the framework, not through application
+  code: `QueryException`'s message is the SQL with every binding substituted, and PostgreSQL adds
+  `DETAIL: Key (col)=(value)` or `Failing row contains (…)`. A failed batched INSERT writes the
+  whole batch. Frame arguments add the bindings again when `zend.exception_ignore_args` is off.
+- **Solution**: one invokable class added as `'tap' => [...]` on **every** writing channel
+  (`single`, `daily`, `stderr`, `syslog`, `errorlog`, `slack`, `papertrail`). Its processor
+  `LogRecord::with()`s a scrubbed message and context: strip `(Connection: … SQL: …)` to the end,
+  replace the values after `Key (…)=`, replace `Failing row contains (…)`, redact credential keys
+  at any depth, and rebuild any `Throwable` in context as class + scrubbed message + file +
+  **argument-free** frames, following `previous` a few levels.
+- **Gotchas**: `stack` has no handlers of its own — tap its children. The `emergency` logger
+  cannot be tapped. Constraint names and SQLSTATE survive, and are what an operator needs. Test it
+  end-to-end: write through a real channel configured from `single`'s config and read the file —
+  a unit test on the processor alone does not prove the tap is wired.
+- **First used in**: WebAppsBI (2026-09-13, `REQ-SEC-015`, DEC-052)
+
+### Per-Tenant Permissions for Anything That Lists, and Ids Authorised Before Validation
+
+- **Stack**: Laravel policies + FormRequests over a per-company RBAC (any multi-tenant RBAC)
+- **Problem**: two shapes of the same boundary leak. (1) A permission held per tenant is checked
+  as "held in any tenant" on a listing endpoint, so the list is global. (2) A client-supplied id
+  (parent, template version, target company) is validated with `exists`/`unique` before
+  authorisation — a 422 then confirms foreign records, and a bare `exists` lets a foreign record be
+  attached.
+- **Solution**: (1) resolve the tenants where the actor holds the permission
+  (`permittedCompanyIds` filtered by `hasAnyForCompany`) and restrict the query to rows granted in
+  those tenants; a single-record read outside the set is **404**. (2) authorise in the
+  FormRequest's `authorize()` (it runs before `rules()`), or validate only the id's shape, load it,
+  authorise, then run the remaining rules. Scope "is this id usable" to the tenant in the query
+  itself (`whereHas(... company_id = ? or null)`), and answer foreign with the same message as
+  missing. For an action on two records (moving a company), authorise both ends.
+- **Gotchas**: global admins bypass `Gate` via `Gate::before`, so do the query restriction outside
+  the policy. Remove the moved/attached column from `$fillable` so a later `fill($validated)` cannot
+  skip the check. Test with an actor who legitimately manages one side and not the other — an
+  outsider with no grants never exercises a two-record action.
+- **First used in**: WebAppsBI (2026-09-13, `REQ-SEC-003/004`, DEC-053)
+
+---
+
+## Laravel 13 + Vue 3.5 + TypeScript SPA + Sanctum (multi-tenant SaaS)
+
+> Captured 2026-09-16 from **WhatsApp Business Automation SaaS** PH-00 + PH-01 (foundation,
+> identity, tenancy, RBAC, audit, entitlements). Proven by 221 Pest + 16 Vitest tests and a live
+> smoke on a running app — **not yet shipped to production**, so treat deployment-shaped claims as
+> `Assumed`. The Vue/Sanctum half is distinct from the existing *Laravel 13 + Inertia 3 + React 19*
+> section: no Inertia, no Wayfinder, a real JSON API with cookie auth.
+
+### Version Baseline (installed and green 2026-09-16)
+Laravel **13.32** · PHP **8.4** · `laravel/fortify` **^1.39** (headless) · `laravel/sanctum` **^4.0**
+(SPA cookie mode) · `spatie/laravel-permission` **^8.3** (teams mode) · `laravel/horizon` **^5.49** ·
+`laravel/reverb` **^1.11** · Pest **^5.2** · Larastan **^3.12** (level 6) · Vue **3.5** ·
+TypeScript **5.9** · AdminLTE **4.9** · Vite. Tests run on in-memory SQLite; MySQL **8.4** in CI.
+
+### Composite `(tenant_id, id)` Foreign Keys — the MySQL substitute for RLS
+- **Stack**: Laravel 13 + MySQL 8, multi-tenant, no Postgres RLS available.
+- **Problem**: a single-column FK (`contact_id`) lets a row in tenant A point at a parent in
+  tenant B. A global Eloquent scope hides it from reads but does not stop the write, and nothing
+  at the database level refuses it.
+- **Solution**: give every tenant-owned table a `UNIQUE (tenant_id, id)` and declare child FKs as
+  composite `(tenant_id, parent_id) REFERENCES parent (tenant_id, id)`. Wrap it in one schema macro
+  (`Blueprint::tenantForeign`) so every later migration gets it for free and reviewers have one
+  thing to grep for. The database now refuses cross-tenant parents even when the application layer
+  is wrong.
+- **Gotchas**: the macro must be registered in a service provider that boots before migrations
+  (`AppServiceProvider::boot`). SQLite honours the unique index but is lax about the FK, so the
+  real proof is the MySQL CI run. Every `->constrained()` in a tenant table is a defect.
+- **First used in**: WhatsApp Business Automation SaaS (2026-09-16, REQ-TENANT-005)
+
+### Tenant-Aware Queue Jobs — set the context in middleware, never in `handle()`
+- **Stack**: Laravel queues + a global tenant scope driven by a request-scoped context object.
+- **Problem**: the tenant context is resolved from the authenticated principal in HTTP middleware.
+  A queued job has no request, so the global scope either throws or — worse — silently resolves to
+  whatever tenant the worker last served, leaking rows between tenants inside one worker process.
+- **Solution**: a `TenantAwareJob` interface plus a `TenantAware` job middleware that reads the
+  tenant id serialized on the job, sets the context, runs the job, and clears the context in a
+  `finally`. An architecture test asserts that no job calls `TenantContext::set()` directly and
+  that every job touching a tenant model implements the interface.
+- **Gotchas**: the clear must be in `finally`, or a thrown job poisons the next job on the same
+  worker. Serialize the tenant **id**, not the model — a `SerializesModels` reload runs through the
+  scope that is not set yet. Retries and `Horizon` restarts re-enter the middleware, so it must be
+  idempotent.
+- **First used in**: WhatsApp Business Automation SaaS (2026-09-16, REQ-TENANT-004)
+
+### Reserve-then-Commit Usage Counters (plan limits that survive concurrency)
+- **Stack**: Laravel + MySQL, SaaS plan entitlements over an asynchronous pipeline.
+- **Problem**: `if (count() < limit) { create(); }` is a check-then-act race — two simultaneous
+  requests both pass the check and the tenant ends up one over its plan. Counting live rows also
+  cannot express "in flight": a queued message has consumed quota but does not exist yet.
+- **Solution**: two tables. `usage_counters` holds the committed number per (tenant, metric,
+  period); `usage_reservations` holds short-lived holds. The entitlement service takes a row lock
+  on the counter (`lockForUpdate`), checks `committed + reserved < limit`, writes a reservation,
+  and returns a handle. The worker commits the reservation on success or releases it on failure; a
+  scheduled reaper releases expired holds.
+- **Gotchas**: the lock has to be on the counter row, not the tenant row, or every metric
+  serialises behind one lock. SQLite ignores `lockForUpdate` entirely, so the concurrency test
+  proves nothing locally — run it on MySQL in CI and say so in the phase report. Period rollover
+  (monthly counters) needs its own key, not a `WHERE created_at >=` scan.
+- **First used in**: WhatsApp Business Automation SaaS (2026-09-16, REQ-PLAN-002/003)
+
+### Headless Fortify + Sanctum Cookies Behind a Vue SPA
+- **Stack**: Laravel 13 + Fortify (no Blade views) + Sanctum stateful API + Vue 3 SPA on the same
+  registrable domain.
+- **Problem**: Fortify's defaults assume server-rendered views and redirect responses; a JSON SPA
+  needs 2xx/422 and its own reset-link URL. Rolling your own auth to avoid that throws away 2FA,
+  throttling, password confirmation and breached-password checks.
+- **Solution**: keep Fortify for every credential operation (login, register, password, 2FA,
+  profile) and bind the response contracts to JSON responders; point the reset URL at the SPA
+  route; put the API behind `statefulApi()` so cookies plus CSRF apply. The app's own
+  `/api/v1/...` controllers never touch passwords — profile and password changes go to the Fortify
+  endpoints, which is a deviation worth writing down because the API surface then has no
+  `PATCH /me` for those fields.
+- **Gotchas**: Fortify's rate limiters are named and must be registered per email **and** per
+  email+IP, or one attacker IP rotation defeats the cap. `Password::defaults()` with the breached
+  check belongs in a service provider, or the invitation-acceptance path creates passwords under
+  no policy. Session regeneration on login is Fortify's; anything you add around it must not run
+  before it.
+- **First used in**: WhatsApp Business Automation SaaS (2026-09-16, REQ-AUTH-001..005)
+
+### `spatie/laravel-permission` Teams Mode Keyed on `tenant_id`
+- **Stack**: Laravel 13 + spatie/laravel-permission 8 in teams mode.
+- **Problem**: one user belongs to several tenants with a different role in each. Non-teams mode
+  gives the union of every grant, so an agent in tenant B inherits their owner role from tenant A.
+- **Solution**: enable teams mode with `tenant_id` as the team key and set the team id from the
+  resolved tenant context in the same middleware that resolves the tenant — before any `can:`
+  middleware runs. Pair it with a declared permission registry (code owns the keys) and a role
+  provisioner, so a new permission is a code change plus a seeder run, never a manual grant.
+- **Gotchas**: the permission cache is keyed per team; forget it on role changes inside
+  `DB::afterCommit`, not inline. A `users.access_version` column is worth adding at the same time —
+  bump it on every role or membership change so a future permission cache has something to key on
+  (it may legitimately be write-only until that cache exists; record that, or a later audit reads
+  it as dead code).
+- **First used in**: WhatsApp Business Automation SaaS (2026-09-16, REQ-RBAC-001/002)
+
+### Vue 3 + TypeScript — the two toolchain traps
+- **Stack**: Vue 3.5, TypeScript 5.9, Vue Flow, Vite.
+- **Problem**: (1) `ref<Edge[]>` on a Vue Flow edge array makes `tsc` recurse into a type that
+  exceeds its depth limit — `TS2589: Type instantiation is excessively deep`. (2) `vue-tsc` is not
+  part of `vite build`, so a type error ships.
+- **Solution**: `shallowRef` for graph node/edge collections (they are replaced wholesale anyway,
+  so reactivity depth buys nothing). Run `vue-tsc --noEmit` as its own CI step and prove the step
+  works by planting an error once and checking it exits non-zero.
+- **Gotchas**: a type-check step that has never failed is not known to work. Pin the Node version
+  in `.nvmrc` **and** `engines`, and run the verifier under the shell default runtime.
+- **First used in**: WhatsApp Business Automation SaaS (2026-09-16, REQ-FND-010)
+
+---
+
+## Third-party webhook + credential integration (Meta WhatsApp Cloud API)
+
+> Captured 2026-09-16 from **WhatsApp Business Automation SaaS** PH-02. Provider-specific details
+> are Meta's, but every pattern below applies to any provider that posts signed webhooks and hands
+> you a long-lived token. Proven by 397 Pest + 36 Vitest tests against a fake; **not yet exercised
+> against the live provider**, so treat the runtime claims as `Assumed`.
+
+### Signature Verification Over the Raw Body — and the test that proves it
+- **Stack**: any framework that decodes JSON before your controller runs.
+- **Problem**: the HMAC is over the exact bytes the provider sent. Re-serialising the decoded JSON
+  changes unicode escaping, key order and whitespace, so verification fails for every payload that
+  is not plain ASCII in the provider's own key order. It passes your tests, because your tests
+  build the payload with the same serializer.
+- **Solution**: read the raw stream (`$request->getContent()`), HMAC that, `hash_equals` the
+  result. Register the route **outside** every middleware group so nothing can touch the body first.
+  Decode separately, after verification. Fail closed when the secret is unconfigured — an unset
+  secret must never verify, or "webhooks are off" silently becomes "anyone can post events".
+- **Gotchas**: the proving test must use a payload the naive implementation fails —
+  non-ASCII content **and** unusual key order. A test built with `json_encode` on an ASCII fixture
+  passes either way and proves nothing. Never log an unverified body: it is attacker-controlled.
+- **First used in**: WhatsApp SaaS (2026-09-16, REQ-WEBHOOK-002)
+
+### Four-Class Error Classification — the AMBIGUOUS class is the one that matters
+- **Stack**: any paid third-party API where a call has side effects.
+- **Problem**: the usual triad is transient / permanent / auth, and it quietly assumes you know
+  whether a failed call took effect. For "unknown error", a timeout, or a connection failure, you
+  do not — and retrying is how a customer receives the same message twice, or gets charged twice.
+- **Solution**: add a fourth class, `ambiguous`: *the call may already have taken effect*. The
+  caller never blind-retries it; it reconciles against the provider's own record first. Default an
+  **unrecognised** code with no HTTP status to ambiguous, not transient — guessing "safe to retry"
+  is the expensive direction to be wrong in. Hold the mapping in one table with the doc URL, and
+  walk every row in a table test.
+- **Gotchas**: providers rarely publish a retryability column, so the classification is your
+  inference — say so in a comment and re-read it whenever a new kind of call is added. A code the
+  provider frames as a rate limit may be a quality signal where retrying makes things worse.
+- **First used in**: WhatsApp SaaS (2026-09-16, REQ-META-008)
+
+### Provider-Attested Resource Binding — never trust the browser's id
+- **Stack**: any OAuth-ish popup flow that posts resource ids to the parent window.
+- **Problem**: the popup hands the browser a resource id and the browser posts it to your server.
+  A tenant can post *any* id. If you bind on that, one tenant claims another's resource.
+- **Solution**: treat the posted ids as **hints**. Exchange the code, then ask the provider what
+  the token actually covers (`debug_token` → `granular_scopes[].target_ids`) and bind on that. A
+  hint outside the attested set is refused and audited as a security event. Where the token covers
+  exactly one resource and no hint was sent, infer it; where it covers several, refuse rather than
+  guess. Filter the attested list by the scope that actually grants the resource type — other
+  scopes carry ids of other kinds.
+- **Gotchas**: validate the origin of the `postMessage` with an **exact allow-list**. Meta's own
+  sample uses `origin.endsWith('facebook.com')`, which `evilfacebook.com` satisfies. Also enforce
+  one-resource-to-one-tenant in the database, and decide explicitly whether disconnecting releases
+  it — otherwise the first tenant to connect a resource holds it forever.
+- **First used in**: WhatsApp SaaS (2026-09-16, CHANGE-004)
+
+### Versioned Credential Keyring — with the length check openssl will not do for you
+- **Stack**: PHP/openssl (the trap is not PHP-specific), any stored third-party credential.
+- **Problem**: rotating the application key to rotate one integration's secrets is too blunt, and a
+  single-key scheme has no window in which old and new ciphertext both decrypt. Worse:
+  **`openssl_encrypt` silently zero-pads a short key**. An 8-byte key encrypts happily and
+  everything downstream calls it AES-256. Nothing in a deploy reveals it.
+- **Solution**: a keyring of `version => key`, the version stored beside each ciphertext, AES-256-GCM
+  so tampering throws instead of returning rubbish. **Validate the key length against
+  `openssl_cipher_key_length()` and throw** — and assert the keyring at boot, not at first use.
+  Ship the key-generation command *and* the rotation job; re-encrypt, then drop the old version.
+- **Gotchas**: never fall back to another key version on failure — a GCM tag mismatch is tampering
+  or the wrong key, and both are failures. Keep the old version in the ring until rotation reports
+  zero rows on it. If a config comment names a command, that command must exist: hand-generating a
+  key is exactly how a wrong-length one gets in.
+- **First used in**: WhatsApp SaaS (2026-09-16, REQ-SECURITY-006)
+
+### "Unknown" Is Not "Failed" — and it is not "healthy" either
+- **Stack**: any health check that depends on a third party.
+- **Problem**: a two-valued check (pass/fail) has to call a provider outage something. Called
+  `fail`, it tells the customer their integration is broken when it is not. Called `pass`, it
+  promotes a genuinely broken integration to healthy the moment the provider has a 5xx.
+- **Solution**: three results — `pass`, `fail`, `unknown`. The UI renders `unknown` in grey with
+  "couldn't reach them just now", never red. The status machine treats `unknown` as **no
+  information**: it may not promote *or* demote. Only a real `pass` on a credential check may
+  promote an account.
+- **Gotchas**: the bug hides in the aggregator, not the check — `if (no failures) status = healthy`
+  scores a page of `unknown` as perfect health. Require positive evidence to promote.
+- **First used in**: WhatsApp SaaS (2026-09-16, REQ-META-006/007)
+
+### Store-Then-Acknowledge Webhook Ingest
+- **Stack**: any high-volume provider webhook.
+- **Problem**: doing the work inline makes the provider's timeout your latency budget, and any
+  exception after you have the data turns into a provider retry and a duplicate.
+- **Solution**: verify → insert raw (unique index on the payload hash **is** the dedupe) → dispatch
+  a job `afterCommit` → 200. A duplicate key is a 200, not an error: you already have it. Nothing
+  after the insert may change the HTTP status. Store the hash as `binary(32)`, not 64 hex chars, on
+  a table that will hold millions of rows.
+- **Gotchas**: cap the **work**, not just the body size — a 3 MB body of minimal entries is tens of
+  thousands of handler runs in one job. An unknown field is `ignored`, never `failed`, and logged
+  once an hour so a new provider field is visible without flooding. A delivery that resolves to no
+  tenant is `orphaned`, not failed, and must not carry a tenant id it does not belong to.
+- **First used in**: WhatsApp SaaS (2026-09-16, REQ-WEBHOOK-003/004/005)
+
+## Contact data, consent and bulk file handling (PH-03, WhatsApp SaaS)
+
+### Portable Literal `LIKE` — the ESCAPE clause both engines need
+MySQL defaults the LIKE escape character to `\`; SQLite has none. Escaping `%` and `_` without an
+explicit `ESCAPE` clause therefore behaves differently on each, and if you test on one and ship on
+the other the suite cannot see it. One helper, used by every literal search:
+
+```php
+$sql = $column.' LIKE ? ESCAPE '."'\\\\'";   // $column is always a literal from an allow-list
+$query->whereRaw($sql, [$pattern], $boolean); // $pattern is bound
+```
+
+Escape `\` first, then `%` and `_`. Test the **positive** case — searching for `%` finds the row
+containing `%` — because the negative case passes on a filter that matches nothing.
+
+### Two-Axis Consent — ours versus the platform's
+Any channel where the end user can mute you at the platform level needs two columns, not one:
+
+| | ours | the platform's |
+|---|---|---|
+| set by | sign-up, import, keyword, agent | a provider webhook, or an error code on send |
+| reversible by us | yes | **never** |
+
+Collapsing them into one status produces a UI that appears to offer a control it does not have. The
+send gate is `ours = opted_in AND theirs = allowed AND not suppressed`, computed server-side and
+sent to the client as one boolean — the screen must never re-derive it from the parts and drift
+from what sending actually does. One service writes both columns and appends to an append-only
+event table in the same transaction; an arch test keeps it the only writer.
+
+### Spreadsheet Export Injection — the library will not do this for you
+A library that builds cells from raw values will happily emit a live formula. Route every exported
+cell through one helper that builds an explicit string cell and prefixes `'` when the value starts
+with `= + - @ TAB CR`. Ban the convenient bulk constructor with an arch test, because it is both the
+obvious spelling and the vulnerable one. Include the phone-number column: E.164 starts with `+`.
+
+### File Intake Without an AV Scanner
+For a CSV/XLSX intake, an AV engine detects none of the three real threats. Ship instead:
+server-side `finfo` sniffing (never the client's type or the extension), a strict allow-list, a size
+cap, a **zip compression-ratio check** (a real spreadsheet measures ~12x; refuse past ~200x),
+`libxml_set_external_entity_loader(fn () => null)` before parsing XLSX, private storage under a
+generated name, and short-lived presigned download URLs with `Content-Disposition: attachment`.
+
+### Typed EAV for Tenant-Defined Fields
+When tenant-defined attributes must be *filtered on* at scale, a JSON column cannot be indexed for
+dynamic keys. Use `value_text` / `value_number` / `value_date` / `value_bool` with an index per type
+keyed `(tenant_id, definition_id, value)`. The cost is that **a definition's type is locked once any
+value exists** — changing it strands every stored value in the wrong column with no correct
+migration. Say so on screen rather than offering one nobody would trust.

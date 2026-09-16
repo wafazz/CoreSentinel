@@ -405,3 +405,42 @@ php artisan tinker --execute='echo config("session.secure") ? "yes" : "auto/no";
 worker — what state it lands in, and the instruction *not* to retry it before checking the
 third party, since the side effect may already have happened. See *Reaping an Abandoned Claim*
 in `11-pattern-library.md`.
+
+### Recipe A4.4 — Backups you have actually restored (PostgreSQL + app-level encryption)
+
+Added after SociaPulse 2026-09-12, where the drill existed only as prose and its pass
+condition would have certified an unusable recovery point.
+
+```bash
+PG_BIN=/usr/lib/postgresql/16/bin scripts/backup.sh                  # dump + sha256
+PG_BIN=/usr/lib/postgresql/16/bin scripts/restore-drill.sh <dump> <key-file>
+```
+
+Rules that make the difference between a drill and a ritual:
+
+1. **Match client tools to the server's major version, and refuse on mismatch.** Several
+   PostgreSQL versions are usually installed and `PATH` decides silently. `pg_dump` errors
+   across versions; **`pg_restore` is the dangerous half, because it can appear to work.**
+   Read the server version from the application and compare.
+2. **Read the dump back before calling it a backup** (`pg_restore --list`). Catches a
+   truncated write or a disk that filled mid-dump.
+3. **Keys come from their own store, passed as a file — never the app's `.env`.** Reading
+   them from `.env` proves the running machine can read its own tokens, which was never in
+   doubt. Refuse to run if the file does not define the current key version.
+4. **Decrypt every credential; do not check that a key is configured.** A key from the
+   wrong backup, truncated, or left over from another environment is configured and wrong:
+   it passes a `--status` check and fails every real decrypt.
+5. **Fail when there is nothing to decrypt.** A drill against an empty table proves the
+   database came back, not the keys.
+6. **Arm the cleanup trap before creating the scratch database**, and refuse if its name is
+   empty or equals the live one. A guard reading an empty variable compares against `""`
+   and passes for any input — a safety check that cannot tell it failed is worse than none.
+7. **Prove the drill can fail**: re-run with a deliberately wrong key and check the exit
+   code. Then gitignore the dump directory — a dump holds every tenant's data and every
+   encrypted credential, one `git add -A` from being published.
+
+**Also check at deploy time**, because both fail silently and neither looks like an error:
+- the token key is **not** `APP_KEY` (a dev fallback that *resolves* passes a "keys resolve"
+  check while defeating the whole separation), compared inside the app so neither is printed;
+- `TRUSTED_PROXIES=*` reaches the framework as a **string** — normalising it into an array
+  makes the wildcard match no address while the check counts one entry and reports success.

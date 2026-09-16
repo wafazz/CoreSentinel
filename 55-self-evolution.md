@@ -251,11 +251,513 @@ After significant work, Iris asks itself:
 3. Is there a rule I should update based on this experience?
 4. Can anything I learned here help other projects?
 
+
+## WebAppsBI — PH-01 Foundation (2026-09-13, Laravel 12 + Vue 3 SPA + Sanctum, client project)
+
+### Anti-Patterns
+
+#### A safety invariant written as a policy rule is bypassed by `Gate::before`
+**What happened.** `UserPolicy::disable()` contained the guard "you may not disable your
+own account". `Gate::before` returns `true` for a global administrator, which
+short-circuits every policy — so a global admin sailed past the guard and could lock
+themselves out of the application. Found by a failing test, not by review.
+
+**Why it is the wrong shape.** A *permission* answers "is this user allowed to?" and
+should absolutely be short-circuited for an administrator. An *invariant* answers "may
+this ever happen to the system?" and must not be. Conflating them means the invariant is
+bypassable by exactly the actor most able to cause the damage. Locking every administrator
+out is not a privilege.
+
+**The rule.** Permissions live in Policies. Invariants live in a Guard class called from
+the controller *after* `Gate::authorize`. Applies to: the last global admin, the last
+active dataset, deleting a company that still has data.
+
+#### Defensive coding that hides a configuration error makes the bug harder to find
+**What happened.** A Sanctum stateful-domain mismatch produced a raw
+`Session store not set on request` 500. I wrapped the session calls in
+`if ($request->hasSession())`. The 500 disappeared — and was replaced by: login returns
+**200**, the next request returns **401**, nothing in the logs. The guard converted a loud,
+immediately diagnosable failure into a silent one that surfaces a request later.
+
+**Why it happened.** The guard was a correct piece of code written for the wrong reason.
+It is genuinely right for stateless calls. But it was added to *silence an error* rather
+than to handle a case, and silencing an error is not the same as handling it.
+
+**The rule.** Before adding a guard that suppresses an error, establish whether the error
+is reporting a real misconfiguration. If it is, the guard must be paired with a check that
+names the problem — here, a `/health` assertion that `APP_URL`'s host:port is in
+`SANCTUM_STATEFUL_DOMAINS`. Ask "what was this exception telling me?" before removing it.
+
+#### Trusting `npm view <pkg> version` as a compatibility signal
+**What happened.** Planning.md recorded Vue Router **5.3.1** and Pinia **4.0.3** as the
+verified versions, from a bare latest-version check. Reading the actual peer ranges at
+build time showed `vue-router@5` requires **`@pinia/colada`** — an opinionated
+data-fetching library — as a peer. Adopting it would have pulled a whole data layer into
+the app as a side effect of a router version bump, competing with the batching design the
+plan already specified.
+
+**Also.** `vue-tsc@3.3.11` declares `typescript: ">=5.0.0"` — an *open* range that would
+accept TypeScript 7 without complaint. I had recorded the opposite ("the peer range
+excludes 7") as the reason for pinning. The pin was right; the stated reason was wrong,
+and a wrong reason in a decision log is worse than none because the next person trusts it.
+
+**The rule.** "Latest version" is not "compatible version". At Phase 1 Scout, read
+`peerDependencies` for every package the build will actually touch, and record what they
+say — not what they were assumed to say.
+
+#### A 503 that carries the payload will be eaten by the HTTP client
+**What happened.** `/health` correctly answers 503 when degraded so uptime monitoring can
+alarm on it. The axios interceptor throws on any non-2xx, so the admin System Health
+screen — the one screen an operator opens when something is wrong — discarded the report
+and rendered "the server returned an unexpected response".
+
+**The rule.** Whenever a non-2xx status is *semantic* rather than a failure, the client
+needs an explicit opt-in (`validateStatus`) at that call site. Decide this when the status
+code is chosen, not when the screen is found broken.
+
+### Learned Skills — WebAppsBI PH-01
+
+- **Sanctum SPA cookie auth end to end**: stateful-domain resolution, CSRF cookie flow,
+  session fixation defence, `logoutOtherDevices`, and how each fails when the request is
+  not stateful.
+- **Pest arch testing as an enforcement layer**: dependency-direction rules caught a real
+  layering violation (a controller querying the database) on the first run.
+- **Route-enumeration authorisation coverage**: a test that fails the build when a new
+  endpoint ships without authentication — the control that survives the phase that wrote it.
+- **Dart Sass module ordering with a legacy-`@import` vendor layer** (Bootstrap + AdminLTE 4).
+- **Reading a health check as a design surface**: `/health` is the right home for
+  configuration assertions that would otherwise be invisible until a user hits them —
+  PHP runtime limits, and Sanctum statefulness.
+- **Running the thing you built**: all three PH-01 defects were found by driving the real
+  app in a browser, not by reading the diff or by the 43 passing tests. Two of them could
+  not have been caught by a test written against the same wrong assumption.
+
+
+## WebAppsBI — PH-02 Company & Access (2026-09-13)
+
+### Anti-Patterns
+
+#### One rule, two implementations — and only one of them got updated
+**What happened.** Descendant expansion was written twice: once in `CompanyAccessService`
+(scope) and once in `PermissionService` (permissions). A user with a descendant-including
+grant expanded in scope but not in permissions, so they reached a subsidiary's route and were
+then refused by that route's own policy. Both implementations were individually correct.
+
+**The rule.** When one decision has two halves that must agree, the traversal or predicate they
+share goes in one class that both call. Duplication is not a style problem here — it is a
+correctness problem, because only one copy ever gets updated.
+
+#### A test suite that only exercises the careful path proves nothing about the data
+**What happened.** `companies.depth` is derived from `parent_id` and correctly not fillable.
+The controller derived it by hand, and every test went through the controller — so the suite
+was green. A seeder then mass-assigned `parent_id`, depth stayed 0, and the hierarchy rendered
+flat on screen.
+
+**Why the tests could not catch it.** They all entered through the one writer that happened to
+be careful. The bug lived in the gap between "the controller is correct" and "the value is
+correct" — and no test written against the controller can see that gap.
+
+**The rule.** Derive derived state in the model, so correctness is a property of the data
+rather than of whichever caller remembers. And when a value is derived, add at least one test
+that writes it through a path the application does *not* normally use.
+
+#### Trusting a guard that no reachable code path can execute
+**What happened.** The grant ceiling's rank comparison cannot be reached through the API:
+`admin` is both the only role holding `company.access.grant` and the highest rank. I wrote a
+test that attached the permission to the role row to reach it — which did nothing, because
+`RoleRegistry` (code) owns what a role can do and the table only records who holds it.
+
+**The rule.** When a guard is genuinely unreachable today, say so in the test name and comment,
+and assert the *logic it depends on* where that logic lives. Do not fabricate a scenario that
+the architecture forbids in order to make a coverage number look better — and do not leave the
+guard untested either, because it becomes load-bearing the moment the model changes.
+
+### Learned Skills — WebAppsBI PH-02
+
+- **Row-level company scoping without multi-tenancy**: one resolver, session-derived, 403 on an
+  empty intersection.
+- **Adjacency-list hierarchies with bounded walks**: cycle guard by walking up, depth guard that
+  accounts for subtree height, `resyncSubtree` after a move.
+- **PostgreSQL `citext`** for identifiers that must collide case-insensitively at the *index*,
+  not merely at the validator.
+- **Pest datasets as an access-control matrix**: endpoints × actor classes, plus a router
+  enumeration that fails the build when a scoped route ships without its middleware.
+- **Browser resize in claude-in-chrome**: `resize_window` silently no-ops on a reused tab and
+  works on a freshly created one. Create the tab, then resize, then navigate.
+- **Looking at the screen remains the highest-yield check.** Across two phases, four of the five
+  defects found were invisible to a green test suite; two were visible in the first screenshot.
+
+
+## WebAppsBI — PH-03 Dataset Management (2026-09-13)
+
+### Anti-Patterns
+
+#### A derived boolean answered a question it could not yet answer
+**What happened.** `countsReconcile()` returned `bool`. During an import,
+`imported + rejected ≠ total` is legitimately true, so the dataset list flagged **every
+in-flight dataset** with "counts do not reconcile". The one warning that should mean "this
+import is broken" appeared on every row in the queue.
+
+**Why it happened.** The method was written for the finished case and the type made the
+unfinished case indistinguishable from the broken case. `bool` has no room for "not yet".
+
+**The rule.** A derived boolean computed from in-flight data needs three states, not two.
+Return `?bool` and make callers handle `null` explicitly — `if (!$x)` silently treats unknown
+as failure, which is the same bug one level down. Same rule as null-vs-zero for metrics.
+
+#### A default password in a seeder is a committed credential
+**What happened.** `Hash::make('ChangeMe!2026')` sat in `DatabaseSeeder` for three phases.
+Fakrul spotted it, not me — and not the security gate, which had run twice over that file.
+
+**Why `must_change_password` is not the answer.** It only helps if the legitimate administrator
+signs in before anyone else does. On a fresh deploy that window is precisely when nobody is
+watching, and the literal is already in every clone, CI log and repository backup regardless.
+
+**The rule.** No credential literal in any committed file, ever, including seeders and fixtures.
+Generate and print once, or read from the environment. Then add a test that greps for it —
+a rule nobody can grep for is a rule that comes back.
+
+#### Three phases of security review did not look at the seeder
+**What happened.** Phase 1 and Phase 2 both ran a security pass. Both walked routes, policies,
+mass assignment, error leakage and dependency audits. Neither opened `database/seeders/`.
+
+**The rule.** The security checklist must name *files and directories*, not only *concerns*.
+"Check for hardcoded secrets" is a concern nobody can complete; "grep `database/`, `config/`
+and `tests/` for credential literals" is a step that either ran or did not. Add seeders,
+factories and fixtures to the Phase 6 sweep in `40-security-protocol.md`.
+
+### Learned Skills — WebAppsBI PH-03
+
+- **Visibility as the atomic unit**: a long-running write stays safe when *readability*, not
+  the write itself, is the transaction. Partial unique index as the real enforcement.
+- **State machines that name the legal moves** in the error body and in `meta`, so the UI can
+  render only actions that will succeed.
+- **Testing a guard by bypassing its service** — writing the forbidden state directly through
+  the query builder is the only way to learn whether the database or the service is enforcing it.
+- **PostgreSQL partial unique indexes + CHECK constraints** as business rules: one active
+  dataset per period, period pairs both-or-neither, ordered dates.
+- **Carbon 3 returns signed floats** from `diffInSeconds` and friends; a `?int` return type
+  fails at runtime, not at analysis.
+- **The screen keeps finding what the suite cannot.** Across three phases: six defects found by
+  running the app, and only two of those were reachable by a test written against the same
+  assumption as the code.
+
+
+## WebAppsBI — PH-04 Excel Upload & Validation (2026-09-13)
+
+### Anti-Patterns
+
+#### A dependency declared in the plan but never installed
+**What happened.** `maatwebsite/excel` was written into Planning.md §1.3 at Phase 0, with a
+verified version and a compatibility check against PHP 8.4. It was never added to
+`composer.json`. Four phases later, the first command of Phase 4 found an empty vendor
+directory.
+
+**Why it survived.** Three phases of `composer audit` passed — auditing what *is* installed
+says nothing about what *should* be. The plan and the lock file were never compared.
+
+**The rule.** When a phase declares its stack, install it in that phase even if it is not used
+yet, or add a test asserting the declared packages are present. A version recorded in a
+planning document is a claim, not a state.
+
+#### Fearing the wrong thing about a major version
+**What happened.** RISK-02 ("Laravel Excel 4.x is a rewrite of 3.x") was carried as HIGH
+likelihood for four phases and shaped the plan. One `ls vendor/maatwebsite/excel/src/Concerns/`
+showed every concern the build needs still present. The major bumped *requirements*
+(`php ^8.3`, `illuminate ^12||^13`), not the API.
+
+**The rule.** A risk that can be retired by reading the installed package should be retired at
+the first opportunity, not carried until the phase that depends on it. Verification is cheap;
+carrying a HIGH risk shapes decisions for months.
+
+#### Defensive defaults that silently replace configuration
+**What happened.** Refactoring `UploadLimits` into a pure value object (to satisfy the
+architecture test) gave it sensible constructor defaults. My provider binding failed to apply
+— and **the whole suite still passed**, because the container happily constructed it from
+defaults. Every admin setting for upload size, sheet cap and row cap was being ignored, and
+nothing said so.
+
+**The rule.** When a value object gets defaults *and* a container binding, add a test that
+asserts the **wiring** — change a setting, resolve the object, check the value. Defaults that
+look reasonable are the ones that hide a missing binding, because nothing ever looks wrong.
+
+### Learned Skills — WebAppsBI PH-04
+
+- **Untrusted spreadsheet ingestion end to end**: content-based type verification, zip-bomb
+  measurement from the central directory, bounded read filters, reader hardening, sheet-name
+  allow-listing.
+- **Generating hostile fixtures rather than committing them** — a reviewer can read exactly
+  what each malicious file contains instead of trusting a binary blob, and the repo carries no
+  client data.
+- **Asserting that a defence was *cheap***, not merely that it fired: peak-memory delta around
+  the zip-bomb rejection proves nothing was decompressed.
+- **`claude-in-chrome` file upload**: `file_upload` only reads session-shared paths — copy a
+  fixture into the scratchpad first. `resize_window` silently no-ops on a **reused** tab and
+  works on a fresh one.
+- **The architecture test earns its keep repeatedly.** It caught a Domain→Service dependency
+  that no reviewer flagged, in code I had just written while thinking about layering.
+
+
+## WebAppsBI — PH-05 Mapping Engine (2026-09-13)
+
+### Anti-Patterns
+
+#### A similarity ratio without an absolute bound produces confident nonsense
+**What happened.** The header suggester offered **Region** for a column called `Status`, at
+0.67 confidence. "status" and "state" differ by two edits over six characters, which clears
+any reasonable ratio threshold. A workflow column would have been offered as a geography
+dimension, with a score attached that made it look considered.
+
+**The rule.** On short strings a ratio is meaningless — two edits on a six-letter word is a
+*different word*, not a typo. Cap the absolute distance by length as well
+(`<= max(1, len/4)`). And verify **both directions**: that the bad match disappears *and*
+that real typos still match. A tightening that also breaks the good cases is not a fix.
+
+#### Building the risk mitigation into the fixture, not the apology
+**What happened (done right, recorded so it is repeatable).** Fakrul accepted RISK-13 and
+said to proceed without real client files. "Risk accepted" on its own changes nothing, so the
+mitigation went into the fixture: merged title block, line breaks and a non-breaking space in
+headers, parenthesised negatives, currency prefixes, numbers stored as text, `-`/`n/a` blanks,
+a TOTAL row mixed into the data, a trailing note, and two deliberately unparseable cells.
+
+Running it found the `Status`/Region bug and confirmed the engine resolves to exactly the two
+genuinely-bad rows.
+
+**The rule.** When a client accepts a risk, the response is a harder test, not a note in the
+log. And keep everything a real file could differ in as **data** — synonyms in config,
+formats in the mapping — so adapting is a template edit, not a code change.
+
+#### A unique index is not a validation rule
+**What happened.** A duplicate template name hit the partial unique index and surfaced as a
+**500**. The index is correct and stays — it is the real guarantee under a race — but the
+common case is a person retyping a name.
+
+**The rule.** Wherever a unique index protects user-supplied text, add the matching
+`Rule::unique`. The index is for correctness; the rule is for the human.
+
+### Learned Skills — WebAppsBI PH-05
+
+- **Exact-decimal parsing with bcmath** end to end: round-then-truncate to scale, no negative
+  zero, string all the way to the API boundary.
+- **Strict date parsing**: `createFromFormat` leniency, `getLastErrors()` warnings as
+  failures, Excel serial conversion, and an `explain()` method whose only job is to make an
+  ambiguity visible in the UI.
+- **Three-state parse results** as a type, so blank and error can never be confused.
+- **Greedy-by-confidence assignment** — score everything first, then assign, so a weak early
+  match cannot claim a field a later column matches exactly.
+- **Immutable version snapshots** plus a per-dataset copy, so an import is explainable after
+  the template changes.
+- **Reconciliation as a first-class report**, distinguishing absorbed drift from blocking loss.
+
+
+## WebAppsBI — PH-06/07 Financial Model + Import Pipeline (2026-09-13)
+
+### Anti-Patterns
+
+#### A plan that orders a consumer before the thing it consumes
+**What happened.** `Planning.md` put the Import Pipeline (Phase 6) before the Financial Data
+Model (Phase 7). The import writes into `fact_financials`, which Phase 7 creates. The plan had
+been reviewed, approved and worked from for five phases before the dependency surfaced — at the
+moment of trying to build it.
+
+**The rule.** When phase N writes to something phase N+1 defines, the order is wrong. Worth a
+dependency pass over the phase list at planning time: for each phase, name the tables and
+services it *reads or writes*, and check they exist by then. And when it is found late, record
+it as a `CHANGE-XXX` with impact and risk rather than quietly swapping two phases — a plan
+edited without a trace is not a plan anyone can trust.
+
+#### Polling on "is it running" instead of "is it finished"
+**What happened.** The import screen polled while `status === 'processing'`. A job that had
+been dispatched but not yet picked up by a worker still read `awaiting_mapping`, so the first
+poll concluded nothing was happening and stopped. The import completed two seconds later and
+the screen sat on a stale status until the user reloaded.
+
+**Why it hid.** It only reproduces when the worker is *not* instantaneous — which is every
+real deployment, and no automated test, because tests run the job synchronously.
+
+**The rule.** Derive a poll condition from what you are *waiting for*, not from what is
+*happening now*. "Not finished" and "currently running" are different states, and the gap
+between them is exactly where a queue lives. Track the dispatch, poll until terminal.
+
+#### An empty state that reports a result for work that never ran
+**What happened.** The rejected-rows panel rendered **"Every row imported — nothing was
+rejected"** on a dataset that had not been imported, because the rejection count was zero.
+Literally true, entirely wrong.
+
+**The rule.** Before deriving a message from a count, ask whether the count is *meaningful
+yet*. Zero-because-nothing-ran and zero-because-nothing-failed are different facts. This is
+the third time this project has hit the same shape (DEC-021 in-flight reconciliation, DEC-010
+null-versus-zero) — it is a recurring failure mode, not three coincidences.
+
+### Learned Skills — WebAppsBI PH-06/07
+
+- **Chunked import against PostgreSQL's transaction-abort semantics**: decide in PHP, batch the
+  writes, savepoint only genuine races.
+- **Visibility-as-atomicity**, and proving it by fingerprinting an active dataset's rows around
+  a failing import rather than asserting the absence of an exception.
+- **Resume-from-cursor idempotency**, tested by re-running a job that already succeeded.
+- **Generated columns and CHECK constraints as business rules** — including asserting that a
+  generated column cannot be written.
+- **Exactness as a test**: 10,000 × `0.1234` summing to `1234.0000` is a single assertion that
+  would catch any float creeping onto the money path.
+- **Comparative memory assertions** (5× the rows must not cost 5× the memory) instead of an
+  absolute ceiling that is machine-specific and drifts.
+
+
+## WebAppsBI — PH-08 Analytics Engine (2026-09-13)
+
+### Anti-Patterns
+
+#### A registry entry nobody selected is a query nobody has run
+**What happened.** `DimensionRegistry` had nine dimensions. My tests exercised four. One of
+the five untested entries (`period_month`) had a `GROUP BY` that omitted its label expression
+— PostgreSQL rejects that, but only at execution. It was valid PHP, fully typed, and broken.
+
+**The rule.** When a registry maps keys to executable fragments, add a test that **iterates
+the registry** rather than sampling it. Every dimension grouped, every metric under each
+aggregation it declares. It is four lines and it converts "we tested the ones we thought of"
+into "every entry has actually run".
+
+#### Catching the wrong exception class, silently
+**What happened.** I added a specific `catch (\InvalidArgumentException)` to the batch
+endpoint so a misconfigured widget would report `INVALID_WIDGET_CONFIG`. The edit **did not
+apply** — Pint had already rewritten `\App\Exceptions\DomainException` to the imported short
+name, so my search string no longer matched. The script printed its success message anyway,
+and I believed it. The bug only surfaced when I exercised the endpoint by hand.
+
+**The rule.** A scripted edit that reports success is not evidence the edit landed. Assert the
+result — `grep` the file afterwards, or make the script fail loudly on a missed match. And run
+the formatter *before* generating the search strings, not between writing and editing them.
+
+#### The third repeat of "a domain guard is not a substitute for validation"
+**What happened.** A metric × aggregation mismatch threw from a value object's constructor and
+surfaced as a **500**. Previously: a duplicate template name hit a unique index and surfaced as
+a 500 (DEC-028); before that, a polling condition derived from the wrong state (DEC-029).
+
+**The rule, stated once for all three.** A guard deep in the domain protects *correctness*. It
+does not produce a message the user can act on, and reaching it means the request got further
+than it should have. Wherever a domain guard can be triggered by ordinary input, put the same
+rule in the validator — and keep the guard, because the validator is not the last line.
+
+### Learned Skills — WebAppsBI PH-08
+
+- **Registry-driven analytics**: vetted SQL fragments behind keys, `Rule::in` validation, and
+  injection payloads through every keyed field as a test.
+- **Metric honesty as executable specification** — the §9.5 table became 14 tests, and three
+  of them assert a `null` where the obvious implementation returns a plausible number.
+- **Cache keys that encode invalidation** (dataset fingerprint + access version) so staleness
+  is unreachable rather than merely expiring.
+- **Comparison-window arithmetic**: equal-length previous period, and dropping year/month
+  filters that would contradict the shifted range.
+- **PostgreSQL GROUP BY semantics** for expression-based dimensions.
+- **Partial failure as a first-class response shape** in a batch endpoint.
+
+## WebAppsBI — PH-09 Power BI-Inspired Dashboard (2026-09-13)
+
+### Anti-Pattern: A tree-shaken library drops what you never registered, silently
+
+**What happened.** The donut chart's centre total was written, typed, built and deployed —
+and rendered nothing. ECharts ignores any option addressing a component that is not in its
+`use([...])` list: no exception, no console warning, no fallback. `vue-tsc` was clean, the
+production build was clean, and a unit test asserting on the option *object* would have
+passed. Only the pixels showed it was missing.
+
+**The rule.** Tree-shaking trades bundle size for the guarantee that a feature you did not
+register fails **silently**. This is not an ECharts quirk — it is how every opt-in
+registration API behaves (`echarts.use`, `Chart.register`, `dayjs.extend`, `app.use`).
+Whenever you add an option key, a plugin-backed method or a new chart type, the change is
+two edits: the usage and the registration. And the only proof it worked is the rendered
+output, so a chart change ends at a screenshot, never at a green build.
+
+### Anti-Pattern: The viewer's machine standing in for configuration
+
+**What happened.** Every money figure on the dashboard was formatted with
+`Intl.NumberFormat(undefined, …)`, which means *whichever locale this machine is set to*.
+The same financial report would render `1,234.56` on one desk and `1.234,56` on the next —
+the same number, read as a different sum. The project's own `NFR-18` said formatting must be
+"driven by company configuration, not hardcoded"; the browser's locale is neither, and it
+had passed two review gates because `undefined` reads as an innocuous default.
+
+**How it was found — worth more than the bug.** The first frontend test I wrote asserted
+what Chrome had just drawn, and Node returned something different. Both were "correct". The
+disagreement *was* the defect.
+
+**The rule.** `undefined` as a locale is not a default, it is a dependency on the reader's
+laptop. Never pass it; never call bare `toLocaleString()` / `toLocaleDateString()` on
+anything a user will compare with someone else. Resolve the locale from configuration once,
+at the boundary, and have every formatter read it. Corollary: **when a test and the browser
+disagree about formatting, suspect the locale before you suspect the test.**
+
+### Anti-Pattern: A control that consumes its own selection
+
+**What happened.** Clicking a slice of the "expenses by department" donut cross-filtered the
+whole dashboard to that department — *including the donut itself*, which redrew as a single
+100% ring. The filter was correct, the numbers were correct, and the screen was a dead end:
+the control used to choose a department had erased every other department, so the only way
+to choose a different one was a "clear" link at the top of the page that a user who has just
+clicked a slice is not looking at.
+
+**The rule.** A control that applies a filter must not be narrowed by the filter it applies,
+or it stops being a control after the first use. Exempt the source, show the selection as a
+*state* (the chosen item solid, the rest dimmed — never removed), and make clicking it again
+the way out. Passes every test, because no test clicks twice.
+
+### The fourth repeat of "a domain guard is not a substitute for validation"
+
+**What happened.** A settings endpoint validated the setting *key* against the registry and
+the *value* as merely `present`. A bad enum reached the service and threw — a 500 for an
+obvious user mistake — and a non-numeric integer was stored verbatim, then silently cast to
+`0` on read. For a chunk size or a session timeout, that is a different system with no error
+anywhere. Pre-existing since Phase 1; found only because a Phase 9 test happened to submit a
+bad enum for an unrelated reason.
+
+**The escalation.** This rule has now cost four defects (DEC-028, 029, 032, 036) across four
+phases of one project. It is no longer a lesson; it is a checklist item. **When a request
+carries a key and a value, both are input.** Validating the key against a registry is the
+easy half and it makes the value look safe — it is not. Check the value against whatever the
+key *declares* about it, at the boundary, and keep the domain guard.
+
+### Anti-Pattern: A quality gate that was never actually wired up
+
+**What happened.** larastan had been in `require-dev` since Phase 1 and was named in the
+stack in every phase report. There was no `phpstan.neon`. It had never analysed a single
+file across eight completed phases. The `coresentinel verify` "Static Check" slot passed
+throughout — because it runs the project's *test* command, not phpstan.
+
+**The rule.** A tool in the dependency list is not a gate. A gate is a command that runs, in
+a config that exists, whose failure is visible. Before reporting a check as passing, confirm
+which command actually produced that evidence — an aggregate score can be 100/100 while a
+named tool in it has never executed. When adopting a linter late, **baseline it** rather than
+either fixing everything or leaving it off: it starts guarding new code today and the debt is
+recorded with a repayment phase.
+
+### Learned Skills — WebAppsBI PH-09
+
+- **ECharts option builders as pure functions**, so chart logic is unit-testable without a
+  canvas: `lineOption`/`barOption`/`donutOption` take rows and return an option object.
+- **Null-preserving series mapping** (`connectNulls: false`, donut omission of null and
+  non-positive slices) — the UI half of the metric-honesty work from PH-08.
+- **Cross-filter as a transient layer** over a base filter model, exempted by dimension so
+  the source widget stays usable.
+- **Vitest against a Pinia store** with the API module mocked, asserting on the *payload the
+  store sent* rather than on its internal state — which is what caught the cross-filter bug.
+- **Adopting phpstan mid-project via a baseline**, and reading the findings by identifier to
+  separate real defects from analyser blind spots (larastan does not read Eloquent's
+  `casts()` method, so enum-backed attributes report as `string` and every comparison against
+  the enum looks impossible).
+- **Intl's non-breaking space** (U+00A0) between a currency symbol and its digits — normalise
+  it in assertions or they fail against strings that look identical.
+
 ## Evolution Log
 Track all self-improvements with version history.
 
 | Date | Type | What Changed | Trigger | Applied To |
 |------|------|-------------|---------|------------|
+| 2026-09-13 | Anti-Pattern | A tree-shaken library silently drops any feature you did not register — adding an option key is two edits, and only the rendered output proves it | ECharts donut centre total was written, typed and built, and rendered nothing | All projects using opt-in registration (echarts.use, Chart.register, dayjs.extend, app.use) |
+| 2026-09-13 | Anti-Pattern | Never pass `undefined` as a locale, or call bare `toLocaleString()`, on anything two people will compare — resolve the locale from configuration at the boundary | Dashboard formatted money in the viewer's OS locale; a test and Chrome disagreed, and the disagreement was the bug | All projects rendering numbers, money or dates |
+| 2026-09-13 | Anti-Pattern | A control that applies a filter must not be narrowed by it — exempt the source, dim rather than remove, make a second click the way out | Clicking a donut slice cross-filtered the donut into a single 100% ring, a dead end no test clicks twice to find | All UI with cross-filtering or faceted selection |
+| 2026-09-13 | Escalate Rule | "A domain guard is not a substitute for validation" promoted to a checklist item after its **fourth** defect — when a request carries a key and a value, **both** are input | Settings endpoint validated the key against a registry and the value as merely `present`; bad enum = 500, bad int stored and cast to 0 | All projects (4th occurrence: DEC-028/029/032/036) |
+| 2026-09-13 | Anti-Pattern | A tool in the dependency list is not a gate — confirm which command produced the evidence before reporting a check as passing; baseline a late-adopted linter rather than skipping it | larastan was in require-dev and named in 8 phase reports with no phpstan.neon; it had never analysed a file | All projects with declared quality gates |
 | 2026-07-21 | Anti-Pattern | Never trust a native exe's exit code when sourcing SQL â€” grep stdout for `ERROR` | Reported "failures: 0" on a migration run that had actually failed | All projects (PowerShell) |
 | 2026-07-21 | Anti-Pattern | A grep that finds nothing is not proof of absence â€” state the scan scope with the claim | Declared "zero MySQL-8-only DDL" after a scan that omitted implicit TIMESTAMP defaults | All projects |
 | 2026-07-21 | Skill | Verify class autoloading empirically (throw/catch probe) instead of reasoning about PSR-4 | Confirmed a real `Exceptions.php` autoload bug in DAISY | All PHP projects |
@@ -2021,3 +2523,608 @@ while fixing the others.
   breaks the app or gets loosened to `unsafe-inline` until it means nothing. A policy that means
   nothing is worse than an absent one, because it reads as covered on every checklist afterwards.
   Say so in the code, in the place someone will look.
+
+## SociaPulse — production readiness (2026-09-12)
+
+### Anti-Pattern: A default that resolves, standing in for a value that was never set
+
+- **What happened**: `config/token_encryption.php` fell back to `APP_KEY` when `TOKEN_KEY_V1`
+  was unset, so development worked out of the box. The post-deploy check asked "do the token
+  keys resolve?" and they did — on a production box where the key had never been set. Every
+  claim the runbook made about holding keys separately was then quietly false: a database dump
+  taken beside `.env` **is** a plaintext backup of every provider credential, and rotating
+  `APP_KEY` — an ordinary security action — would have made every stored token undecryptable
+  and forced every customer to reconnect every channel by hand.
+- **Rule**: a missing value announces itself; a **defaulted** one does not. When a convenience
+  default exists for development, the production check must assert the value is *different from
+  the default*, never merely that it resolves. Compare the two inside the application so neither
+  is printed.
+- **Applies to**: any config with a dev fallback — encryption keys, signing secrets, webhook
+  secrets, admin addresses, `APP_URL`.
+
+### Anti-Pattern: `actingAs()` hiding the product's own front door
+
+- **What happened**: `config/fortify.php` still carried the framework default `'home' => '/home'`,
+  a path the application had never had a route for. **Every successful sign-in, registration and
+  password reset landed on a 404** — the product was unreachable through its own front door —
+  and 297 tests were green. Nothing caught it because **no test ever posted to `/login`**: the
+  whole suite authenticates with `actingAs()`, which puts a user in the session and skips
+  everything the auth package does afterwards. A browser was the first thing to walk it.
+- **Rule**: `actingAs()` is for testing what happens *after* login, and silently excludes
+  everything the auth package does *at* login. Walk the real flow at least once per project —
+  post the form, **follow the redirect to the end**, and assert a screen rendered. A 302 is not
+  evidence that anything is there. Then add the durable guard: assert the configured
+  post-login path actually matches a route, so neither side can drift.
+- **Applies to**: every project using an auth package (Fortify, Breeze, Jetstream, Devise,
+  NextAuth). The redirect target is package-owned config that nobody reads again after install.
+
+### Anti-Pattern: Reading an empty console as a clean result
+
+- **What happened**: verifying a Content-Security-Policy in a real browser, `read_console_messages`
+  returned nothing across seven screens. It also returned nothing when the policy was
+  **deliberately broken** — CSP violations are browser-generated errors, not `console.*` calls,
+  so that tool never sees them. The clean reading was an artefact of the instrument.
+- **Rule**: before trusting a negative result, **break the thing on purpose and confirm the
+  instrument reports it**. Same family as "an empty log file must FAIL the log scan". Here the
+  honest instruments were a visual diff (typography falling back to system sans) and a
+  `securitypolicyviolation` listener added in-page.
+- **Applies to**: any verification whose pass condition is "nothing appeared".
+
+### Anti-Pattern: A status check that reports configuration rather than capability
+
+- **What happened**: the restore drill's pass condition was
+  `rotate-token-keys --status`, which reports whether a key is *configured*. A key restored from
+  the wrong backup, truncated in transit, or left over from another environment is configured
+  and wrong: it passes `--status` and fails every real decrypt. The drill would have certified a
+  recovery point that could not recover anything.
+- **Rule**: a drill must exercise the operation it is certifying, not its preconditions.
+  "The key is present" is not "the data can be read". Added `--verify`, which decrypts every
+  stored credential — and which **fails when there are none**, because a drill against an empty
+  table proves the database came back, not that the keys did.
+- **Applies to**: backup/restore drills, failover drills, certificate rotation, key rotation.
+
+### Anti-Pattern: `git checkout <file>` used to undo a temporary edit
+
+- **What happened**: I patched a controller temporarily to prove a new guard could fail, then
+  reverted with `git checkout app/Http/Controllers/InboxController.php`. That discards **all**
+  uncommitted changes to the file, not the one-line patch — roughly 40 lines of that session's
+  unrelated work in the same file went with it. Recovered only because the patches were still
+  in the conversation.
+- **Rule**: to undo a temporary edit, revert from a **copy** (`cp file /tmp/x.bak` first, restore
+  with `cp`). `git checkout`/`git restore` on a file with uncommitted work is a destructive
+  operation wearing the costume of an undo. Commit before running the break-it-on-purpose
+  experiment, or work from a backup.
+- **Applies to**: every project. The risk scales with how long the work has gone uncommitted.
+
+## Learned Skills — SociaPulse production readiness
+
+- **A strict CSP is sometimes *easier* than a loose one, and the check is cheap.** The received
+  wisdom is that a real policy needs nonces everywhere. Built against the actual `vite build`
+  output, this Inertia app carried **no inline executable script at all** — vite emits external
+  modules, and Inertia hands the page over in a `type="application/json"` data block, which is
+  never prepared for execution and so is not a `script-src` subject. `script-src 'self'` with no
+  nonce was therefore both the strictest option and the simplest, and it publishes nothing an
+  injected script could read back to authorise itself. **Look at the rendered HTML before
+  designing the policy**; the answer is often stricter than the default advice.
+- **Separate `style-src-attr` from `style-src`.** Bootstrap and Popper position dropdowns by
+  writing `style` *attributes*, which cannot carry a nonce — the reflex is `'unsafe-inline'` on
+  `style-src`, which also permits `<style>` elements and re-opens CSS-based page exfiltration.
+  Putting `'unsafe-inline'` on `style-src-attr` alone keeps the nonce governing elements.
+- **Ask what proves nothing.** The recurring shape across this whole project: a check that
+  passes for a reason unrelated to the thing being checked. A key that resolves via a fallback,
+  a drill against an empty table, an empty console from a tool that cannot see the error, a
+  suite that never walks the login form. Each was green and each was vacuous. The question worth
+  asking of any green check is **"what would make this pass while the system is broken?"**
+- **Match database client tools to the server's major version, explicitly.** Three PostgreSQL
+  versions were installed and `PATH` resolved 14 against a 16 server. `pg_dump` refuses across
+  versions and says so; **`pg_restore` is the dangerous half because it can appear to work**.
+  Both scripts now read the server version from the application and refuse on mismatch.
+- **Give the operator the override, not the decision.** Where an outcome is genuinely unknowable
+  by the system — a reply whose worker died mid-send — the right design is not to guess and not
+  to block. It is to state the uncertainty, refuse the default action, and let the person who
+  *can* look at the post overrule it with an explicit acknowledgement **checked on the server**.
+  A warning the server does not enforce is a label, not a guard.
+
+### Anti-Pattern: An allow-list applied to the whole line instead of the captured value
+
+- **What happened**: `scan-logs-for-secrets.sh` matched a credential pattern, then filtered the
+  results with `grep -vEi "$ALLOWED"` **against the entire log line**. `ALLOWED` contained `null`,
+  which appears in almost every Laravel JSON log line — so
+  `{"access_token":"eyJhbGciOi...","refresh_token":null}` matched the credential pattern and was
+  then dropped as "allowed". The scan printed **PASS on a genuine token leak**. It had been
+  reported as closing the log half of an acceptance criterion.
+- **Rule**: a suppression list must be matched against **the thing that was captured**, never the
+  context it was found in. `grep -o` first, filter second. And exercise the control against a
+  known-bad input before believing a clean run — a scanner that has never been shown to fail is
+  not known to work, which is why `LOG_DIR` became overridable.
+- **Applies to**: secret scanners, lint suppressions, log redaction, diff allow-lists, any
+  "ignore known-good" filter.
+
+### Anti-Pattern: A wildcard config value that the framework only honours as a string
+
+- **What happened**: `config/app.php` normalised `TRUSTED_PROXIES` by exploding on commas, always.
+  Laravel's `TrustProxies` takes its wildcard branch on a strict string compare
+  (`$trustedIps === '*'`), so `'*'` became `['*']` and fell through to the specific-IP branch,
+  where `*` matches no address. **The documented idiom for a load balancer on dynamic addresses
+  trusted nothing**, while the post-deploy check counted one entry and reported the proxy as
+  trusted.
+- **Rule**: when normalising config, check how the *consumer* compares the value before flattening
+  it. A sentinel value (`*`, `null`, `-1`, `auto`) usually has a type as well as a spelling. And
+  test through the real config file — a test that hands the consumer a ready-made value passes
+  whether or not the normalisation is right.
+- **Applies to**: any config that is parsed before use — proxies, CORS origins, allowed hosts,
+  queue lists, feature flags.
+
+### Anti-Pattern: A guard that makes a previously harmless stale state terminal
+
+- **What happened**: adding "refuse a second reply while one is in flight" was correct on its own.
+  But a reply stranded in `queued` by a lost job had until then been merely cosmetic — and the new
+  guard turned it into a **permanent lock-out**, because the reaper deliberately collected only
+  `sending`. Every later attempt was refused with "a reply is already on its way", forever.
+- **Rule**: when adding a guard keyed on a state, ask what *clears* that state, and whether every
+  path into it has an exit. A refusal is only as safe as the recovery behind it. Here the fix was
+  a second, much longer threshold for the safe state (60 min vs 15) — chosen for the opposite
+  reason to the first, since nothing had reached the provider.
+- **Applies to**: every in-flight/idempotency guard layered onto an existing status column.
+
+### Anti-Pattern: DDL that blocks writers, shipped as an ordinary migration
+
+- **What happened**: the reply-claim migration used a plain `CREATE INDEX` (SHARE lock held for a
+  full table pass) and `ADD CONSTRAINT ... CHECK` (ACCESS EXCLUSIVE while every existing row is
+  validated) on the busiest table in the product. Correct on a laptop with 2 rows; a stalled
+  deploy against real data, with the sync and publish workers blocked behind it.
+- **Rule**: on PostgreSQL, `CREATE INDEX CONCURRENTLY` (needs `public $withinTransaction = false`)
+  and `ADD CONSTRAINT ... NOT VALID` followed by `VALIDATE CONSTRAINT`. Adding a **nullable column
+  with no default** is already catalogue-only in PG 11+. Judge a migration by the table it will
+  run against in production, not the one in front of you.
+- **Applies to**: every PostgreSQL/MySQL migration touching a table that will be large.
+
+### Anti-Pattern: Config naming a driver whose package was never installed
+
+- **What happened**: **three times in one session, in one project.** `config/filesystems.php`
+  declared an `s3` disk, `config/mail.php` declared a `resend` mailer, `.env.example` set
+  `QUEUE_CONNECTION=redis` — and none of `league/flysystem-aws-s3-v3`, `resend/resend-php` or a
+  Redis client were required anywhere. Every one of them deployed clean: `composer install`
+  succeeded, every page served, the test suite was green, and a deploy check even inspected the
+  *name* of the disk and reported it healthy. They fail at the first upload, the first
+  registration and the first queued job respectively — each a different feature, each silent, and
+  the media one had a deploy check actively instructing the operator to switch into the broken
+  state.
+- **Why it hides so well**: the config file, the documentation and the check are all written by
+  the same person at the same time, from the same intent. Nothing in that loop touches
+  `vendor/`. Laravel ships most of these config blocks pre-populated, so they look *inherited*
+  rather than *chosen*, and a framework default reads as something that must already work.
+- **Rule**: **a name is not a capability.** For every driver/transport/adapter the production
+  config can select, resolve it and exercise the one operation the product depends on — sign a
+  URL, build the transport, put a key, read a queue depth. Do it in a test AND at deploy time.
+  And check `composer.json` against the config: any driver the product intends to use in
+  production needs its package required, not assumed.
+- **The third state matters**: a media disk on `public` and a mailer on `log` both *resolve
+  perfectly* and both mean the feature does not work. "Not configured", "configured and working"
+  and "configured and broken" must be three distinct answers, or the check passes on the default.
+- **Applies to**: filesystems, mailers, queue/cache/session drivers, broadcasters, payment
+  gateways, SMS, search, any `'driver' => ...` in a framework config file.
+
+### Anti-Pattern: Limiting an upload by file size and calling it a limit
+
+- **What happened**: the media uploader capped bytes at 25 MB and nothing capped decoded size.
+  The two are barely related — PNG compresses flat colour so well that a **45-byte** file can
+  declare 20000x20000 and cost GD `20000*20000*4` = 1.6 GB the moment `imagecreatefrompng()`
+  touches it. Exhausting memory is a **fatal error, not an exception**, so the `try/catch` wrapped
+  around each transcode could not save the worker; it dies and takes the rest of its queue batch
+  with it. Reachable by any member who could upload.
+- **Rule**: for anything that gets decoded, decompressed or parsed, limit the **output** size, not
+  the input. Read the dimensions from the header (`getimagesize` parses IHDR without decoding) and
+  refuse before the first allocation. Tie the cap to the worker's real memory budget —
+  `pixels * 4 * 2` for GD — and write the relationship down, because raising one without the other
+  is how the queue starts dying on ordinary uploads.
+- **Also**: adding a heavy dependency changes the baseline. Pulling in the AWS SDK pushed the test
+  suite past PHP's 128M default, and it died mid-run with a *fatal* rather than a failure — which
+  reads as a broken suite rather than a memory ceiling.
+- **Applies to**: images, archives (zip bombs), XML/JSON parsing, PDF rendering, video probing.
+
+## Learned Skills — SociaPulse object storage and mail
+
+- **Audit `composer.json` against `config/` as a discrete step.** It takes two minutes and it
+  found three production-fatal gaps here. The question is not "does the config look right" but
+  "is the thing it names actually in `vendor/`, and has anyone ever run it".
+- **`ext-` requirements belong in `composer.json`.** Laravel declares seven and they cover none of
+  what an individual app adds. Putting `ext-gd` and `ext-pdo_pgsql` there makes composer refuse
+  the install on a server that cannot run the product — the only place the failure is loud.
+- **Probe the subsystem the customer depends on, in the customer's order.** Registration needs
+  mail; publishing needs a signable media URL; scheduling needs a queue that answers. Those are
+  the four probes worth running after every deploy, and each has a "resolves but does nothing"
+  state that a name check cannot see.
+
+### Anti-Pattern: An admin console where every control is a report
+
+- **What happened**: SociaPulse's platform console had six screens showing workspaces, plans,
+  provider capabilities, health, quota and audit — and exactly one write action (assign a plan).
+  The two controls that actually stop the platform spending money, the per-capability kill
+  switches and the spend ceiling, were read from `config()`. They could be *displayed* and not
+  *changed*. Throwing either meant an SSH session, an edit to `.env`, a config cache rebuild and
+  a restart.
+- **Why it looked finished**: every screen the requirements named existed, the switches existed,
+  the ceilings existed, and tests covered all of them. Nothing was missing — the *reachability*
+  was missing, and reachability is not a feature anyone writes down.
+- **Rule**: for each control, ask **"when is this needed, and how fast?"** A setting needed during
+  an incident cannot live behind a deploy. Config is the right home for a default; it is the wrong
+  home for a lever. Pattern: config as default and floor, a database override with a code-owned
+  key registry, delete-the-row as the recovery path.
+- **Corollary — never block the safe direction.** Turning a dangerous capability *on* may require
+  preconditions; turning it *off* must always be one click, or the guard sits in front of the
+  remedy during the exact incident it was written for.
+- **Applies to**: kill switches, rate limits, spend caps, feature flags, maintenance mode — any
+  control whose purpose is to be fast.
+
+### Anti-Pattern: A control whose server half is fully tested and which has never been pressed
+
+- **What happened**: the platform spend-ceiling form had 17 tests behind it — the ordering rule,
+  the audit trail, the Inertia props, the authorisation boundary — and the Save button did
+  nothing. Two independent reasons, both silent:
+  1. the button was nested **inside its `<label>`**, and a label forwards activation to the control
+     it labels, so the button's own handler never ran;
+  2. `v-model` on `<input type="number">` hands back a **number**, so `units.value.trim()` threw —
+     and **Vue swallows errors thrown inside event handlers**, so there was no console error.
+  No request, no error, no failing test. `vue-tsc` could not see it either: the coercion is a
+  runtime behaviour and the ref is still inferred as a string.
+- **Why the tests could not catch it**: they posted to the route directly. That is the correct way
+  to test a controller, and it means the entire server half can be proven while the only control
+  that reaches it has never been used. **Feature tests verify the destination, not the door.**
+- **Rule**: for any screen with a write action, press the control once in a real browser before
+  calling it done. Not a full E2E suite — one click. And treat "no console error" as no evidence:
+  framework event handlers commonly swallow exceptions.
+- **Guard that generalises**: scan templates for `<button>` or `<a>` nested inside `<label>`. It is
+  a whole bug class, statically detectable, and invisible at runtime.
+- **Applies to**: every framework with declarative event binding. The label-swallowing half is
+  plain HTML and applies everywhere.
+
+## Learned Skills — SociaPulse platform console
+
+- **"Covered by tests" and "has been used" are different claims, and only one of them was true.**
+  I had flagged the platform console as not browser-verified and moved on. It contained two real
+  bugs, found within a minute of it being opened. When the honest summary says "not verified",
+  treat that as an open item rather than a footnote — the flag was correct and I under-weighted it.
+- **The value of an admin screen is the write action.** Read-only screens degrade visibly; a broken
+  control is silent, and the person discovering it is mid-incident. Press the button.
+- **A permission refusal is a pause, not a dead end.** Granting platform ownership was refused
+  earlier in the session; I reported it and continued rather than routing around it. When the user
+  asked to log in as Platform Owner, that was the authorisation — and it immediately paid for
+  itself. Working around it quietly would have found the same bugs while destroying the reason to
+  trust the rest of the report.
+
+## WebAppsBI — PH-16 Security Hardening (2026-09-13)
+
+### AP — A listing permission checked as "held anywhere"
+- **What happened**: `UserPolicy::viewAny` used `hasAny(user.view)`. Company Administrator holds
+  `user.view`, so every company admin could page through **every account on the system**, emails
+  included. Present since Phase 2, through fifteen phases of scope tests.
+- **Why it survived**: `hasAny` is correct for "may this user see the menu item" and was reused for
+  "which rows may this user see". The two questions read identically in a policy.
+- **Rule**: a permission that gates a **list of tenant data** is evaluated per company and turned
+  into a query restriction. `hasAny`-style checks only ever gate navigation.
+- **Applies to**: every multi-tenant RBAC where a role is granted per tenant.
+
+### AP — Scope tests whose "outsider" holds no grant anywhere relevant
+- **What happened**: a company admin could re-parent their company under **any** company id
+  (`parent_id` validated with `exists` alone), grafting it into another tenant's consolidated view
+  or detaching it from its group. Every isolation test used an actor with no grant in the other
+  company — the one actor who could never exercise a two-company action.
+- **Rule**: for any action that names a **second** record (a parent, a template, a target user),
+  test the actor who legitimately manages the first and not the second.
+
+### AP — `exists` / `unique` answering before authorisation
+- **What happened**: three endpoints ran `Rule::exists` / `Rule::unique` on a client-supplied id
+  before the policy, so a 422 told an outsider which company ids exist and which template names a
+  foreign company uses; one let a dataset record another tenant's template version.
+- **Rule**: authorise the identifier first; answer a foreign id exactly like a missing one.
+
+### AP — Upgraded a dependency and verified it only under a non-default runtime
+- **What happened**: upgraded vitest 3→4 for an advisory and ran the suite with Node 24 from nvm.
+  The shell default is Node 18, where vitest 4 cannot start its pool — `coresentinel verify` then
+  scored 75/100 on `npm test`. The project already required Node ≥20.19 (Vite 7) but nothing
+  in the repo said so.
+- **Rule**: after any toolchain upgrade, run the verifier the way it will actually be run. If the
+  project needs a runtime newer than the machine default, pin it in the repo (`.nvmrc`, `engines`)
+  in the same change — and report the default-runtime result, not only the pinned one.
+
+### AP — A bootstrap edit not followed immediately by the suite
+- **What happened**: registered a middleware in `bootstrap/app.php` without its `use` line. 377 of
+  532 tests failed. Cheap because the suite ran within minutes; expensive if batched with more edits.
+- **Rule**: an edit to `bootstrap/`, a service provider or global middleware is followed by one
+  request through the app before anything else is changed.
+
+## Learned Skills — WebAppsBI PH-16
+
+- **The worst log leak is the framework's, not the app's.** `QueryException::getMessage()`
+  substitutes every binding and PostgreSQL's `DETAIL` quotes key values and whole failing rows; the
+  framework's exception reporter writes both. Found by grepping the project's own `laravel.log`.
+  A call-site rule cannot reach it — a Monolog processor tapped on every channel does.
+- **Laravel skips CSRF verification while running unit tests.** A test asserting 419 passes with
+  CSRF removed unless it binds a `ValidateCsrfToken` subclass whose `runningUnitTests()` is false.
+- **Map every route to its authorisation mechanism before hardening anything.** A delegated
+  route-by-route trace (72 routes, one table) found all four boundary defects of the phase;
+  reading the policies one at a time had found none across fifteen phases. Verify each claimed gap
+  against the code before fixing — the map is a lead list, not a verdict.
+- **A host skill's prerequisites are part of the gate.** `security-review` diffs `origin/HEAD`;
+  with no remote it cannot run. Say so and run the gate another way — never record it as passed.
+
+## WhatsApp Business Automation SaaS — PH-00 Foundation + PH-01 Identity/Tenancy (2026-09-16)
+
+### AP — An installer that writes config before it writes the keys it needs
+- **What happened**: `php artisan install:broadcasting --reverb` wrote `BROADCAST_CONNECTION=reverb`
+  to `.env` and then crashed before writing the Reverb app keys. From that point every artisan
+  command failed at boot, because `channels.php` builds the broadcaster during bootstrap — including
+  the command that would have finished the install.
+- **Rule**: when an installer aborts, check what it already wrote to config before re-running it.
+  Recover by neutralising the half-written setting for one run
+  (`BROADCAST_CONNECTION=null php artisan reverb:install`), and ship `.env.example` with the inert
+  value so a fresh clone cannot boot into the same trap.
+
+### AP — A type check that passes on the test driver and fails in production
+- **What happened**: `is_int()` guards on cached values passed against the array store used in
+  tests and would have failed in production, because Laravel's Redis store returns numerics as
+  strings. The tests proved the wrong driver.
+- **Rule**: a value that crosses a driver boundary is validated on its *shape*, not its PHP type
+  (`is_numeric`, then cast). Where the test driver differs from production, say which claims the
+  suite does **not** cover — the same applies to SQLite ignoring `lockForUpdate`: a concurrency
+  test on SQLite proves nothing and must be reported as pending the MySQL CI run, never as green.
+
+### AP — An assertion helper whose second argument is not the message
+- **What happened**: Pest's `toContain($needle, $message)` treats the second argument as a *second
+  needle*, so an assertion written with a helpful failure message silently asserted something
+  nobody intended.
+- **Rule**: before using an assertion's optional second argument, check the signature. An assertion
+  that has never been seen to fail has not been shown to assert anything — plant a failure once.
+
+### AP — Checking a ceiling against the grant instead of against the target
+- **What happened**: the grant ceiling verified the *role being granted* against the actor's own
+  permissions, but not the *target member's current* permissions. A manager could therefore
+  deactivate, remove, re-invite or change the role of an owner — every operation that touches a
+  member who already holds more than the actor.
+- **Rule**: a privilege ceiling is checked against both ends — what is being handed out **and**
+  what the target already holds. Enumerate every verb that mutates a member (change, deactivate,
+  remove, reactivate, resend), not just the one that grants.
+
+### AP — A uniqueness race guarded by a check with no lock
+- **What happened**: the "you cannot remove the last owner" rule counted owners and then wrote.
+  Two concurrent removals both counted two owners and the tenant ended with none. Double-accept of
+  an invitation had the same shape.
+- **Rule**: a check whose truth the write invalidates is not a check — it is a race. Count *other
+  active* rows and hold a row lock across check-and-write, in one transaction. Then note which
+  database actually enforces the lock.
+
+### AP — Cache invalidation inside a transaction
+- **What happened**: `Cache::forget` was called inside the same `DB::transaction` as the write. It
+  runs immediately, so the cache was repopulated from the pre-commit state by any concurrent read
+  and the stale value outlived the commit.
+- **Rule**: cache invalidation that must follow a write goes in `DB::afterCommit`, never inline in
+  the transaction.
+
+### AP — Normalising a value after the uniqueness rule has already run
+- **What happened**: emails were lowercased after validation, so `Fakrul@x.com` passed the `unique`
+  rule against an existing `fakrul@x.com` and hit the database constraint — a 500 where a 422 was
+  the correct answer.
+- **Rule**: normalise before you validate. Any value with a canonical form (email, phone, slug,
+  domain) is canonicalised in `prepareForValidation`, not in the action.
+
+### AP — A redirect allow-list that compares the string the browser will not see
+- **What happened**: the post-workspace-pick redirect allow-list accepted `"/\t/evil"` because it
+  starts with a single slash. `location.assign` strips the tab, and the browser navigates to
+  `//evil` — a protocol-relative URL to another host.
+- **Rule**: a redirect allow-list rejects control characters and whitespace before it inspects the
+  path, and tests the *browser's* interpretation, not the server's string.
+
+### AP — An audit logger that infers the tenant when the action has none
+- **What happened**: `AuditLogger` falls back to the current tenant. Account-level actions (2FA
+  changes, "sign out other devices") were therefore filed into whichever workspace the user
+  happened to be viewing, and appeared in that tenant's log as if they were tenant events.
+- **Rule**: an audit event declares its scope explicitly. Personal actions are written with a null
+  tenant, and the viewer for a tenant must not show them.
+
+### AP — Recording a host skill's gate as passed when the skill could not run
+- **What happened**: `/security-review` needs `origin/HEAD` to diff against. The repo has no commits
+  and no remote, so the skill cannot run at all. The same is true of `/code-review ultra`.
+- **Rule**: a gate whose instrument cannot run is not a passed gate. Say the instrument was
+  unavailable, run the protocol checklist (CS 40) through an agent instead, and record *which* way
+  it was run. This is the second project where this trap appeared — it is now a standing check.
+
+### AP — A framework default that grants access in "local"
+- **What happened**: Horizon's default `authorization()` gate returns true for any `local`
+  environment, so the queue dashboard — job payloads included — was open to anyone who could reach
+  the app during development.
+- **Rule**: override every framework gate that keys on environment rather than on identity, and
+  write the test that proves a non-admin gets 403 in *every* environment.
+
+### AP — A scheduled event that does not exist until artisan boots
+- **What happened**: a test asserting the scheduler heartbeat found no events, because
+  `withSchedule()` registers only when artisan boots. The feature was fine; the test was blind.
+- **Rule**: to assert on scheduled events, boot the console first (`Artisan::call('schedule:list')`).
+  A test that finds nothing is indistinguishable from a feature that does nothing until you make it
+  fail on purpose.
+
+## Learned Skills — WhatsApp SaaS PH-00/PH-01
+
+- **Write the phase report's "what this does not prove" section first.** Three of this phase's
+  honest caveats (SQLite vs `lockForUpdate`, array-store vs Redis typing, security-review with no
+  git history) are the same defect in different clothes: the tooling answered a question nobody had
+  actually asked it. Listing them up front changed which tests got written.
+- **One schema macro beats a review rule.** `tenantForeign` made the correct composite FK the path
+  of least resistance for every future migration. A convention documented in a review checklist
+  would have been re-litigated in every phase.
+- **A permission ceiling needs a verb inventory, not a policy.** Listing every route that mutates a
+  member found four missing ceiling checks; reading the policy found one.
+- **`Gate::before` and a global scope are both invisible in the code you are reviewing.** When a
+  project has either, the review has to enumerate routes and run a cross-tenant probe suite — a
+  file-by-file read cannot see a bypass that lives in a provider.
+
+## WhatsApp SaaS — PH-02 Meta integration (2026-09-16)
+
+The three highest-value entries here are the first three. All were found by the Phase 5 and Phase 6
+gates, not by me, and all three were things I had already reported as done.
+
+### AP — Declared a method, implemented it twice, and never called it
+- **What happened**: `registerPhoneNumber()` was on the Graph client interface, implemented in the
+  HTTP client, implemented in the fake, and **called from nowhere**. Every phone number stayed
+  `pending` with no `registered_at`. The consequences chained silently: Test Connection would always
+  fail, the first scheduled health check would have degraded every real account, and the
+  default-sender endpoint would always have returned 422. The failure message even offered
+  "we can register it for you", with no endpoint behind it. I had recorded the requirement as
+  COMPLETED.
+- **Why nothing caught it**: every test exercised a piece I had built. Nothing walked the path
+  *between* the pieces, and the fake answered happily to a method the production code never invoked.
+- **Rule**: an interface method with no production call site is an unfinished feature, not a
+  utility. Grep the call sites of every method on a new interface before calling the phase done —
+  `grep -rn "methodName" app/ | grep -v Interface | grep -v Fake` is a ten-second check. More
+  generally: for each requirement, name the test that would fail if the feature were deleted. If
+  the answer is "the unit test for the class", that is not the feature, that is the class.
+
+### AP — A primary action wired to nothing
+- **What happened**: the "Connect WhatsApp" button — the one action the entire screen exists for —
+  had `@click="connecting = true"` and nothing else. No SDK was loaded anywhere in the app. The
+  `postMessage` origin check I had been careful about was correct and unreachable; the parser's
+  `FINISH` branch was built and then discarded by a handler that only read `cancel` and `error`.
+- **Rule**: for every screen, trace the primary action end to end before reporting the screen
+  built. A button whose handler only sets local state is a mockup. When a third-party SDK is
+  involved, "the code that would call it" is not the same as "the code that loads it".
+
+### AP — Reporting a requirement COMPLETED on partial evidence
+- **What happened**: REQ-META-005 reads "Phone number registration **and** `subscribed_apps` during
+  onboarding". I built `subscribed_apps`, saw onboarding go green, and wrote COMPLETED.
+- **Rule**: a requirement with "and" in it needs one named test per clause. Read the requirement
+  text again at the moment of writing the status, not from memory of what the phase felt like.
+
+### AP — openssl silently zero-pads a short key
+- **What happened**: `CredentialCipher` handed base64-decoded key material straight to
+  `openssl_encrypt`. An 8-byte `CREDENTIAL_KEYS` entry is zero-padded to 32 and encrypts
+  successfully — no warning, no exception. Every stored token would have been protected by 64 bits
+  while the schema comment, the config comment and the commit message all said AES-256.
+- **Rule**: validate key length against `openssl_cipher_key_length()` and throw. Assert the keyring
+  at boot, so a malformed deploy fails immediately instead of looking healthy until the first
+  credential is written.
+
+### AP — A config comment naming tooling that does not exist
+- **What happened**: `config/credentials.php` told the operator to run
+  `php artisan credentials:make-key` and referred to a `RotateCredentialKeys` job. Neither existed.
+  The only way to produce a key was by hand — which is precisely the path that produces the
+  wrong-length key above.
+- **Rule**: a comment that instructs is a promise. If it names a command, the command exists in the
+  same change, or the comment says "not built yet".
+
+### AP — A flag computed once outside the loop and written to every row
+- **What happened**: `$hasDefault` was evaluated before a `foreach`, then written as
+  `'is_default' => ! $hasDefault && $index === 0` on **every** row. When a default already existed,
+  every row — including the current default — was set to false. Reconnecting an account silently
+  left it with no default sender.
+- **Rule**: when a loop writes a field that depends on "has one already been chosen", track the
+  *chosen identity*, not a boolean, and compare each row against it.
+
+### AP — Matching on a formatted string the source sends unformatted
+- **What happened**: phone numbers were stored as the provider's formatted value
+  (`+60 12-345 6789`) and looked up from a webhook that sends bare digits (`60123456789`). The
+  exact-string `where` never matched, so quality ratings silently never updated. The test could not
+  catch it: it echoed the stored value back as the webhook value.
+- **Rule**: join on the provider's **id**, never on a display string. Where only a display string
+  exists, normalise both sides. And a test that feeds a value straight back from the row it is
+  asserting against is testing nothing — the fixture must be shaped like the real source.
+
+### AP — A framework group left without the limiter you assume it has
+- **What happened**: `$middleware->throttleApi()` was never called, so the `api` group carried no
+  rate limiter at all. Only routes with an explicit `throttle:` were protected. Every phase had
+  been adding routes to an unthrottled group.
+- **Rule**: verify a global protection by reading `route:list` for a route that should have it, not
+  by remembering that the framework does it by default.
+
+### AP — An edit that targeted the wrong variable name and silently did nothing
+- **What happened**: a scripted replacement targeted `'ip' => $this->ip,` in a resource that
+  actually reads `'ip' => $log->ip,`. Python's `str.replace` matched nothing and returned the
+  original string. The file was written back unchanged, the run reported success, and I believed
+  the finding was fixed. The new regression test failed and caught it.
+- **Rule**: a scripted edit asserts its anchor (`assert old in s`) before replacing. A replace that
+  matches nothing must be an error, never a silent no-op. This is the second time a
+  silently-successful tool has misled me — see also "A tool that stops running reads exactly like a
+  tool that found nothing".
+
+### AP — An early return that skipped the decision the caller depended on
+- **What happened**: a new work-cap guard did `return` from the dispatch loop, which skipped the
+  block that decides the delivery's status. The caller's `finish()` then wrote `processed` over a
+  delivery whose remainder had never been handled.
+- **Rule**: when adding an early return to an existing function, check what runs *after* the return
+  point and what the caller assumes has been decided.
+
+## Learned Skills — WhatsApp SaaS PH-02
+
+- **The gates found what my own testing could not, and both agents found the same two holes
+  independently.** The code review and the security review were given different briefs and
+  converged on "the Connect button does nothing" and "registration never happens". Convergence
+  between two differently-briefed reviewers is the strongest signal available; when it happens,
+  stop defending the code.
+- **Research before design paid for itself five times.** Verifying the provider's docs before
+  writing the schema caught a deprecated field, two incompatible enum spellings, two webhook events
+  that do not exist, a nesting the docs describe wrongly, and a token model with no refresh. Every
+  one of those would have been a silent runtime failure weeks later. **The research must produce
+  the failing-case list, not just facts** — "a parser built from the docs page will never match live
+  traffic" is worth more than the two spellings.
+- **A provider's own sample code is not a security reference.** Meta's Embedded Signup sample
+  validates the popup origin with `endsWith('facebook.com')`. Copy their flow, never their checks.
+- **When the provider's own docs contradict each other, plan against the worse number and say
+  which one you chose.** Meta states both 7 days and 36 hours for webhook retries on two live pages.
+- **Ask "what does this NOT prove" of every green suite.** 376 passing tests coexisted with a
+  primary action wired to nothing. Green means the assertions I wrote hold, and nothing else.
+
+## WhatsApp SaaS — PH-03 Contacts, consent, import & export (2026-09-16)
+
+### AP — A helper correct on the production DB and wrong on the test DB
+Escaping `%`/`_` for a `LIKE` with `addcslashes($v, '%_\\')` and then a bare `->where(col,'like',$p)`.
+MySQL treats `\` as the default LIKE escape character. **SQLite has no default escape character**,
+so the identical pattern matches a literal backslash there. Tests on SQLite, production on MySQL:
+the suite is green and the feature is broken in exactly one environment, the one with users in it.
+**Fix:** an explicit `ESCAPE '\'` clause, so both engines agree. **Tell:** any `addcslashes(...,
+'%_\\')` with no accompanying `ESCAPE`.
+
+### AP — A negative assertion that passes on a broken implementation
+The test for the above was nearly written as "searching for `%` does not return every contact".
+That passes whether the escape works (returns the 1 literal match) or is broken (returns 0). Only
+the **positive** form — "searching for `%` returns the one contact whose name contains `%`" — can
+tell the two apart. A negative assertion about a filter is satisfied by a filter that matches
+nothing at all.
+
+### AP — An arch rule that has only ever been seen to pass
+Two of four new boundary tests passed vacuously: a regex scanning file contents matched the doc
+comments in the very files that document the forbidden pattern, and a "nothing else writes this
+column" rule matched validation rules and response bodies as if they were writes. Both were green
+and both enforced nothing. **Fix:** strip comments with `token_get_all` before scanning, and for a
+"only X writes this" rule, match only inside array literals passed to `forceFill`/`update`/`insert`.
+**Then plant a real violation and watch each rule fail.** A rule never observed failing is
+indistinguishable from a rule that matches nothing.
+
+### AP — A security control test with no control
+A formula-injection suite that asserts only the defusal goes quietly dead the day the library
+changes its behaviour. **Fix:** assert the threat too — that the *unsafe* call still produces a live
+formula in the installed version. The upgrade that removes the danger then fails a test and gets a
+decision, rather than leaving a defence nobody knows is unnecessary.
+
+### AP — Chunking a file by row count when the reader yields line numbers
+Blank rows were deliberately preserved so error-report line numbers match the user's file. The
+chunk ranges were then built from the *data row* count. The two diverge at the first blank line, so
+every chunk boundary after a gap skipped or re-read rows. **Fix:** chunk by the unit the reader
+actually yields.
+
+### AP — Reading route middleware from `route:list --json`
+Its `middleware` field omits group middleware and controller `HasMiddleware`, so a fully-guarded
+route reports as having no auth at all. A check built on it reported 38 unprotected endpoints that
+were all correctly protected. **Fix:** `$route->gatherMiddleware()`.
+
+## Learned Skills — WhatsApp SaaS PH-03
+
+- **openspout 5.x**: `Reader\*\Options` is `final readonly` — constructor args, not properties.
+  `Row` exposes public `$cells`, not `getCells()`. `Cell::fromValue()` turns any `=`-prefixed string
+  into a live `FormulaCell` and the CSV writer emits it raw; `=` is the *only* character it treats
+  specially, while Excel and Sheets also act on `+ - @ TAB CR`.
+- **libphonenumber 9.x**: `PhoneNumberFormat`/`PhoneNumberType` are backed enums. Validity is not
+  the test for a messaging number — a Malaysian fixed line is `isValidNumber() === true`. Check the
+  *type*, and accept `FIXED_LINE_OR_MOBILE` or every US contact is refused.
+- **aws/aws-sdk-php**: 67 MB for one service. Its own `Aws\Script\Composer\Composer::removeUnusedServices`
+  pre-autoload-dump hook cuts it to 4.8 MB. The `extra` namespace is case-sensitive: `S3`, not `s3`.
+- **Laravel S3 disks**: never set `temporary_url` — `replaceBaseUrl()` rewrites the host *after*
+  SigV4 has signed it. Reviews clean, 403s in production. Set `AWS_ENDPOINT` instead.

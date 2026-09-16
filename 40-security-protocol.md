@@ -166,3 +166,24 @@ If a vulnerability is discovered in production:
 4. **Rotate** — Change any compromised credentials
 5. **Notify** — Inform affected users if data was exposed
 6. **Log** — Document in Self-Evolution as anti-pattern
+
+
+## Credential-literal sweep — directories, not concerns
+
+Added 2026-09-13 after a default seeder password survived two full security gates in WebAppsBI.
+"Check for hardcoded secrets" is a concern nobody can complete. This is a step that either ran
+or did not:
+
+```bash
+grep -rnE "Hash::make\(['\"]|bcrypt\(['\"]|password\s*=>\s*['\"]" \
+     database/ config/ tests/ app/ routes/
+grep -rnE "(api[_-]?key|secret|token|passwd|password)\s*[:=]\s*['\"][^'\"]{6,}" \
+     database/ config/ tests/
+```
+
+**Seeders, factories and fixtures are in scope.** They are the three places a credential
+literal reappears after being removed, because they read as "not real code".
+
+A default password is a committed credential: it reaches every clone, CI log and repository
+backup. A forced-change-on-first-login flag does not solve it — that only helps if the
+legitimate user signs in before anyone else, and on a fresh deploy nobody is watching.
