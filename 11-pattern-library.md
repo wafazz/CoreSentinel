@@ -2511,3 +2511,31 @@ collation difference, a strict-mode coercion, or a `LIKE` escape divergence. All
 errors or silent wrong answers in production. Pair it with a migration-source scanner that fails
 the build when a generated index name would exceed 64 characters — that one catches the class
 before the migration ever runs.
+
+## Syncing and validating provider-owned records (PH-04, WhatsApp SaaS)
+
+### Normalise Every Inbound Provider Identifier Through One Place
+When a provider spells the same identifier two ways across its own surfaces, a direct match on the
+stored form silently resolves nothing. One normaliser, arch-tested as the only reader, with a
+fixture per inbound surface asserting the foreign spelling resolves. Verify the guard by removing
+it and watching tests fail — a normaliser that is never exercised is indistinguishable from none.
+
+### Mark, Don't Delete, Records That Vanish Upstream
+A synced record that disappears at the provider is set `deleted_at_<provider>` and kept. Other
+parts of the product may still reference it, and a row that vanishes takes the explanation with it.
+Two corollaries: a record that reappears is un-marked, and a locally created record that was never
+submitted is **never** marked — it was never upstream, so reporting it as having vanished from
+there misstates what happened.
+
+### One Sendability Gate, Defined Where The Record Lives
+Whether a provider-owned record may be used is decided in exactly one class, arch-tested, in the
+phase that owns the record — and consumed by the phases that act on it. Two copies diverge, and
+the way they diverge is that one keeps using a record the provider has suspended, which is how a
+temporary suspension becomes permanent. Expect the gate to have no callers in its own phase; record
+that rather than letting it look like dead code.
+
+### Validate Locally Before Spending A Provider Call
+Where a provider reviews submissions asynchronously, a rejection arrives hours later in two terse
+words against a form the user has closed. Check every documented rule locally first, serve the
+limits to the client from the same constants the server enforces, and pass the provider's own
+rejection text through verbatim rather than re-wording it into something vaguer than what they said.

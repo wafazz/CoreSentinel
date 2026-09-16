@@ -3178,3 +3178,75 @@ failing build step, not documentation. Comments belong in the file the script po
   and for tables dropped later in the run.
 - MariaDB versions are not MySQL versions. `SKIP LOCKED` needs **MariaDB 10.6+** or MySQL 8; 10.4
   has neither it nor functional indexes. Check the actual `SELECT VERSION()` before assuming.
+
+## WhatsApp SaaS — PH-04 Message Templates (2026-09-16)
+
+### AP — A provider that is inconsistent with its own identifier format
+Meta sends the template language as `en-US` (hyphen) in three of its four template webhooks and
+`en_US` (underscore) in the fourth and on its own supported-languages page. The unique key stores
+one form, so the other resolves **nothing** — silently, with no error, leaving records stuck in
+their initial state while the provider believes otherwise. **Fix:** one normaliser, arch-tested as
+the only place an inbound identifier of that kind is read, with a fixture per webhook asserting the
+foreign spelling resolves. **Tell:** the same logical field appearing with two spellings anywhere in
+one provider's documentation. This is the second time on this project (after `TIER_2K` vs
+`TIER_2000`); assume it, do not discover it.
+
+### AP — Assigning a webhook `event` straight to a `status` column
+A provider's event enum is usually a **superset** of its state enum. Meta's
+`message_template_status_update.event` emits `ARCHIVED`, `UNARCHIVED`, `FLAGGED`, `LOCKED` and
+`REINSTATED`; four of those are not valid statuses. `$row->status = $payload['event']` therefore
+writes non-states into the column that gates sending, and the symptom is a record that quietly
+stops working. **Fix:** an explicit map, with unmapped events logged and ignored. Never a
+pass-through, and never a `default` that stores the raw value.
+
+### AP — One webhook field carrying two payload shapes where a key means opposite things
+`template_category_update` sends `{new_category, correct_category, category_update_timestamp}` for
+an *impending* change — where `new_category` is the CURRENT value — and `{previous_category,
+new_category}` for a *completed* one, where `new_category` is the new value. Reading the key
+without branching records the wrong value half the time. **Tell:** a webhook reference documenting
+two example payloads for one field. Branch on the key that only one shape has.
+
+### AP — `validated()` silently drops every key without a rule
+A Laravel FormRequest that declares `components.*.type` but not `components.*.text` returns a
+payload with the text **removed**. Downstream validation then refuses the record for an empty field
+the user did supply, and the error blames them for it. **Tell:** a nested array field where only
+some sub-keys carry rules. Declare every key a caller may legitimately send, even when the content
+rule lives elsewhere; assert the whole payload survives the round trip.
+
+### AP — Encoding a limit the provider never published
+Meta lists "too many variable parameters relative to the message length" as a rejection cause and
+gives **no number**. The widely-circulated "one variable per 2x+1 words" ratio, and the equally
+common "two variables cannot be adjacent", appear only in third-party BSP documentation. Encoding
+either refuses submissions the provider would accept — and to the user that failure is ours, not
+theirs. **Rule: implement what the provider documents, and nothing that only its ecosystem
+believes.** Write a test asserting the invented rule is NOT enforced, so a future contributor
+cannot add it back as a "fix".
+
+### AP — A grouping rule read as an exclusivity rule
+Meta requires quick-reply buttons to be **grouped** ("organized into two groups"), not to be
+absent when call-to-action buttons are present. `QUICK_REPLY, QUICK_REPLY, URL` is valid;
+`QUICK_REPLY, URL, QUICK_REPLY` is not. The intuitive reading — "quick replies cannot mix with
+CTAs" — rejects valid input. **Tell:** documentation that says "organized into groups" or "must be
+contiguous" rather than "cannot be combined with".
+
+### AP — An architecture rule matching a word instead of a concept
+A rule scanning for a bare `'APPROVED'` to find second copies of a sendability check also matched
+a phone number's unrelated `name_status`. A rule that fires on things nobody can act on is a rule
+people learn to ignore. **Fix:** match the typed constant or the specific comparison, not the
+string literal.
+
+### AP — A literal `{{ }}` inside a Vue mustache
+Vue reads the inner `}}` of `{{ 'Numbered, like {{1}}' }}` as the end of the expression and the
+component fails to compile with "Unexpected end of expression". Build such strings in script.
+
+## Learned Skills — provider template APIs
+
+- Ask the provider's docs for **per-type maxima AND a global maximum AND an ordering rule** for
+  anything button-like; they are three different constraints and the ordering one is the one that
+  gets implemented backwards.
+- A provider field returned as an object on read (`quality_score: {score, date}`) and accepted as a
+  string on write is normal. Check both directions.
+- Case can differ between a provider's write API and its read API for the same field
+  (`parameter_format`: lowercase in, uppercase out). Compare case-insensitively.
+- Pagination needs a page cap **and** a repeating-cursor guard. A provider that repeats a cursor
+  will otherwise loop until the cap, re-writing the same rows against a paid API.
