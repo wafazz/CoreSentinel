@@ -3128,3 +3128,53 @@ were all correctly protected. **Fix:** `$route->gatherMiddleware()`.
   pre-autoload-dump hook cuts it to 4.8 MB. The `extra` namespace is case-sensitive: `S3`, not `s3`.
 - **Laravel S3 disks**: never set `temporary_url` — `replaceBaseUrl()` rewrites the host *after*
   SigV4 has signed it. Reviews clean, 403s in production. Set `AWS_ENDPOINT` instead.
+
+## WhatsApp SaaS — the SQLite-to-MySQL move (2026-09-16)
+
+### AP — Testing on a different database engine than you deploy to
+The single highest-yield finding of the project so far. Switching a green 579-test suite from
+SQLite onto the MySQL the app actually ships to surfaced **four defects that were already
+committed**, including one that meant a whole phase's migrations had *never once run* on the
+production engine. SQLite is permissive in ways MySQL is not:
+
+| | SQLite | MySQL/MariaDB |
+|---|---|---|
+| identifier length | unlimited | **64 chars, hard error 1059** |
+| `ON DELETE SET NULL` on a key with a NOT NULL column | accepted | **refused, errno 150** |
+| default `LIKE` escape character | none | `\` |
+| `ESCAPE '\'` | required spelling | **syntax error** (wants `'\\'`) |
+| strict-mode coercion, collation | loose | enforced |
+
+**Tell:** `DB_CONNECTION=sqlite` in `phpunit.xml` while `.env` names anything else. The gap is
+invisible from inside the suite — that is the whole problem. Fix it before writing the tests, not
+after.
+
+### AP — A portability fix that is itself not portable
+The fix for the LIKE-escape bug was an explicit `ESCAPE '\'` clause. It was correct on SQLite and
+a **syntax error on MySQL**, because MySQL treats `\` as an escape inside string literals, so the
+clause is an unterminated string. MySQL wants `ESCAPE '\\'`; SQLite rejects that as "not a single
+character". **There is no backslash spelling valid on both.** Any other character — `!`, `#`, `~` —
+has no special meaning in either dialect. Escape the escape character first and a literal one still
+searches correctly. **Lesson:** when fixing a cross-engine bug, run the fix on every engine, not
+just the one that showed the bug.
+
+### AP — A comment that breaks the file it documents
+`--` is illegal inside an XML comment. Writing an em-dash as `--` in a `phpunit.xml` comment made
+the entire suite unrunnable, and PHPUnit's real message ("Double hyphen within comment") was buried
+under a Pest shutdown crash about an unresolvable dependency. **Tell:** a test runner failing with
+an internal container error immediately after a config edit — read the *first* line of output, not
+the stack trace.
+
+### AP — Putting a comment in a composer script array
+Composer executes every string in a `scripts` array as a command, so a `"_comment: ..."` entry is a
+failing build step, not documentation. Comments belong in the file the script points at.
+
+## Learned Skills — cross-engine database work
+
+- Generate index names deterministically when the natural one may exceed 64 characters: keep a
+  readable prefix and append a hash of the *full* name, so it fits and cannot collide with another
+  key that truncated to the same prefix.
+- A migration-source scanner (not a schema inspector) catches over-long identifiers on any engine
+  and for tables dropped later in the run.
+- MariaDB versions are not MySQL versions. `SKIP LOCKED` needs **MariaDB 10.6+** or MySQL 8; 10.4
+  has neither it nor functional indexes. Check the actual `SELECT VERSION()` before assuming.

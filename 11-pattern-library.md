@@ -2497,3 +2497,17 @@ dynamic keys. Use `value_text` / `value_number` / `value_date` / `value_bool` wi
 keyed `(tenant_id, definition_id, value)`. The cost is that **a definition's type is locked once any
 value exists** — changing it strands every stored value in the wrong column with no correct
 migration. Say so on screen rather than offering one nobody would trust.
+
+### Test on the Engine You Deploy To
+Non-negotiable, and cheap to set up on day one. Point `phpunit.xml` at the same engine as `.env`:
+
+```xml
+<env name="DB_CONNECTION" value="mysql"/>
+<env name="DB_DATABASE" value="<project>_test"/>
+```
+
+A SQLite suite cannot see a 64-character identifier overflow, an illegal `ON DELETE SET NULL`, a
+collation difference, a strict-mode coercion, or a `LIKE` escape divergence. All five are hard
+errors or silent wrong answers in production. Pair it with a migration-source scanner that fails
+the build when a generated index name would exceed 64 characters — that one catches the class
+before the migration ever runs.
