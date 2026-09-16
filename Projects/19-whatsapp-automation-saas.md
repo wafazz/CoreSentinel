@@ -1,6 +1,6 @@
 # WhatsApp Business Automation SaaS — Multi-tenant WhatsApp inbox, campaigns, automation and visual chatbot builder on the official Meta Cloud API
 
-> **Status**: In development — PH-03 of PH-00..PH-15 complete · **[LEARN]** (Meta Cloud API built but never run against live Meta; AI provider layer and flow canvas still unproven)
+> **Status**: In development — PH-04 of PH-00..PH-15 complete · **[LEARN]** (Meta Cloud API built but never run against live Meta; AI provider layer and flow canvas still unproven)
 > **Last Updated**: 2026-09-16
 
 ## Business Context
@@ -188,3 +188,43 @@ behaviour would leave the defence as dead code with a green suite.
 **Chunking a file by row count when the reader yields line numbers** diverges at the first blank
 line and silently skips or duplicates rows around every gap. Chunk by the thing the reader actually
 yields.
+
+## PH-04 lessons (2026-09-16)
+
+PH-04 (Message templates) built 2026-09-16. 766 PHP + 57 Vitest tests, no new dependencies.
+Phase 1 research settled VAL-03 and VAL-13, both of which Planning.md had left as NEEDS
+VERIFICATION and required "at phase start".
+
+**The one that would have shipped broken and silent:** Meta sends the template language as `en-US`
+in `message_template_status_update`, `message_template_quality_update` and
+`template_category_update`, and as `en_US` in `message_template_components_update` and on its own
+supported-languages page. Our unique key is `(waba, name, language)` storing the underscore form,
+so three of the four webhooks would have resolved **nothing** — no error, no log — leaving every
+template stuck PENDING on our side while Meta considered it approved. Second occurrence of this
+class on this project after `TIER_2K` vs `TIER_2000`. Assume a provider is inconsistent with its
+own identifiers; do not discover it.
+
+**Second: `template_category_update` has no `message_template_` prefix** while the other three do.
+Subscribing to `message_template_category_update` yields silence, not an error — and the whole
+category-reclassification feature would appear to work while never firing.
+
+**Third: Laravel's `validated()` returns only keys that carry a rule.** Declaring
+`components.*.type` without `components.*.text` strips the user's message text out of the payload;
+the validator then refuses the template for an empty body and the error blames the user for a field
+they filled in. Declare every key a caller may send, even when the content rule lives elsewhere.
+
+**Fourth, a discipline that keeps paying:** every arch rule was verified by planting a real
+violation and watching it fire, and the language normaliser by deleting it and watching 4 tests
+fail. One arch rule had to be tightened first — it matched a bare `'APPROVED'` and caught a phone
+number's unrelated `name_status`.
+
+**Meta specifics worth not rediscovering:** quick-reply buttons must be **contiguous**, not
+exclusive of CTAs (`QUICK_REPLY, QUICK_REPLY, URL` is valid, `QUICK_REPLY, URL, QUICK_REPLY` is
+not); `TRANSACTIONAL` no longer exists as a category; `parameter_format` is lowercase on write and
+uppercase on read; `quality_score` returns as an object with a `score`; quality tiers are
+GREEN/YELLOW/RED/UNKNOWN, not HIGH/MEDIUM/LOW; and the pause ladder is 3 hours, then 6, then
+disabled permanently.
+
+**Refused to encode:** the "one variable per 2x+1 words" density ratio and the "variables cannot be
+adjacent" rule. Both circulate widely in BSP documentation and neither appears in Meta's. A test
+asserts we do not enforce them, so nobody adds them back as a fix.
