@@ -1,24 +1,24 @@
 # WebAppsBI — Dynamic Web-Based Business Intelligence Dashboard
 
-> **Status**: PH-09 Power BI-Inspired Dashboard COMPLETE (9 of 18 phases) · **[LEARN]**
+> **Status**: PH-16 Security Hardening COMPLETE (16 of 18 phases; PH-17 Testing & QA next) · **[LEARN]**
 > **Last Updated**: 2026-09-13
 
 ## Business Context
 - **Client**: client project (fixed fee) — CS `52-handoff-protocol.md` applies at Phase 18
-- **Status**: active — PH-01..PH-09 delivered, 120 of 201 requirements
+- **Status**: active — PH-01..PH-16 delivered, 178 of 201 requirements. PH-16 found 9 boundary/leak defects (2 high) in a finished system that had passed 15 phase security gates — see `55-self-evolution.md` "WebAppsBI — PH-16"
 - **Priority**: high
 - **Revenue Model**: fixed-fee build
 - **Deployed**: No
 
 ## Overview
 - **Root**: `Desktop/Codex Lure/project/WebAppsBI`
-- **Stack**: Laravel 12.69.2 · PHP 8.4.10 · REST API · Vue 3.5.42 + TypeScript 5.9 · Vite 7.3.6 · Bootstrap 5.3.8 · AdminLTE 4.9.1 · Apache ECharts 6.1.0 · Gridstack.js 13.3.0 · PostgreSQL 16 · Redis 8.4.0 · Laravel Queue/Horizon · Laravel Excel 4.0.2 + PhpSpreadsheet 5.8 · Sanctum 4.3 (SPA cookie)
+- **Stack**: Laravel 12.69.2 · PHP 8.3 in production (8.4.10 locally; Composer platform pinned 8.3.23, OpenSpout 4.x — DEC-054) · REST API · Vue 3.5.42 + TypeScript 5.9 · Vite 7.3.6 · Bootstrap 5.3.8 · AdminLTE 4.9.1 · Apache ECharts 6.1.0 · Gridstack.js 13.3.0 · PostgreSQL 16 · Redis 8.4.0 · Laravel Queue/Horizon · Laravel Excel 4.0.2 + PhpSpreadsheet 5.8 · Sanctum 4.3 (SPA cookie)
 - **Type**: Business Intelligence / analytics web application (custom, **not** a Power BI embed)
 - **Auth**: Sanctum SPA session cookie + code-owned RBAC registry + per-company scope
 - **Currency**: per company (`companies.currency_code`); mixed-currency aggregates are **refused**, never summed
 - **Payment**: none
 - **Database**: PostgreSQL 16 on **`:5433`** (not 5432 — `pg_isready` with no args reports its own default and misled the plan once)
-- **Deploy**: single Ubuntu LTS VPS — Nginx + PHP-FPM 8.4 + Supervisor + systemd. **No Node on the production server** (assets built in CI).
+- **Deploy**: single Ubuntu LTS VPS — Nginx + PHP-FPM 8.3 + Supervisor + systemd. **No Node on the production server** (assets built in CI).
 - **Scale ceiling**: 5M fact rows · 100k rows/file · 50 companies · 25 concurrent dashboard users
 
 ## Documents
