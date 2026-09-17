@@ -3250,3 +3250,139 @@ component fails to compile with "Unexpected end of expression". Build such strin
   (`parameter_format`: lowercase in, uppercase out). Compare case-insensitively.
 - Pagination needs a page cap **and** a repeating-cursor guard. A provider that repeats a cursor
   will otherwise loop until the cap, re-writing the same rows against a paid API.
+
+## STMS — MILESTONE-001 (2026-09-18, Laravel 12 + Inertia 2 + Vue 3.5, own SaaS, 47 → 55 tests)
+
+### AP — `withCount()` silently discards the column list passed to `get([...])`
+`Milestone::where(...)->withCount(['jobs', ...])->get(['id', 'name', 'status'])` returns **every**
+column. `withCount` populates the query's select clause with its subqueries, and Eloquent's
+`get($columns)` only applies `$columns` when the clause is still empty — so the explicit list is
+dropped without warning and `tenant_id`, timestamps and internal fields ship to the browser in the
+Inertia payload. It reads as a tightened query and behaves as `select *`.
+**Fix:** put `->select([...])` *before* `->withCount([...])`, and regression-test the payload shape
+(`assertInertia(fn ($page) => $page->missing('milestones.0.tenant_id'))`), not just the values.
+**Tell:** any query where a column list and an aggregate helper appear in the same chain.
+
+### AP — Feature tests that render Blade have a hidden dependency on a frontend build
+STMS's suite was **15 failed / 32 passed** on a clean checkout and green after `npm run build` —
+the tests render the real `app.blade.php`, which calls `@vite`, which needs
+`public/build/manifest.json`. Fifteen unrelated-looking failures, one cause, and the failure text
+(`ViteManifestNotFoundException`) is buried under a stack trace in each one.
+**Fix:** read the *first* exception class across failures before reading any test. When many tests
+in unrelated domains fail at once, suspect the environment, not the code. `Vite::useHotFile()` or
+`withoutVite()` in the base TestCase severs the coupling permanently.
+
+### AP — Running the project formatter to make a one-line edit
+Adding a single `<Link>` to a Vue page and then running prettier turned a 1-line change into a
+44-line reformat, because the existing pages are hand-written as hyper-dense single-line templates
+that prettier has never seen. The diff stops being reviewable and the churn buries the actual edit.
+**Fix:** format only files you created. On an existing file, edit in its style and leave it alone —
+even when a formatter is configured in the repo. A configured formatter is not a mandate to run it
+over files the author kept out of it.
+
+### AP — Claiming a phase ran when its instrument was unavailable
+The Phase 4 browser pass could not run: the Claude in Chrome extension was not connected. The
+honest output is "no screenshots — outstanding", plus the strongest substitute actually executed
+(an authenticated HTTP round trip against `php artisan serve`, asserting on the Inertia payload).
+**Tell:** any gate whose evidence would be "I would have seen it."
+
+### AP — Reverting a fix to prove a test catches the bug, without checking the revert landed
+To confirm two new regression tests actually failed against the original defect, the fix was reverted
+with a string replace whose pattern was missing one `]`. It matched nothing, the file kept the fix, the
+tests passed, and that pass was read as "the tests catch the bug" — the exact opposite of what happened.
+A negative check that silently does not run is worse than no negative check: it manufactures confidence.
+**Fix:** make the edit *assert* (`assert old in s`), and expect the run to be **red**. A green result
+during a deliberate break is a failed experiment, never a pass.
+
+### AP — Editing a migration that has already run, expecting databases to catch up
+A missing index was added inline to `create_milestones_table` *after* that migration had already been applied
+to the local database. Fresh installs would get the index; the existing database never would, because its row
+in `migrations` says the file already ran. Worse, the now-edited `down()` tried to drop an index that database
+never had, so even a rollback would have failed.
+**Fix:** once a migration has run anywhere — including one local scratch database — reconcile with a *new*
+migration, never by editing the old one. **Tell:** any schema edit made after the first `php artisan migrate`.
+Related: `migrate:fresh` looks like the cheap way out and is the wrong instinct; it works only because the data
+happened to be worthless, and that habit meets real data eventually.
+
+### AP — Proposing major upgrades before reading the lockfile
+26 advisories, 14 high, 2 critical, and the obvious reading was that the stack needed to move: Inertia 2 -> 3,
+Vite 6 -> 8. It needed none of that. `package.json` already permitted every patched version — `axios ^1.6.0`
+allows the fixed `1.20.0`; the lockfile was simply pinned at `1.7.9`. A plain `npm audit fix` cleared all 26
+with **zero** manifest changes. The expensive migration plan was answering a question nobody had asked.
+**Fix:** compare *declared range* against *locked version* before costing an upgrade. A stale lockfile and an
+outdated dependency look identical in an audit report and are entirely different amounts of work.
+
+### AP — A metric whose numerator and denominator cover different time spans
+A capacity screen summed **every** open assigned job's estimated hours and divided by a member's **weekly**
+hours, labelling the result "% allocated". A team with an ordinary quarter-long backlog reads 300% and the bar
+is red forever, so the one signal the page exists to give is destroyed. The same query was already windowing
+`overdue_jobs` and `due_soon_jobs` to seven days — the inconsistency was visible inside a single statement.
+**Fix:** state the period of the numerator and the denominator out loud before shipping a ratio; if they differ,
+one of them is wrong. **Tell:** an aggregate with no date filter feeding a per-week, per-day or per-sprint budget.
+Note this survived the design gate and the author's own review, and was caught only by an independent pass —
+a flawed *metric* reads as correct code, because every line of it is.
+
+### AP — Computing a shared value before the middleware that supplies it has run
+`HandleInertiaRequests::share()` executes inside the **web middleware group**, which runs *before* route
+middleware. It read `$request->attributes->get('tenantMembership')` — an attribute set by `ResolveTenant`, a
+*route* middleware — so the value was always null and `abilities.manageTenant` was permanently `false`. Every
+management link was hidden from every user, including owners, while the same users could still reach those
+routes directly. Server-side authorization was correct; only the navigation lied.
+**Fix:** share such values as a **closure**, so the adapter resolves them when the response is built.
+**Tell:** any eagerly-computed shared/global prop that reads request state another middleware writes. No test
+caught this — the props were never asserted — and no amount of route testing would, because the routes worked.
+It took one screenshot.
+
+### AP — A guard that only guards classes opting into being guarded
+Every tenant route in STMS carried Laravel's `verified` middleware and the README advertised email verification,
+but `App\Models\User` never implemented `MustVerifyEmail` — the import sat commented out on line 5 of the
+scaffold. `EnsureEmailIsVerified` short-circuits for any user not implementing that contract, so the middleware
+was decorative and unverified accounts had full workspace access. The suite was green because the existing tests
+exercised the verification *screens*; nothing ever asserted that an unverified user was turned **away**.
+**Fix:** for any opt-in guard (this, `MustVerifyEmail`, policy registration, `ShouldQueue`, soft-delete scopes),
+test the **negative case** — that the thing you expect to be blocked actually is. A test that only proves the
+happy path passes is compatible with the guard being absent entirely.
+**Tell:** middleware whose name states a rule, where no test ever provokes it.
+
+### AP — Mass-assignment protection widened to fix a symptom
+`email_verified_at` was silently dropped by `$fillable`, so `User::create([... 'email_verified_at' => now()])`
+created unverified invited clients. The obvious fix — add it to `$fillable` — makes a security-relevant column
+writable from any future `fill($request->all())`. `$user->markEmailAsVerified()` fixes the same symptom and
+keeps the surface tight. Meanwhile `is_platform_owner` *was* fillable with no caller needing it: no live
+exploit, one careless line from self-service platform ownership.
+**Rule:** when a value is dropped by `$fillable`, first ask whether it should be *assignable at all*, or merely
+*set*. Privilege and verification flags are set, never assigned.
+
+### AP — A status column that stops being maintained becomes an active lie
+STMS's requirements matrix listed 14 of 18 items as `Planned` and opened with "none exists yet", while roughly
+ten were implemented, tested and shipping. Nobody had updated it since the plan was approved. The damage is not
+the stale cell: it is that the document someone reads to decide *what to build next* hides the genuinely missing
+work behind noise, and the honest count (4 untouched) is unrecoverable without re-reading the whole repository.
+**Fix:** update status in the same commit as the work, and distinguish `Partial` from `Built` with a sentence
+saying what is missing — `TEAM-001` being "a read-only member list, not team management" is the useful fact,
+and it does not survive a binary flag. **Tell:** a plan whose status column is uniform.
+
+## Learned Skills — STMS
+
+- On a repo checked in without `vendor/`, `node_modules/` or `.env`, **restore the environment and
+  reproduce the README's own numbers before designing anything.** STMS claimed "47 tests, 131
+  assertions passed"; reproducing exactly that was what proved the baseline honest and made the
+  15 build-related failures obviously environmental rather than rot.
+- A Laravel app whose tests use SQLite `:memory:` will run its dev server on a SQLite file just as
+  happily. When the documented MySQL is absent, that is a two-minute detour, not a blocker.
+- `Rule::unique(...)->where('project_id', $id)` is the validation twin of a composite unique index.
+  Ship both — the index protects the data, the rule protects the user from a 500.
+- Verifying an Inertia screen without a browser: `curl` a session in, then parse the `data-page`
+  attribute out of the HTML. It yields the exact props the component receives, which is a stronger
+  assertion than `assertSee` and caught the `withCount` column leak above.
+- **That trick does not extend to the browser.** An authenticated session cannot be handed to Chrome by
+  writing `document.cookie`: the browser rejects a script write over an existing HttpOnly cookie, and a
+  different host (`localhost` vs `127.0.0.1`) does not help. Three attempts, no path. When a browser session
+  is needed, the user logs in — and that is one ask, not an investigation.
+- **Render the page.** Two defects in STMS were invisible to 68 passing tests and to payload inspection over
+  curl: a permanently-false shared prop that emptied the sidebar, and date casts that printed
+  `2026-08-28T00:00:00.000000Z` to users and to invited clients. Both were obvious within one second of
+  looking at a screenshot. A suite proves the server agrees with itself; only a browser shows what a person sees.
+- Run the suite against the **real engine** as well as SQLite before believing it. STMS's 68 tests pass on
+  both, but the grouped `CASE WHEN` aggregate behind the capacity screen is exactly the shape that diverges
+  between engines, and SQLite would never have said so.

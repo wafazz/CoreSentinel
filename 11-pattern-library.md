@@ -2539,3 +2539,105 @@ Where a provider reviews submissions asynchronously, a rejection arrives hours l
 words against a form the user has closed. Check every documented rule locally first, serve the
 limits to the client from the same constants the server enforces, and pass the provider's own
 rejection text through verbatim rather than re-wording it into something vaguer than what they said.
+
+## Derived progress over a scoped child collection (MILESTONE-001, STMS)
+
+*Stack: Laravel 12 + Inertia 2 + Vue 3.5 + TS. First used in `Desktop/Codex Lure/project/stms`, 2026-09-18.*
+
+### Derive Progress, Never Store It
+A milestone's progress is `completed jobs / total jobs`, computed per request with
+`withCount(['jobs', 'jobs as completed_jobs_count' => fn ($q) => $q->where('status', 'completed')])`.
+Storing a counter means a second place that can be wrong, and it goes wrong the first time a job is
+reassigned, deleted or cascaded away. The read cost is one subquery per aggregate on a collection
+that is realistically 3–12 rows per project. **Gotcha:** `withCount()` seizes the query's select
+clause, so a column list handed to `get([...])` afterwards is silently ignored and the whole row
+ships — put `->select([...])` before `->withCount([...])`.
+
+### Two-Axis Membership Checks On A Child Record
+Attaching a job to a milestone is authorised on **both** axes the record lives under: the milestone
+must belong to the actor's tenant *and* to the job's own project. Checking tenant alone lets a user
+file work under a milestone of a different project in the same workspace — not a security breach,
+but corrupt reporting, which surfaces much later and is harder to unpick. The two failures deserve
+different codes: wrong tenant is `404` (the record does not exist for you), wrong project is `422`
+(the record exists but is not a legal value here).
+
+### The Parent's List Is The Child's Entry Point
+A per-project child screen needs no sidebar entry. Link it from the parent row (`/projects` →
+`/projects/{id}/milestones`) and give it the parent's breadcrumb. It keeps the global navigation
+proportional to the number of *contexts* rather than the number of features, and the screen arrives
+with the parent already selected — no project picker to build, and no empty state for "no project
+chosen" to design.
+
+
+## Privileged cross-tenant surfaces (PLATFORM-001, STMS)
+
+*Stack: Laravel 12 + Inertia 2 + Vue 3.5. First used in `Desktop/Codex Lure/project/stms`, 2026-09-18.*
+
+### Look For Enforcement That Nothing Can Trigger
+Before designing a table, grep for status/flag columns the app already **checks** but never **sets**. STMS's
+`tenants.status` had been enforced in tenant resolution since the first commit while being unreachable from any
+screen and untested. The platform console needed no migration at all — it made an existing guard operable. A
+column that is read but never written is either dead weight or a feature waiting to be finished, and the
+difference is one grep.
+
+### An Operator Console Counts, It Does Not Read
+The platform owner sees tenant name, status and aggregate counts; never project names, job titles, client names
+or member identities. Running the platform does not entitle anyone to the customers' work. Make it a **test**
+(`assertDontSee` on real seeded content), not a convention — the next person adding a column to that screen
+will otherwise reach for the one that reads best, which is always the one with a name in it.
+
+### A Separate Context Needs A Separate Layout
+An operator screen rendered inside the tenant layout inherits a navigation that does not apply to it — in STMS
+a platform owner with no tenant membership got a sidebar whose every link returned 403. If the architecture
+document says two contexts, the layouts are where that claim is actually kept or broken.
+
+
+## Serving two audiences from one query (REPORT-001, STMS)
+
+*Stack: Laravel 12 + Inertia 2 + Vue 3.5. First used in `Desktop/Codex Lure/project/stms`, 2026-09-18.*
+
+### One Source, Then Redact — Never Two Queries
+A report shown to staff and to customers is built **once** and narrowed for the second audience. Two queries
+written separately will drift as fields are added, and the one that drifts is the one the customer reads. Put
+the narrowing in the service beside the builder, so a reviewer sees both in one file.
+
+### Redaction Is An Allowlist
+`array_intersect_key($row, array_flip($visible))` — name what may be seen, not what may not. A denylist is
+correct only until the next column is added, at which point it leaks by default and nobody notices, because
+the new field looks right on the internal screen where it was designed. Test it by deleting the redaction call
+and watching a named internal field appear in the customer payload.
+
+### A Reason Beats A Score
+Where a status needs flagging, list the facts that caused it — "1 overdue job", "1 high or critical blocker" —
+rather than computing a health percentage or a red/amber/green. A score compresses away the only part anyone
+can act on, invites argument about its weighting, and is untestable in any meaningful sense; a list of reasons
+is directly assertable (`where('attention', ['1 overdue job', ...])`) and tells the reader what to do next.
+
+
+## Audit trails that are still evidence later (SEC-001, STMS)
+
+*Stack: Laravel 12 + PHP 8.4. First used in `Desktop/Codex Lure/project/stms`, 2026-09-18.*
+
+### nullOnDelete, Never Cascade, On An Audit Table
+The instinct is to cascade audit rows from the tenant or user they belong to, because that is what every other
+child table does. It is exactly wrong here: a cascade erases the trail at the moment someone deletes the thing
+being investigated. Use `nullOnDelete` on every foreign key and **snapshot the human-readable identity beside
+the key** (`actor_name` next to `actor_id`), so the record still says who did it after the account is gone.
+Test it by deleting the parent and asserting the row survives.
+
+### Append-Only Belongs In The Model, Not The Convention
+`static::updating()` and `static::deleting()` throwing is enforceable and testable; "we don't update audit rows"
+is neither. Most databases cannot express append-only portably, so the ORM is the honest place for it, and two
+three-line tests pin it permanently.
+
+### Never Store The Secret You Are Auditing
+Record that an invitation was issued and to which address; never the token. The same applies to reset tokens,
+API keys and session identifiers. An audit log that accumulates live credentials converts a read-only
+information disclosure into account takeover, and it is the one table everybody grants broad read access to.
+Assert it directly: dump the whole table to JSON in a test and assert the secret is absent.
+
+### Derive Actor Context From The User, Not From Request State
+Middleware-set request attributes are absent on exactly the routes that run before that middleware — in STMS
+the invitation-acceptance route never sets `clientUser`, so context derived from it labelled every new client
+as tenant staff. Derive from the persisted facts about the user instead; an audit trail with the wrong actor
+class is worse than none, because it is confidently wrong.
